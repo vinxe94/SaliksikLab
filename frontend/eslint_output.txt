@@ -1,0 +1,52 @@
+
+> frontend@0.0.0 lint
+> eslint .
+
+
+/home/vince/Desktop/SaliksikLab/frontend/src/App.jsx
+  15:25  error  'children' is missing in props validation  react/prop-types
+  21:23  error  'children' is missing in props validation  react/prop-types
+  29:23  error  'children' is missing in props validation  react/prop-types
+
+/home/vince/Desktop/SaliksikLab/frontend/src/contexts/AuthContext.jsx
+   6:32  error    'children' is missing in props validation                                                                                       react/prop-types
+  41:14  warning  Fast refresh only works when a file only exports components. Use a new file to share constants or functions between components  react-refresh/only-export-components
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/AdminPage.jsx
+  129:78  error  Missing "key" prop for element in array  react/jsx-key
+  130:73  error  Missing "key" prop for element in array  react/jsx-key
+  131:71  error  Missing "key" prop for element in array  react/jsx-key
+  132:72  error  Missing "key" prop for element in array  react/jsx-key
+  133:64  error  Missing "key" prop for element in array  react/jsx-key
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/DashboardPage.jsx
+  11:20  error  'label' is missing in props validation  react/prop-types
+  11:27  error  'value' is missing in props validation  react/prop-types
+  11:34  error  'max' is missing in props validation    react/prop-types
+  11:39  error  'color' is missing in props validation  react/prop-types
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/DetailPage.jsx
+    7:20  error    'Upload' is defined but never used                                                                         no-unused-vars
+   48:33  warning  React Hook useEffect has a missing dependency: 'load'. Either include it or remove the dependency array    react-hooks/exhaustive-deps
+   64:8   warning  React Hook useEffect has a missing dependency: 'output'. Either include it or remove the dependency array  react-hooks/exhaustive-deps
+  192:11  error    'getPreviewUrl' is assigned a value but never used                                                         no-unused-vars
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/ForgotPasswordPage.jsx
+  34:48  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+  43:75  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/ProfilePage.jsx
+   6:10  error  'User' is defined but never used            no-unused-vars
+  11:19  error  'login' is assigned a value but never used  no-unused-vars
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/RegisterPage.jsx
+  50:67  error  `'` can be escaped with `&apos;`, `&lsquo;`, `&#39;`, `&rsquo;`  react/no-unescaped-entities
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/RepositoryPage.jsx
+  23:13  error  'user' is assigned a value but never used  no-unused-vars
+
+/home/vince/Desktop/SaliksikLab/frontend/src/pages/UploadPage.jsx
+  6:23  error  'X' is defined but never used  no-unused-vars
+
+✖ 25 problems (22 errors, 3 warnings)
+

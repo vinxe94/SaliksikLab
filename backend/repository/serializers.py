@@ -1,0 +1,136 @@
+from rest_framework import serializers
+from accounts.serializers import UserSerializer
+from .models import ResearchOutput, OutputFile, DownloadLog
+
+
+class OutputFileSerializer(serializers.ModelSerializer):
+    file_url = serializers.SerializerMethodField()
+    uploaded_by_name = serializers.SerializerMethodField()
+
+    class Meta:
+        model = OutputFile
+        fields = ['id', 'original_filename', 'file_size', 'version',
+                  'change_notes', 'uploaded_by', 'uploaded_by_name',
+                  'uploaded_at', 'file_url']
+        read_only_fields = '__all__'
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.url
+        return None
+
+    def get_uploaded_by_name(self, obj):
+        if obj.uploaded_by:
+            return obj.uploaded_by.get_full_name() or obj.uploaded_by.email
+        return None
+
+
+class ResearchOutputListSerializer(serializers.ModelSerializer):
+    """Lightweight serializer for list views."""
+    uploaded_by = UserSerializer(read_only=True)
+    file_count = serializers.SerializerMethodField()
+    current_version = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ResearchOutput
+        fields = ['id', 'title', 'output_type', 'department', 'course', 'year', 'keywords',
+                  'author', 'adviser', 'co_authors', 'is_approved', 'is_rejected',
+                  'created_at', 'uploaded_by', 'file_count', 'current_version']
+
+    def get_file_count(self, obj):
+        return obj.files.count()
+
+    def get_current_version(self, obj):
+        f = obj.files.order_by('-version').first()
+        return f.version if f else 0
+
+
+class ResearchOutputDetailSerializer(serializers.ModelSerializer):
+    """Full serializer including file versions."""
+    uploaded_by = UserSerializer(read_only=True)
+    files = OutputFileSerializer(many=True, read_only=True)
+    download_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ResearchOutput
+        fields = ['id', 'title', 'abstract', 'output_type', 'department', 'course', 'year',
+                  'keywords', 'author', 'adviser', 'co_authors', 'is_approved', 'is_rejected',
+                  'rejection_reason', 'is_deleted', 'created_at', 'updated_at',
+                  'uploaded_by', 'files', 'download_count']
+        read_only_fields = ['id', 'created_at', 'updated_at', 'uploaded_by', 'is_deleted']
+
+    def get_download_count(self, obj):
+        return obj.download_logs.count()
+
+
+class ResearchOutputCreateSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(write_only=True)
+    keywords = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False, default=list
+    )
+
+    class Meta:
+        model = ResearchOutput
+        fields = ['title', 'abstract', 'output_type', 'department', 'course', 'year',
+                  'keywords', 'author', 'adviser', 'co_authors', 'file']
+
+    def validate_file(self, value):
+        from django.conf import settings
+        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
+        if ext not in allowed:
+            raise serializers.ValidationError(
+                f'File type ".{ext}" is not allowed. Allowed: {", ".join(allowed)}'
+            )
+        max_size = 104857600  # 100 MB
+        if value.size > max_size:
+            raise serializers.ValidationError('File size cannot exceed 100 MB.')
+        return value
+
+    def create(self, validated_data):
+        file = validated_data.pop('file')
+        user = self.context['request'].user
+        output = ResearchOutput.objects.create(uploaded_by=user, **validated_data)
+        OutputFile.objects.create(
+            research_output=output,
+            file=file,
+            original_filename=file.name,
+            file_size=file.size,
+            version=1,
+            uploaded_by=user,
+        )
+        return output
+
+
+class RevisionSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    change_notes = serializers.CharField(required=False, default='')
+
+    # Optional metadata updates
+    title = serializers.CharField(required=False, allow_blank=True)
+    abstract = serializers.CharField(required=False, allow_blank=True)
+    author = serializers.CharField(required=False, allow_blank=True)
+    adviser = serializers.CharField(required=False, allow_blank=True)
+    department = serializers.CharField(required=False, allow_blank=True)
+    course = serializers.CharField(required=False, allow_blank=True)
+    keywords = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+    )
+    co_authors = serializers.ListField(
+        child=serializers.CharField(max_length=200),
+        required=False,
+    )
+
+    def validate_file(self, value):
+        from django.conf import settings
+        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
+        if ext not in allowed:
+            raise serializers.ValidationError(
+                f'File type ".{ext}" is not allowed.'
+            )
+        if value.size > 104857600:
+            raise serializers.ValidationError('File size cannot exceed 100 MB.')
+        return value
