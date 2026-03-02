@@ -25,6 +25,7 @@ INSTALLED_APPS = [
     # Local
     'accounts',
     'repository',
+    'code_execution',
 ]
 
 MIDDLEWARE = [
@@ -139,3 +140,8 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Research Repository <noreply@repository.local>')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
+# ── Code Execution Sandbox ─────────────────────────────────────────────────────
+CODE_EXEC_TIMEOUT_SECONDS = int(os.getenv('CODE_EXEC_TIMEOUT', '10'))
+CODE_EXEC_MAX_OUTPUT_KB   = int(os.getenv('CODE_EXEC_MAX_OUTPUT_KB', '64'))
+CODE_EXEC_MAX_MEMORY_MB   = int(os.getenv('CODE_EXEC_MAX_MEMORY_MB', '128'))

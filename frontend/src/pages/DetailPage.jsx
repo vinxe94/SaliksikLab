@@ -5,6 +5,7 @@ import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
 import { Download, CheckCircle, Clock, Trash2, RefreshCw, XCircle, AlertTriangle, Eye, X, RotateCcw, User, Plus } from 'lucide-react'
+import AbstractTranslator from '../components/AbstractTranslator'
 
 export default function DetailPage() {
     const { id } = useParams()
@@ -343,6 +344,7 @@ export default function DetailPage() {
                                     <>
                                         <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text2)', marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em' }}>Abstract</div>
                                         <p style={{ lineHeight: 1.7, color: 'var(--text)', fontSize: '0.95rem' }}>{output.abstract}</p>
+                                        <AbstractTranslator abstract={output.abstract} defaultSourceLang="en" />
                                     </>
                                 )}
                                 {output.keywords?.length > 0 && (
