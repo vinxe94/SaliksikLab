@@ -466,91 +466,238 @@ export default function DetailPage() {
 
                         {/* Sidebar column */}
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            {/* Versions */}
-                            <div className="card">
-                                <h3 style={{ fontSize: '0.9rem', marginBottom: 12, display: 'flex', alignItems: 'center', gap: 6 }}>
-                                    <RefreshCw size={14} /> Version History
-                                    <span className="badge badge-gray" style={{ marginLeft: 'auto', fontSize: '0.7rem' }}>{versions.length} version{versions.length !== 1 ? 's' : ''}</span>
-                                </h3>
-                                <div className="version-list">
-                                    {versions.length === 0 && <p className="text-muted text-sm">No files attached.</p>}
-                                    {versions.map((v, idx) => (
-                                        <div key={v.id} className="version-item" style={{
-                                            ...(idx === 0 ? {
-                                                background: 'rgba(46,168,108,0.05)',
-                                                border: '1px solid rgba(46,168,108,0.2)',
-                                                borderRadius: 'var(--radius)',
-                                                padding: '10px 12px',
-                                                margin: '-2px -4px 0',
-                                            } : {})
-                                        }}>
-                                            <div style={{ flex: 1, minWidth: 0 }}>
-                                                <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginBottom: 2 }}>
-                                                    <span style={{ fontWeight: 700, fontSize: '0.85rem' }}>v{v.version}</span>
-                                                    {idx === 0 && (
-                                                        <span className="badge badge-green" style={{ fontSize: '0.65rem', padding: '1px 6px' }}>Current</span>
-                                                    )}
-                                                </div>
-                                                <div style={{ fontSize: '0.8rem', color: 'var(--text)', fontWeight: 500, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                                                    {v.original_filename}
-                                                </div>
-                                                <div style={{ fontSize: '0.73rem', color: 'var(--text2)', marginTop: 2, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
-                                                    <span>{(v.file_size / 1024 / 1024).toFixed(2)} MB</span>
-                                                    <span>·</span>
-                                                    <span>{new Date(v.uploaded_at).toLocaleDateString()}</span>
-                                                    {v.uploaded_by_name && (
-                                                        <>
-                                                            <span>·</span>
-                                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
-                                                                <User size={10} /> {v.uploaded_by_name}
-                                                            </span>
-                                                        </>
-                                                    )}
-                                                </div>
-                                                {v.change_notes && (
+                            {/* Version History Panel */}
+                            <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+                                {/* Panel Header */}
+                                <div style={{
+                                    display: 'flex', alignItems: 'center', gap: 8, padding: '12px 16px',
+                                    borderBottom: '1px solid var(--border)',
+                                    background: 'var(--bg2)',
+                                }}>
+                                    <RefreshCw size={14} color="var(--accent)" />
+                                    <span style={{ fontWeight: 700, fontSize: '0.88rem' }}>Version History</span>
+                                    <span className="badge badge-gray" style={{ marginLeft: 'auto', fontSize: '0.68rem', padding: '2px 8px' }}>
+                                        {versions.length} version{versions.length !== 1 ? 's' : ''}
+                                    </span>
+                                </div>
+
+                                {/* Version list */}
+                                <div style={{ padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: 0 }}>
+                                    {versions.length === 0 && (
+                                        <p style={{ color: 'var(--text2)', fontSize: '0.85rem', textAlign: 'center', padding: '16px 0' }}>
+                                            No files attached.
+                                        </p>
+                                    )}
+
+                                    {versions.map((v, idx) => {
+                                        const isCurrent = idx === 0
+                                        const sizeMB = (v.file_size / 1024 / 1024).toFixed(2)
+                                        const dateStr = new Date(v.uploaded_at).toLocaleDateString('en-US', {
+                                            month: 'short', day: 'numeric', year: 'numeric'
+                                        })
+
+                                        return (
+                                            <div key={v.id}>
+                                                {/* Divider between versions */}
+                                                {idx > 0 && (
                                                     <div style={{
-                                                        fontSize: '0.75rem',
-                                                        color: 'var(--text2)',
-                                                        marginTop: 4,
-                                                        fontStyle: 'italic',
-                                                        borderLeft: '2px solid var(--border)',
-                                                        paddingLeft: 8,
+                                                        display: 'flex', alignItems: 'center', gap: 8,
+                                                        margin: '10px 0',
                                                     }}>
-                                                        {v.change_notes}
+                                                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                                        <span style={{ fontSize: '0.65rem', color: 'var(--text2)', letterSpacing: '0.04em' }}>OLDER</span>
+                                                        <div style={{ flex: 1, height: 1, background: 'var(--border)' }} />
+                                                    </div>
+                                                )}
+
+                                                {/* Version card: current gets full boxed highlight; older get compact rows */}
+                                                {isCurrent ? (
+                                                    /* ── CURRENT VERSION — full card layout ── */
+                                                    <div style={{
+                                                        background: 'rgba(46,168,108,0.07)',
+                                                        border: '1px solid rgba(46,168,108,0.28)',
+                                                        borderRadius: 'var(--radius)',
+                                                        padding: '12px 14px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: 6,
+                                                    }}>
+                                                        {/* Version badge row */}
+                                                        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                                                            <span style={{
+                                                                fontWeight: 800, fontSize: '0.9rem',
+                                                                color: 'var(--accent2)',
+                                                            }}>v{v.version}</span>
+                                                            <span style={{
+                                                                fontSize: '0.65rem', fontWeight: 700,
+                                                                background: 'rgba(46,168,108,0.18)',
+                                                                color: 'var(--accent2)',
+                                                                border: '1px solid rgba(46,168,108,0.35)',
+                                                                borderRadius: 99, padding: '2px 8px',
+                                                                letterSpacing: '0.04em',
+                                                            }}>Current</span>
+                                                        </div>
+
+                                                        {/* Filename */}
+                                                        <div style={{
+                                                            fontWeight: 600, fontSize: '0.82rem',
+                                                            color: 'var(--text)',
+                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                        }} title={v.original_filename}>
+                                                            📄 {v.original_filename}
+                                                        </div>
+
+                                                        {/* Meta row: size · date · uploader */}
+                                                        <div style={{
+                                                            fontSize: '0.73rem', color: 'var(--text2)',
+                                                            display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+                                                        }}>
+                                                            <span>{sizeMB} MB</span>
+                                                            <span style={{ opacity: 0.4 }}>·</span>
+                                                            <span>{dateStr}</span>
+                                                            {v.uploaded_by_name && (
+                                                                <>
+                                                                    <span style={{ opacity: 0.4 }}>·</span>
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                                                        <User size={10} />{v.uploaded_by_name}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Change notes */}
+                                                        {v.change_notes && (
+                                                            <div style={{
+                                                                fontSize: '0.75rem', color: 'var(--text2)',
+                                                                fontStyle: 'italic', lineHeight: 1.5,
+                                                                borderLeft: '2px solid rgba(46,168,108,0.4)',
+                                                                paddingLeft: 8,
+                                                            }}>
+                                                                {v.change_notes}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Actions pinned to bottom-right */}
+                                                        <div style={{
+                                                            display: 'flex', justifyContent: 'flex-end', gap: 4, marginTop: 4,
+                                                        }}>
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                title="View / Read"
+                                                                onClick={() => openViewer(v.id, v.original_filename)}
+                                                                style={{ padding: '5px 10px', fontSize: '0.75rem', gap: 4, display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Eye size={13} /> View
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-primary btn-sm"
+                                                                title="Download"
+                                                                onClick={() => download(v.id)}
+                                                                style={{ padding: '5px 10px', fontSize: '0.75rem', gap: 4, display: 'flex', alignItems: 'center' }}
+                                                            >
+                                                                <Download size={13} /> Download
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ) : (
+                                                    /* ── OLDER VERSIONS — compact row layout ── */
+                                                    <div style={{
+                                                        background: 'var(--bg2)',
+                                                        border: '1px solid var(--border)',
+                                                        borderRadius: 'var(--radius)',
+                                                        padding: '10px 12px',
+                                                        display: 'flex',
+                                                        flexDirection: 'column',
+                                                        gap: 4,
+                                                    }}>
+                                                        {/* Version label */}
+                                                        <span style={{
+                                                            fontWeight: 700, fontSize: '0.8rem',
+                                                            color: 'var(--text2)',
+                                                        }}>v{v.version}</span>
+
+                                                        {/* Filename */}
+                                                        <div style={{
+                                                            fontWeight: 500, fontSize: '0.8rem',
+                                                            color: 'var(--text)',
+                                                            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                                                        }} title={v.original_filename}>
+                                                            {v.original_filename}
+                                                        </div>
+
+                                                        {/* Meta row */}
+                                                        <div style={{
+                                                            fontSize: '0.72rem', color: 'var(--text2)',
+                                                            display: 'flex', alignItems: 'center', gap: 5, flexWrap: 'wrap',
+                                                        }}>
+                                                            <span>{sizeMB} MB</span>
+                                                            <span style={{ opacity: 0.4 }}>·</span>
+                                                            <span>{dateStr}</span>
+                                                            {v.uploaded_by_name && (
+                                                                <>
+                                                                    <span style={{ opacity: 0.4 }}>·</span>
+                                                                    <span style={{ display: 'inline-flex', alignItems: 'center', gap: 3 }}>
+                                                                        <User size={10} />{v.uploaded_by_name}
+                                                                    </span>
+                                                                </>
+                                                            )}
+                                                        </div>
+
+                                                        {/* Change notes */}
+                                                        {v.change_notes && (
+                                                            <div style={{
+                                                                fontSize: '0.73rem', color: 'var(--text2)',
+                                                                fontStyle: 'italic', lineHeight: 1.5,
+                                                                borderLeft: '2px solid var(--border)',
+                                                                paddingLeft: 8,
+                                                            }}>
+                                                                {v.change_notes}
+                                                            </div>
+                                                        )}
+
+                                                        {/* Actions: View · Download · Rollback */}
+                                                        <div style={{
+                                                            display: 'flex', justifyContent: 'flex-end',
+                                                            alignItems: 'center', gap: 4, marginTop: 2,
+                                                        }}>
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                title="View"
+                                                                onClick={() => openViewer(v.id, v.original_filename)}
+                                                                style={{ padding: '4px 8px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 3 }}
+                                                            >
+                                                                <Eye size={12} /> View
+                                                            </button>
+                                                            <button
+                                                                className="btn btn-ghost btn-sm"
+                                                                title="Download"
+                                                                onClick={() => download(v.id)}
+                                                                style={{ padding: '4px 8px', fontSize: '0.72rem', display: 'flex', alignItems: 'center', gap: 3 }}
+                                                            >
+                                                                <Download size={12} /> Download
+                                                            </button>
+                                                            {isAdmin && (
+                                                                <button
+                                                                    className="btn btn-ghost btn-sm"
+                                                                    title={`Rollback to v${v.version}`}
+                                                                    onClick={() => rollback(v.version)}
+                                                                    disabled={rollbackLoading === v.version}
+                                                                    style={{
+                                                                        padding: '4px 8px', fontSize: '0.72rem',
+                                                                        color: '#e3b341',
+                                                                        display: 'flex', alignItems: 'center', gap: 3,
+                                                                    }}
+                                                                >
+                                                                    <RotateCcw size={12} />
+                                                                    {rollbackLoading === v.version ? '…' : '↩ Rollback'}
+                                                                </button>
+                                                            )}
+                                                        </div>
                                                     </div>
                                                 )}
                                             </div>
-                                            <div style={{ display: 'flex', flexDirection: 'column', gap: 2, flexShrink: 0 }}>
-                                                <div style={{ display: 'flex', gap: 2 }}>
-                                                    <button className="btn btn-ghost btn-sm" title="Read / View" onClick={() => openViewer(v.id, v.original_filename)} style={{ padding: '4px 6px' }}>
-                                                        <Eye size={14} />
-                                                    </button>
-                                                    <button className="btn btn-ghost btn-sm" title="Download" onClick={() => download(v.id)} style={{ padding: '4px 6px' }}>
-                                                        <Download size={14} />
-                                                    </button>
-                                                </div>
-                                                {isAdmin && idx > 0 && (
-                                                    <button
-                                                        className="btn btn-ghost btn-sm"
-                                                        title={`Rollback to v${v.version}`}
-                                                        onClick={() => rollback(v.version)}
-                                                        disabled={rollbackLoading === v.version}
-                                                        style={{
-                                                            padding: '3px 6px',
-                                                            fontSize: '0.7rem',
-                                                            color: 'var(--warning, #e3b341)',
-                                                            display: 'flex',
-                                                            alignItems: 'center',
-                                                            gap: 3,
-                                                        }}
-                                                    >
-                                                        <RotateCcw size={11} />
-                                                        {rollbackLoading === v.version ? '…' : 'Rollback'}
-                                                    </button>
-                                                )}
-                                            </div>
-                                        </div>
-                                    ))}
+                                        )
+                                    })}
                                 </div>
                             </div>
 

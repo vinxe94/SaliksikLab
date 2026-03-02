@@ -12,7 +12,11 @@ class OutputFileSerializer(serializers.ModelSerializer):
         fields = ['id', 'original_filename', 'file_size', 'version',
                   'change_notes', 'uploaded_by', 'uploaded_by_name',
                   'uploaded_at', 'file_url']
-        read_only_fields = '__all__'
+        read_only_fields = [
+            'id', 'original_filename', 'file_size', 'version',
+            'change_notes', 'uploaded_by', 'uploaded_by_name',
+            'uploaded_at', 'file_url',
+        ]
 
     def get_file_url(self, obj):
         if obj.file:
