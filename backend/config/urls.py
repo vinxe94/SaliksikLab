@@ -8,4 +8,5 @@ urlpatterns = [
     path('api/auth/', include('accounts.urls')),
     path('api/repository/', include('repository.urls')),
     path('api/code/', include('code_execution.urls')),
+    path('api/collab/', include('collaboration.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

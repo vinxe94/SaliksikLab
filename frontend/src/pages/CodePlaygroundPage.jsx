@@ -263,26 +263,26 @@ export default function CodePlaygroundPage() {
 
                         {/* ── Code Editor ─────────────────────────────────────── */}
                         <div style={{
-                            background: '#0d1117', borderRadius: 12,
-                            border: '1px solid #30363d',
+                            background: '#ffffff', borderRadius: 12,
+                            border: '1px solid #e0e0e0',
                             display: 'flex', flexDirection: 'column', overflow: 'hidden',
                         }}>
                             {/* Editor header */}
                             <div style={{
                                 display: 'flex', alignItems: 'center', justifyContent: 'space-between',
                                 padding: '10px 16px',
-                                background: '#161b22', borderBottom: '1px solid #30363d',
+                                background: '#f5f5f5', borderBottom: '1px solid #e0e0e0',
                             }}>
                                 <span style={{
                                     color: LANG_CONFIG[language].color, fontWeight: 600,
                                     fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6,
                                 }}>
                                     {LANG_CONFIG[language].icon} {LANG_CONFIG[language].label}
-                                    <span style={{ color: '#6e7681', fontWeight: 400 }}>main{LANG_CONFIG[language].ext}</span>
+                                    <span style={{ color: '#9e9e9e', fontWeight: 400 }}>main{LANG_CONFIG[language].ext}</span>
                                 </span>
                                 <button
                                     onClick={() => copyToClipboard(code)}
-                                    style={{ background: 'none', border: 'none', color: '#6e7681', cursor: 'pointer', fontSize: '0.8rem' }}
+                                    style={{ background: 'none', border: 'none', color: '#9e9e9e', cursor: 'pointer', fontSize: '0.8rem' }}
                                 >
                                     📋 {t('general.copy')}
                                 </button>
@@ -293,15 +293,15 @@ export default function CodePlaygroundPage() {
                                 {/* Line numbers */}
                                 <div style={{
                                     padding: '14px 8px',
-                                    color: '#484f58',
+                                    color: '#bdbdbd',
                                     fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
                                     fontSize: '0.82rem',
                                     lineHeight: '1.6',
                                     minWidth: 42,
                                     textAlign: 'right',
                                     userSelect: 'none',
-                                    borderRight: '1px solid #21262d',
-                                    background: '#0d1117',
+                                    borderRight: '1px solid #e8e8e8',
+                                    background: '#fafafa',
                                 }}>
                                     {Array.from({ length: lineCount }, (_, i) => (
                                         <div key={i + 1} style={{ paddingRight: 8 }}>{i + 1}</div>
@@ -324,20 +324,20 @@ export default function CodePlaygroundPage() {
                                         outline: 'none',
                                         resize: 'none',
                                         padding: '14px 16px',
-                                        color: '#e6edf3',
+                                        color: '#1a1a2e',
                                         fontFamily: "'JetBrains Mono', 'Fira Code', 'Courier New', monospace",
                                         fontSize: '0.82rem',
                                         lineHeight: '1.6',
                                         tabSize: 4,
-                                        caretColor: '#58a6ff',
+                                        caretColor: '#3b82f6',
                                         width: '100%',
                                     }}
                                 />
                             </div>
 
                             {/* Stdin */}
-                            <div style={{ borderTop: '1px solid #21262d', padding: '12px 16px', background: '#161b22' }}>
-                                <label style={{ color: '#7d8590', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: 6 }}>
+                            <div style={{ borderTop: '1px solid #e0e0e0', padding: '12px 16px', background: '#f5f5f5' }}>
+                                <label style={{ color: '#757575', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: 6 }}>
                                     📥 {t('code.stdin')}
                                 </label>
                                 <textarea
@@ -347,8 +347,8 @@ export default function CodePlaygroundPage() {
                                     placeholder={t('code.stdinPlaceholder')}
                                     rows={2}
                                     style={{
-                                        width: '100%', background: '#0d1117', border: '1px solid #30363d',
-                                        borderRadius: 6, color: '#e6edf3', padding: '8px 10px',
+                                        width: '100%', background: '#ffffff', border: '1px solid #e0e0e0',
+                                        borderRadius: 6, color: '#1a1a2e', padding: '8px 10px',
                                         fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                                         fontSize: '0.8rem', resize: 'vertical', outline: 'none',
                                     }}
@@ -358,14 +358,14 @@ export default function CodePlaygroundPage() {
 
                         {/* ── Output Panel ─────────────────────────────────────── */}
                         <div style={{
-                            background: '#0d1117', borderRadius: 12,
-                            border: '1px solid #30363d',
+                            background: '#ffffff', borderRadius: 12,
+                            border: '1px solid #e0e0e0',
                             display: 'flex', flexDirection: 'column', overflow: 'hidden',
                         }}>
                             {/* Tab bar */}
                             <div style={{
                                 display: 'flex', gap: 0,
-                                borderBottom: '1px solid #30363d', background: '#161b22',
+                                borderBottom: '1px solid #e0e0e0', background: '#f5f5f5',
                             }}>
                                 {[
                                     { id: 'output', label: `📤 ${t('code.output')}` },
@@ -380,8 +380,8 @@ export default function CodePlaygroundPage() {
                                             padding: '10px 16px',
                                             background: 'transparent',
                                             border: 'none',
-                                            borderBottom: activeTab === tab.id ? '2px solid #58a6ff' : '2px solid transparent',
-                                            color: activeTab === tab.id ? '#e6edf3' : '#6e7681',
+                                            borderBottom: activeTab === tab.id ? '2px solid #3b82f6' : '2px solid transparent',
+                                            color: activeTab === tab.id ? '#1a1a2e' : '#9e9e9e',
                                             cursor: 'pointer',
                                             fontSize: '0.8rem',
                                             fontWeight: 600,
@@ -421,31 +421,31 @@ export default function CodePlaygroundPage() {
                                             <>
                                                 {/* Meta info */}
                                                 <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: '0.75rem', color: '#7d8590' }}>
-                                                        ⏱ {t('code.execTime')}: <strong style={{ color: '#e6edf3' }}>{result.execution_time_ms?.toFixed(1)}ms</strong>
+                                                    <span style={{ fontSize: '0.75rem', color: '#757575' }}>
+                                                        ⏱ {t('code.execTime')}: <strong style={{ color: '#1a1a2e' }}>{result.execution_time_ms?.toFixed(1)}ms</strong>
                                                     </span>
-                                                    <span style={{ fontSize: '0.75rem', color: '#7d8590' }}>
-                                                        🚦 {t('code.exitCode')}: <strong style={{ color: result.exit_code === 0 ? '#2ea043' : '#f85149' }}>{result.exit_code}</strong>
+                                                    <span style={{ fontSize: '0.75rem', color: '#757575' }}>
+                                                        🚦 {t('code.exitCode')}: <strong style={{ color: result.exit_code === 0 ? '#2e7d32' : '#c62828' }}>{result.exit_code}</strong>
                                                     </span>
                                                     <button
                                                         onClick={() => copyToClipboard(result.stdout)}
-                                                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#6e7681', cursor: 'pointer', fontSize: '0.75rem' }}
+                                                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#9e9e9e', cursor: 'pointer', fontSize: '0.75rem' }}
                                                     >
                                                         📋
                                                     </button>
                                                 </div>
                                                 <pre style={{
-                                                    color: '#e6edf3',
+                                                    color: '#1a1a2e',
                                                     fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                                                     fontSize: '0.82rem', lineHeight: 1.6,
                                                     whiteSpace: 'pre-wrap', wordBreak: 'break-word',
                                                     margin: 0,
                                                 }}>
-                                                    {result.stdout || <span style={{ color: '#484f58', fontStyle: 'italic' }}>(no output)</span>}
+                                                    {result.stdout || <span style={{ color: '#bdbdbd', fontStyle: 'italic' }}>(no output)</span>}
                                                 </pre>
                                             </>
                                         ) : (
-                                            <div style={{ textAlign: 'center', marginTop: 60, color: '#484f58' }}>
+                                            <div style={{ textAlign: 'center', marginTop: 60, color: '#bdbdbd' }}>
                                                 <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>▶</div>
                                                 <p style={{ fontSize: '0.9rem' }}>
                                                     {locale === 'fil' ? 'Pindutin ang "Patakbuhin" o Ctrl+Enter upang magsimula.' : 'Press Run or Ctrl+Enter to execute your code.'}
@@ -458,7 +458,7 @@ export default function CodePlaygroundPage() {
                                 {/* Errors tab */}
                                 {activeTab === 'errors' && (
                                     <pre style={{
-                                        color: result?.stderr ? '#f85149' : '#484f58',
+                                        color: result?.stderr ? '#c62828' : '#bdbdbd',
                                         fontFamily: "'JetBrains Mono', 'Courier New', monospace",
                                         fontSize: '0.82rem', lineHeight: 1.6,
                                         whiteSpace: 'pre-wrap', wordBreak: 'break-word',
@@ -472,13 +472,13 @@ export default function CodePlaygroundPage() {
                                 {activeTab === 'history' && (
                                     <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
                                         {history.length === 0 ? (
-                                            <p style={{ color: '#484f58', fontStyle: 'italic', fontSize: '0.85rem' }}>No runs yet.</p>
+                                            <p style={{ color: '#bdbdbd', fontStyle: 'italic', fontSize: '0.85rem' }}>No runs yet.</p>
                                         ) : (
                                             history.map(h => (
                                                 <div
                                                     key={h.id}
                                                     style={{
-                                                        background: '#161b22', border: '1px solid #21262d',
+                                                        background: '#fafafa', border: '1px solid #e8e8e8',
                                                         borderRadius: 8, padding: '10px 12px',
                                                         display: 'flex', gap: 10, alignItems: 'center',
                                                     }}
@@ -486,13 +486,13 @@ export default function CodePlaygroundPage() {
                                                     <span style={{ fontSize: '1rem' }}>{LANG_CONFIG[h.language]?.icon || '💻'}</span>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{
-                                                            color: '#e6edf3', fontSize: '0.78rem',
+                                                            color: '#1a1a2e', fontSize: '0.78rem',
                                                             fontFamily: 'monospace',
                                                             whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
                                                         }}>
                                                             {h.source_code}
                                                         </div>
-                                                        <div style={{ color: '#6e7681', fontSize: '0.7rem', marginTop: 2 }}>
+                                                        <div style={{ color: '#9e9e9e', fontSize: '0.7rem', marginTop: 2 }}>
                                                             {LANG_CONFIG[h.language]?.label} · {h.execution_time_ms?.toFixed(1)}ms · {new Date(h.created_at).toLocaleTimeString()}
                                                         </div>
                                                     </div>
@@ -512,8 +512,8 @@ export default function CodePlaygroundPage() {
 
                             {/* Footer info bar */}
                             <div style={{
-                                padding: '8px 16px', borderTop: '1px solid #21262d', background: '#161b22',
-                                fontSize: '0.72rem', color: '#484f58',
+                                padding: '8px 16px', borderTop: '1px solid #e0e0e0', background: '#f5f5f5',
+                                fontSize: '0.72rem', color: '#9e9e9e',
                             }}>
                                 🔒 {t('code.sandboxInfo')}
                             </div>

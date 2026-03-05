@@ -23,6 +23,19 @@ A web-based platform for managing, submitting, and reviewing academic research o
   - [Version History Panel](#version-history-panel)
   - [Submitting a Revision](#submitting-a-revision)
   - [Admin Rollback](#admin-rollback)
+- [Code Lab](#code-lab)
+  - [Supported Languages](#supported-languages)
+  - [Code Lab Flow](#code-lab-flow)
+  - [Run History](#run-history)
+- [Collaboration Hub](#collaboration-hub)
+  - [Key Concepts](#key-concepts)
+  - [Roles & Permissions](#roles--permissions)
+  - [Collaboration Flow](#collaboration-flow)
+  - [Projects](#projects)
+  - [Issues](#issues)
+  - [Merge Requests](#merge-requests)
+  - [Commits](#commits)
+  - [Notifications](#notifications)
 - [API Overview](#api-overview)
 - [File Upload Limits](#file-upload-limits)
 - [Email Notifications](#email-notifications)
@@ -32,7 +45,7 @@ A web-based platform for managing, submitting, and reviewing academic research o
 ## Features
 
 - 🔐 JWT-based authentication (login, register, password reset)
-- 👤 Role-based access: **Admin** and **Student/User**
+- 👤 Role-based access: **Admin**, **Faculty**, **Student**, **Researcher**
 - 📂 Upload research outputs (thesis, source code, documentation, etc.)
 - 🔍 Search and filter the repository by title, author, department, year, type
 - ✅ Admin approval / rejection workflow with feedback
@@ -42,6 +55,8 @@ A web-based platform for managing, submitting, and reviewing academic research o
 - 📊 Dashboard with analytics (by type, department, year)
 - 📧 Email notifications for approvals, rejections, and revisions
 - 🗂️ CSV export and JSON backup (admin only)
+- 💻 **Code Lab** — in-browser IDE supporting Python, Java, and C++ with sandboxed execution
+- 🤝 **Collaboration Hub** — Git/GitHub-style project spaces with Issues, Merge Requests, Commits, and in-app Notifications
 
 ---
 
@@ -74,6 +89,17 @@ SaliksikLab/
 │   │   ├── serializers.py    # DRF serializers
 │   │   ├── views.py          # All API views
 │   │   └── urls.py           # Repository endpoint routes
+│   ├── code_execution/       # In-browser code runner (sandbox)
+│   │   ├── models.py         # ExecutionLog (run history)
+│   │   ├── views.py          # /execute/, /history/ endpoints
+│   │   └── urls.py
+│   ├── collaboration/        # Git-style collaboration engine
+│   │   ├── models.py         # CollabProject, ProjectMember, Issue,
+│   │   │                     # IssueComment, MergeRequest, MRComment,
+│   │   │                     # Commit, Notification
+│   │   ├── serializers.py
+│   │   ├── views.py          # All collaboration API views
+│   │   └── urls.py           # /api/collab/ routes
 │   ├── media/                # Uploaded files (auto-created)
 │   │   └── outputs/<id>/v<N>/<filename>
 │   ├── manage.py
@@ -84,16 +110,18 @@ SaliksikLab/
     ├── src/
     │   ├── api/              # Axios instance (axios.js)
     │   ├── components/       # Sidebar, shared UI
-    │   ├── contexts/         # AuthContext (JWT state)
+    │   ├── contexts/         # AuthContext, LanguageContext
     │   └── pages/            # All page components
     │       ├── LoginPage.jsx
     │       ├── RegisterPage.jsx
     │       ├── DashboardPage.jsx
     │       ├── RepositoryPage.jsx
-    │       ├── DetailPage.jsx        ← version control UI lives here
+    │       ├── DetailPage.jsx          ← version control UI
     │       ├── UploadPage.jsx
     │       ├── AdminPage.jsx
-    │       └── ProfilePage.jsx
+    │       ├── ProfilePage.jsx
+    │       ├── CodePlaygroundPage.jsx  ← Code Lab (in-browser IDE)
+    │       └── CollaborationPage.jsx   ← Collaboration Hub
     ├── package.json
     └── vite.config.js
 ```
@@ -238,12 +266,14 @@ Open your browser and go to **http://localhost:5173**.
 
 ## User Roles
 
-| Role      | Permissions                                                                 |
-|-----------|-----------------------------------------------------------------------------|
-| `student` | Register, upload outputs, revise own submissions, browse approved outputs   |
-| `admin`   | All of the above + approve/reject, rollback versions, export data, view all |
+| Role         | Permissions                                                                              |
+|--------------|------------------------------------------------------------------------------------------|
+| `student`    | Upload outputs, revise own submissions, browse approved outputs, use Code Lab, collaborate |
+| `researcher` | Same as student — intended for active research staff                                     |
+| `faculty`    | Same as student — can act as advisers on submissions                                     |
+| `admin`      | All of the above + approve/reject, rollback versions, export data, manage all users      |
 
-> New registrations default to `student`. Admins must manually approve new accounts or promote users via the Admin Panel.
+> New registrations default to `student`. Admins must manually promote users via the Admin Panel.
 
 ---
 
@@ -444,6 +474,270 @@ The system sends email notifications for the following events:
 | Password reset request  | Requesting user  |
 
 In **development**, emails are printed to the Django console by default (`EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend`). To send real emails, configure SMTP settings in your `.env` file.
+
+---
+
+## Code Lab
+
+Code Lab is a fully in-browser IDE that lets students, researchers, and faculty write and run code without any local setup. It is accessible to all authenticated users at `/code-lab`.
+
+### Supported Languages
+
+| Language  | Runtime      | Sample Program        |
+|-----------|--------------|-----------------------|
+| Python 3  | CPython      | Fibonacci sequence    |
+| Java      | OpenJDK 17   | Simple calculator     |
+| C++ 17    | g++          | Bubble sort           |
+
+### Code Lab Flow
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│  1. Select language (Python / Java / C++)                        │
+│  2. Write or load a sample program in the editor                 │
+│  3. (Optional) Provide stdin input for programs that read input  │
+│  4. Press ▶ Run  or  Ctrl + Enter                                │
+│         ↓                                                        │
+│  Backend: POST /api/code/execute/                                │
+│    • Spawns a sandboxed subprocess with resource limits:         │
+│        – CPU timeout: 10 seconds                                 │
+│        – Max output: 64 KB                                       │
+│        – Max memory: 128 MB                                      │
+│         ↓                                                        │
+│  Response includes:                                              │
+│    • stdout  — program output                                    │
+│    • stderr  — compiler / runtime errors                         │
+│    • exit_code — 0 = success, non-zero = error                   │
+│    • execution_time_ms — wall-clock runtime in milliseconds      │
+│    • status — "success" | "error" | "timeout"                    │
+│         ↓                                                        │
+│  Results displayed in tabbed Output Panel:                       │
+│    📤 Output tab  — stdout + execution metadata                  │
+│    ⚠️ Errors tab  — stderr (highlighted in red)                  │
+│    🗂 History tab — past runs for this session                    │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Run History
+
+Every execution is saved to the database (`ExecutionLog`). The **History** tab shows all past runs with:
+- Language icon and name
+- Truncated source code preview
+- Execution time and exit code
+- Success / Error / Timeout status badge
+
+Run history is user-scoped — each user only sees their own past runs.
+
+### Code Lab API
+
+| Method | Endpoint           | Description                            |
+|--------|--------------------|----------------------------------------|
+| POST   | `/code/execute/`   | Run code in a sandboxed subprocess     |
+| GET    | `/code/history/`   | Retrieve the current user's run history |
+
+---
+
+## Collaboration Hub
+
+The Collaboration Hub provides a **Git / GitHub-style research project workspace** for students, researchers, and faculty. It is accessible at `/collaborate` in the sidebar.
+
+Every user can create and participate in multiple Collaboration Projects — shared spaces where teams manage tasks, propose changes, track file contributions, and communicate, all within SaliksikLab.
+
+---
+
+### Key Concepts
+
+| Concept           | Description                                                                          | GitHub Equivalent   |
+|-------------------|--------------------------------------------------------------------------------------|---------------------|
+| **Project**       | A shared research workspace owned by one user                                        | Repository          |
+| **Member**        | A user invited to a project with a specific role                                     | Collaborator        |
+| **Issue**         | A task, bug report, or discussion thread tied to a project                           | GitHub Issue        |
+| **Merge Request** | A proposal to incorporate a change or file revision into the project                 | Pull Request        |
+| **Commit**        | A version snapshot or contribution pushed to a project (with a simulated SHA)        | Git Commit          |
+| **Notification**  | An in-app alert triggered by team activity (new issue, MR opened, merge, etc.)       | GitHub Notification |
+
+---
+
+### Roles & Permissions
+
+| Role            | Create Issues | Create MRs | Push Commits | Merge/Close MRs | Invite Members | Archive Project |
+|-----------------|:---:|:---:|:---:|:---:|:---:|:---:|
+| **Owner**       | ✅  | ✅  | ✅  | ✅  | ✅  | ✅  |
+| **Contributor** | ✅  | ✅  | ✅  | ✅  | ❌  | ❌  |
+| **Viewer**      | ❌  | ❌  | ❌  | ❌  | ❌  | ❌  |
+
+---
+
+### Collaboration Flow
+
+```
+┌───────────────────────────────────────────────────────────────────┐
+│  OWNER creates a Project                                           │
+│    └─ Auto-added as first member with role: owner                  │
+│         ↓                                                          │
+│  OWNER invites team members by email                               │
+│    └─ Assigns role: contributor or viewer                          │
+│    └─ Invitee receives in-app notification: "You were added to X" │
+│         ↓                                                          │
+│  Team works collaboratively:                                       │
+│                                                                    │
+│   📋 Issues                                                        │
+│    └─ Any contributor opens an Issue (title, description, label)   │
+│    └─ Status cycles: Open → In Progress → Closed                   │
+│    └─ Teammates comment in a threaded discussion                   │
+│    └─ All members notified on open / close / comment               │
+│                                                                    │
+│   🔀 Merge Requests                                                │
+│    └─ Contributor opens an MR proposing a change or revision       │
+│    └─ Reviewers leave comments on the MR thread                    │
+│    └─ Owner or contributor clicks Merge →                          │
+│         • MR status → "merged"                                     │
+│         • A Commit record is auto-created with a simulated SHA     │
+│         • All members notified: "🎉 MR #N merged"                  │
+│    └─ Alternatively, MR can be Closed without merging              │
+│                                                                    │
+│   📦 Commits                                                       │
+│    └─ Contributors push commits manually (message + description)   │
+│    └─ Each commit gets a SHA-1 hash (simulated, unique)            │
+│    └─ Commit log displayed in chronological timeline               │
+│    └─ All members notified on each push                            │
+│                                                                    │
+│   🔔 Notifications                                                 │
+│    └─ Bell icon in top-right shows unread count badge              │
+│    └─ Slide-out panel lists all recent activity                    │
+│    └─ "Mark all read" clears the badge                             │
+└───────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+### Projects
+
+From the Collaboration Hub home screen:
+
+1. Click **New Project** to create a workspace.
+2. Give it a **name** and optional **description**.
+3. The project card displays live stats:
+   - 👥 Member count
+   - 🔴 Open issues
+   - 🔀 Open merge requests
+   - 📦 Total commits
+4. Click a project card to enter the project's detail view with four inner tabs: **Issues**, **Merge Requests**, **Commits**, **Members**.
+
+---
+
+### Issues
+
+Issues are the primary way to track tasks, bugs, and discussions within a project.
+
+**Opening an issue:**
+1. Select the **Issues** tab inside a project.
+2. Use the status filter bar to switch between **Open**, **In Progress**, and **Closed**.
+3. Click **New Issue** and fill in:
+   - **Title** (required)
+   - **Description** (optional, supports free text)
+   - **Label**: `bug` · `feature` · `discussion` · `question` · `documentation`
+4. Submit — the issue number increments automatically (e.g., `#1`, `#2`, …).
+5. Click an issue row to open the detail view with full description and comment thread.
+
+**Managing an issue:**
+- Click **Mark In Progress** to move it to `in_progress`.
+- Click **Close Issue** to mark it `closed` (sets `closed_at` timestamp).
+- Click **Reopen** to move a closed issue back to `open`.
+- Any member can post comments; all members are notified.
+
+---
+
+### Merge Requests
+
+Merge Requests (MRs) represent proposed changes — a revised chapter, updated source code, or any contribution that needs team review before acceptance.
+
+**Opening an MR:**
+1. Select the **Merge Requests** tab.
+2. Filter by **Open**, **Merged**, or **Closed**.
+3. Click **New MR** and fill in:
+   - **Title** (required)
+   - **Description** (what changes does this include?)
+4. Submit — MR number increments automatically (e.g., `!1`, `!2`, …).
+
+**Review & merge:**
+1. Click an MR row to view its detail.
+2. Reviewers post comments in the review thread.
+3. Click **Merge** to merge the MR:
+   - MR status → `merged`
+   - `merged_at` timestamp is recorded
+   - A **Commit** is auto-created in the commit log (message: `Merge MR #N: <title>`)
+   - All members receive a 🎉 notification
+4. Click **Close MR** to reject without merging — status → `closed`.
+
+---
+
+### Commits
+
+Commits represent versioned contributions pushed to the project. Each commit has:
+- A **unique SHA-1 hash** (7-character short form displayed in the UI)
+- A **commit message** (required)
+- An optional **description**
+- The **author** (the user who pushed it)
+- A **timestamp**
+
+Commits are displayed in a **vertical timeline** (most recent first). Commits generated automatically by merge operations are labelled `Merge MR #N: <title>`.
+
+**Manual commit:**
+1. Select the **Commits** tab.
+2. Click **New Commit**.
+3. Enter a message and optional description.
+4. Submit — a SHA is auto-generated and saved; all members are notified.
+
+---
+
+### Notifications
+
+The bell icon (🔔) in the Collaboration Hub header shows an **unread count badge**.
+
+| Event             | Notification Message                                      |
+|-------------------|-----------------------------------------------------------|
+| Member added      | `<Actor> added you to "<Project>"`                        |
+| Issue opened      | `<Actor> opened issue #N: <title>`                        |
+| Issue closed      | `<Actor> closed issue #N: <title>`                        |
+| Issue comment     | `<Actor> commented on issue #N`                           |
+| MR opened         | `<Actor> opened MR #N: <title>`                           |
+| MR merged         | `<Actor> merged MR #N: <title>`                           |
+| MR closed         | `<Actor> closed MR #N: <title>`                           |
+| MR comment        | `<Actor> reviewed MR #N`                                  |
+| Commit pushed     | `<Actor> pushed commit: <message>`                        |
+
+Notifications are **not** sent to the actor who triggered the event. Click **Mark all read** to clear the badge.
+
+### Collaboration API
+
+All endpoints are under `/api/collab/` and require JWT authentication.
+
+| Method | Endpoint                                              | Description                              |
+|--------|-------------------------------------------------------|------------------------------------------|
+| GET    | `/collab/projects/`                                   | List projects the user is a member of    |
+| POST   | `/collab/projects/`                                   | Create a new project                     |
+| GET    | `/collab/projects/<id>/`                              | Project details                          |
+| PATCH  | `/collab/projects/<id>/`                              | Update project (owner only)              |
+| DELETE | `/collab/projects/<id>/`                              | Delete project (owner only)              |
+| GET    | `/collab/projects/<id>/members/`                      | List members                             |
+| POST   | `/collab/projects/<id>/members/`                      | Invite member by email                   |
+| DELETE | `/collab/projects/<id>/members/<mid>/`                | Remove a member                          |
+| GET    | `/collab/projects/<id>/issues/`                       | List issues (filterable by status)       |
+| POST   | `/collab/projects/<id>/issues/`                       | Open a new issue                         |
+| GET    | `/collab/projects/<id>/issues/<number>/`              | Issue detail + comments                  |
+| PATCH  | `/collab/projects/<id>/issues/<number>/`              | Update issue status / fields             |
+| POST   | `/collab/projects/<id>/issues/<number>/comments/`     | Post a comment on an issue               |
+| GET    | `/collab/projects/<id>/mrs/`                          | List merge requests                      |
+| POST   | `/collab/projects/<id>/mrs/`                          | Open a new MR                            |
+| GET    | `/collab/projects/<id>/mrs/<number>/`                 | MR detail + comments                     |
+| PATCH  | `/collab/projects/<id>/mrs/<number>/`                 | Merge or close an MR                     |
+| POST   | `/collab/projects/<id>/mrs/<number>/comments/`        | Post a review comment on an MR           |
+| GET    | `/collab/projects/<id>/commits/`                      | List commits (newest first)              |
+| POST   | `/collab/projects/<id>/commits/`                      | Push a new commit                        |
+| GET    | `/collab/notifications/`                              | Get current user's notifications         |
+| POST   | `/collab/notifications/read/`                         | Mark notifications as read               |
+| GET    | `/collab/users/search/?q=<email>`                     | Search users by email (for inviting)     |
 
 ---
 

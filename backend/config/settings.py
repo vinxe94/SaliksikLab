@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'accounts',
     'repository',
     'code_execution',
+    'collaboration',
 ]
 
 MIDDLEWARE = [
