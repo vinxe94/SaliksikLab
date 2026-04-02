@@ -498,6 +498,64 @@ a:hover {
   margin-top: 24px;
 }
 
+/* Skeleton Loader */
+.skeleton-loader {
+  background: var(--bg2);
+  border-radius: var(--radius);
+  overflow: hidden;
+}
+
+.skeleton-text {
+  height: 1.2rem;
+  background: var(--bg3);
+  border-radius: 4px;
+  margin: 0.5rem 0;
+}
+
+.skeleton-text.h-4 {
+  height: 1rem;
+}
+
+.skeleton-text.h-8 {
+  height: 2rem;
+}
+
+.skeleton-text.w-24 {
+  width: 6rem;
+}
+
+.skeleton-text.w-32 {
+  width: 8rem;
+}
+
+.skeleton-text.w-full {
+  width: 100%;
+}
+
+.skeleton-text.w-1-2 {
+  width: 50%;
+}
+
+.skeleton-text.w-3-4 {
+  width: 75%;
+}
+
+@keyframes pulse {
+  0% {
+    background-color: var(--bg3);
+  }
+  50% {
+    background-color: rgba(27, 94, 32, 0.05);
+  }
+  100% {
+    background-color: var(--bg3);
+  }
+}
+
+.skeleton-text {
+  animation: pulse 1.5s ease-in-out infinite;
+}
+
 .pagination button {
   background: var(--bg3);
   border: 1px solid var(--border);

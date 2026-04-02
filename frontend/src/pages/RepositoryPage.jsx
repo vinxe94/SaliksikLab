@@ -87,7 +87,43 @@ export default function RepositoryPage() {
                         </div>
                     </div>
 
-                    {loading ? <div className="spinner" /> : items.length === 0 ? (
+                    {loading ? (
+                      <div className="skeleton-loader">
+                        {/* Repository Grid Skeleton */}
+                        <div className="repo-grid">
+                          {[Array(6)].map((_, i) => (
+                            <div key={i} className="repo-card">
+                              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                                <div className="skeleton-text h-4 w-24" />
+                                <div className="skeleton-text h-4 w-24" />
+                              </div>
+                              <div className="skeleton-text h-4 w-32" style={{ margin: '8px 0' }} />
+                              <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+                              <div className="skeleton-text h-4 w-1-2" style={{ margin: '8px 0' }} />
+                              <div className="skeleton-text h-4 w-1-2" style={{ margin: '8px 0' }} />
+                              <div className="tags-container">
+                                {[Array(3)].map((_, j) => (
+                                  <span key={j} className="tag skeleton-text h-4 w-20" />
+                                ))}
+                              </div>
+                              <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.75rem', color: 'var(--text2)', marginTop: 4 }}>
+                                <span className="skeleton-text h-4 w-1-2" />
+                                <span className="skeleton-text h-4 w-1-2" />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                        
+                        {/* Pagination Skeleton */}
+                        <div className="pagination">
+                          <button disabled className="skeleton-text h-8 w-20" />
+                          {[Array(5)].map((_, i) => (
+                            <button key={i} disabled className="skeleton-text h-8 w-20" />
+                          ))}
+                          <button disabled className="skeleton-text h-8 w-20" />
+                        </div>
+                      </div>
+                    ) : items.length === 0 ? (
                         <div className="empty-state">
                             <BookOpen style={{ width: 64, height: 64, opacity: 0.2, margin: '0 auto 16px' }} />
                             <h3>No outputs found</h3>

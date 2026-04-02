@@ -42,7 +42,56 @@ export default function DashboardPage() {
         }).finally(() => setLoading(false))
     }, [user])
 
-    if (loading) return <div className="layout"><Sidebar /><div className="main-content"><div className="spinner" /></div></div>
+    if (loading) return (
+      <div className="layout">
+        <Sidebar />
+        <div className="main-content">
+          <div className="skeleton-loader">
+            {/* Stats Cards Skeleton */}
+            <div className="stat-grid">
+              {[Array(5)].map((_, i) => (
+                <div key={i} className="stat-card">
+                  <div className="skeleton-text h-8 w-32" />
+                  <div className="skeleton-text h-4 w-24" />
+                </div>
+              ))}
+            </div>
+            
+            {/* Analytics Charts Skeleton */}
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20, marginBottom: 24 }}>
+              <div className="card">
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <BarChart2 size={14} color="var(--accent)" /> By Output Type
+                </h3>
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+              </div>
+              <div className="card">
+                <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <BarChart2 size={14} color="var(--accent2)" /> By Department (Top 8)
+                </h3>
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
+              </div>
+            </div>
+            
+            {/* Recent Submissions Skeleton */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+              <h3 style={{ fontSize: '1rem' }}>Recent Submissions</h3>
+              <button className="btn btn-ghost btn-sm">View all</button>
+            </div>
+            <div className="skeleton-text h-8 w-full" style={{ margin: '16px 0' }} />
+            <div className="skeleton-text h-8 w-full" style={{ margin: '16px 0' }} />
+            <div className="skeleton-text h-8 w-full" style={{ margin: '16px 0' }} />
+            <div className="skeleton-text h-8 w-full" style={{ margin: '16px 0' }} />
+            <div className="skeleton-text h-8 w-full" style={{ margin: '16px 0' }} />
+          </div>
+        </div>
+      </div>
+    )
 
     const maxType = stats?.by_type?.length > 0 ? Math.max(...stats.by_type.map(t => t.count)) : 1
     const maxDept = stats?.by_dept?.length > 0 ? Math.max(...stats.by_dept.map(d => d.count)) : 1
