@@ -11,6 +11,10 @@ from .views import (
     BackupView,
     StatsView,
     ExportCSVView,
+    BrowseFileView,
+    FileContentView,
+    RunRepositoryFileView,
+    ListRunnableFilesView,
 )
 
 urlpatterns = [
@@ -27,4 +31,13 @@ urlpatterns = [
     path('<int:pk>/revise/', ReviseOutputView.as_view(), name='output-revise'),
     path('<int:pk>/versions/', VersionHistoryView.as_view(), name='output-versions'),
     path('<int:pk>/rollback/', RollbackVersionView.as_view(), name='output-rollback'),
+    path('<int:pk>/browse/', BrowseFileView.as_view(), name='output-browse'),
+    path('<int:pk>/browse/<int:file_id>/', BrowseFileView.as_view(), name='file-browse'),
+    path('<int:pk>/file-content/', FileContentView.as_view(), name='output-file-content'),
+    path('<int:pk>/file-content/<int:file_id>/', FileContentView.as_view(), name='file-content'),
+    # Repository code runner
+    path('<int:pk>/run/', RunRepositoryFileView.as_view(), name='output-run'),
+    path('<int:pk>/run/<int:file_id>/', RunRepositoryFileView.as_view(), name='file-run'),
+    path('<int:pk>/runnable/', ListRunnableFilesView.as_view(), name='output-runnable'),
+    path('<int:pk>/runnable/<int:file_id>/', ListRunnableFilesView.as_view(), name='file-runnable'),
 ]

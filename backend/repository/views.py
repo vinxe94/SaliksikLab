@@ -1,4 +1,5 @@
 import os
+from .runner import run_repository_file, list_runnable_files, RunnerError
 import csv
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
@@ -20,6 +21,7 @@ from .serializers import (
     OutputFileSerializer,
     RevisionSerializer,
 )
+from .file_browser import browse_file, read_file_content, get_file_type, MAX_PREVIEW_SIZE
 
 
 class IsAdminUser(permissions.BasePermission):
@@ -487,3 +489,214 @@ class ExportCSVView(APIView):
                 o.download_logs.count(),
             ])
         return response
+
+
+class BrowseFileView(APIView):
+    """Browse the file tree of an uploaded file (ZIP/TAR archives or single files)."""
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, file_id=None):
+        output = get_object_or_404(ResearchOutput, pk=pk, is_deleted=False)
+        user = request.user
+        if not output.is_approved and output.uploaded_by != user and user.role != 'admin':
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if file_id:
+            output_file = get_object_or_404(OutputFile, pk=file_id, research_output=output)
+        else:
+            output_file = output.files.order_by('-version').first()
+            if not output_file:
+                return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+
+        path = request.query_params.get('path', '')
+
+        try:
+            result = browse_file(output_file.file.path, output_file.original_filename, path)
+            result['file_id'] = output_file.id
+            result['original_filename'] = output_file.original_filename
+            result['version'] = output_file.version
+            return Response(result)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+class FileContentView(APIView):
+    """Read the content of a specific file within an uploaded archive."""
+    permission_classes = []
+    authentication_classes = []
+
+    CONTENT_TYPES = {
+        'pdf': 'application/pdf',
+        'png': 'image/png', 'jpg': 'image/jpeg', 'jpeg': 'image/jpeg',
+        'gif': 'image/gif', 'svg': 'image/svg+xml', 'webp': 'image/webp',
+        'ico': 'image/x-icon', 'bmp': 'image/bmp',
+    }
+
+    def _get_user(self, request):
+        from rest_framework_simplejwt.tokens import AccessToken
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        auth = request.META.get('HTTP_AUTHORIZATION', '')
+        if auth.startswith('Bearer '):
+            token_str = auth[7:]
+        else:
+            token_str = request.query_params.get('token', '')
+        if not token_str:
+            return None
+        try:
+            token = AccessToken(token_str)
+            return User.objects.get(id=token['user_id'])
+        except Exception:
+            return None
+
+    def get(self, request, pk, file_id=None):
+        user = self._get_user(request)
+        if not user:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+
+        output = get_object_or_404(ResearchOutput, pk=pk, is_deleted=False)
+        if not output.is_approved and output.uploaded_by != user and user.role != 'admin':
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if file_id:
+            output_file = get_object_or_404(OutputFile, pk=file_id, research_output=output)
+        else:
+            output_file = output.files.order_by('-version').first()
+            if not output_file:
+                return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+
+        inner_path = request.query_params.get('path', '')
+
+        try:
+            data, filename, file_type = read_file_content(
+                output_file.file.path, output_file.original_filename, inner_path
+            )
+        except FileNotFoundError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({'detail': str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+
+        if file_type == 'text':
+            # Return as plain text
+            truncated = len(data) > MAX_PREVIEW_SIZE
+            text = data[:MAX_PREVIEW_SIZE].decode('utf-8', errors='replace')
+            response = HttpResponse(text, content_type='text/plain; charset=utf-8')
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            if truncated:
+                response['X-Truncated'] = 'true'
+            return response
+        elif file_type in ('image', 'pdf'):
+            content_type = self.CONTENT_TYPES.get(ext, 'application/octet-stream')
+            response = HttpResponse(data, content_type=content_type)
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+        else:
+            # Binary — send as download
+            response = HttpResponse(data, content_type='application/octet-stream')
+            response['Content-Disposition'] = f'attachment; filename="{filename}"'
+            return response
+
+
+class RunRepositoryFileView(APIView):
+    """
+    POST /api/repository/<pk>/run/
+    POST /api/repository/<pk>/run/<file_id>/
+
+    Execute a runnable file from an uploaded repository through the sandbox.
+
+    Request body (JSON):
+        {
+            "stdin_input": "...",      // optional
+            "entry_file": "src/main.py" // optional override for archive entry
+        }
+
+    Response:
+        {
+            "language": "python",
+            "entry_file": "main.py",
+            "status": "success" | "error" | "timeout",
+            "stdout": "...",
+            "stderr": "...",
+            "exit_code": 0,
+            "execution_time_ms": 123.4
+        }
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, file_id=None):
+        output = get_object_or_404(ResearchOutput, pk=pk, is_deleted=False)
+        user = request.user
+        if not output.is_approved and output.uploaded_by != user and user.role != 'admin':
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if file_id:
+            output_file = get_object_or_404(OutputFile, pk=file_id, research_output=output)
+        else:
+            output_file = output.files.order_by('-version').first()
+            if not output_file:
+                return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+
+        stdin_input  = request.data.get('stdin_input', '')
+        entry_override = request.data.get('entry_file', '')
+
+        try:
+            result = run_repository_file(
+                file_path=output_file.file.path,
+                original_filename=output_file.original_filename,
+                stdin_input=stdin_input,
+                entry_override=entry_override,
+            )
+        except RunnerError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_422_UNPROCESSABLE_ENTITY)
+        except Exception as e:
+            return Response(
+                {'detail': f'Execution error: {e}'},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+        return Response(result, status=status.HTTP_200_OK)
+
+
+class ListRunnableFilesView(APIView):
+    """
+    GET /api/repository/<pk>/runnable/
+    GET /api/repository/<pk>/runnable/<file_id>/
+
+    List all runnable source files found in the uploaded file.
+    Returns [] for non-code files (PDF, DOCX, …).
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, file_id=None):
+        output = get_object_or_404(ResearchOutput, pk=pk, is_deleted=False)
+        user = request.user
+        if not output.is_approved and output.uploaded_by != user and user.role != 'admin':
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+
+        if file_id:
+            output_file = get_object_or_404(OutputFile, pk=file_id, research_output=output)
+        else:
+            output_file = output.files.order_by('-version').first()
+            if not output_file:
+                return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+
+        files = list_runnable_files(output_file.file.path, output_file.original_filename)
+        return Response({
+            'file_id': output_file.id,
+            'original_filename': output_file.original_filename,
+            'runnable_files': files,
+        })

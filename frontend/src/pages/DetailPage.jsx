@@ -6,6 +6,8 @@ import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
 import { Download, CheckCircle, Clock, Trash2, RefreshCw, XCircle, AlertTriangle, Eye, X, RotateCcw, User, Plus } from 'lucide-react'
 import AbstractTranslator from '../components/AbstractTranslator'
+import FileExplorer from '../components/FileExplorer'
+import RepositoryRunner from '../components/RepositoryRunner'
 
 export default function DetailPage() {
     const { id } = useParams()
@@ -303,6 +305,19 @@ export default function DetailPage() {
                             )}
                         </div>
                     )}
+
+                    {/* GitHub-style File Explorer */}
+                    <FileExplorer
+                        repositoryId={id}
+                        fileId={versions[0]?.id}
+                    />
+
+                    {/* ▶ Repository Runner — run uploaded code in-browser */}
+                    <RepositoryRunner
+                        repositoryId={id}
+                        fileId={versions[0]?.id}
+                        filename={versions[0]?.original_filename}
+                    />
 
                     <div style={{ display: 'grid', gridTemplateColumns: '1fr 340px', gap: 24 }}>
                         {/* Main column */}
