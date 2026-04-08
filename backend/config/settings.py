@@ -146,3 +146,14 @@ FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
 CODE_EXEC_TIMEOUT_SECONDS = int(os.getenv('CODE_EXEC_TIMEOUT', '10'))
 CODE_EXEC_MAX_OUTPUT_KB   = int(os.getenv('CODE_EXEC_MAX_OUTPUT_KB', '64'))
 CODE_EXEC_MAX_MEMORY_MB   = int(os.getenv('CODE_EXEC_MAX_MEMORY_MB', '128'))
+
+# ── Translation / ML Inference ────────────────────────────────────────────────
+TRANSLATION_PROVIDER = os.getenv('TRANSLATION_PROVIDER', 'huggingface')
+TRANSLATION_FALLBACK_PROVIDER = os.getenv('TRANSLATION_FALLBACK_PROVIDER', 'google')
+HF_TRANSLATION_DEVICE = os.getenv('HF_TRANSLATION_DEVICE', 'cpu')
+HF_TRANSLATION_CACHE_DIR = os.getenv('HF_TRANSLATION_CACHE_DIR', str(BASE_DIR / 'hf_models'))
+HF_TRANSLATION_CHUNK_SIZE = int(os.getenv('HF_TRANSLATION_CHUNK_SIZE', '1400'))
+HF_TRANSLATION_MODELS = {
+    'en:fil': os.getenv('HF_TRANSLATION_MODEL_EN_FIL', 'Helsinki-NLP/opus-mt-en-tl'),
+    'fil:en': os.getenv('HF_TRANSLATION_MODEL_FIL_EN', 'Helsinki-NLP/opus-mt-tl-en'),
+}

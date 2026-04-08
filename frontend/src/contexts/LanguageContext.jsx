@@ -24,6 +24,8 @@ const TRANSLATIONS = {
         'nav.profile': 'Profile',
         'nav.logout': 'Logout',
         'nav.codelab': 'Code Lab',
+        'nav.reports': 'Report Generation',
+        'nav.analytics': 'Analytics',
 
         // Dashboard
         'dashboard.welcome': 'Welcome back',
@@ -111,6 +113,8 @@ const TRANSLATIONS = {
         'nav.profile': 'Profil',
         'nav.logout': 'Mag-logout',
         'nav.codelab': 'Code Lab',
+        'nav.reports': 'Pagbuo ng Ulat',
+        'nav.analytics': 'Analytics',
 
         // Dashboard
         'dashboard.welcome': 'Maligayang pagbabalik',

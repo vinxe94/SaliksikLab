@@ -17,6 +17,8 @@
   --text2: #4a6a4a;
   --accent: #1B5E20;
   --accent2: #2E7D32;
+  --success: #4CAF50;
+  --info: #2196F3;
   --danger: #c62828;
   --warning: #e65100;
   --radius: 10px;
@@ -238,8 +240,8 @@ a:hover {
 
 .sidebar {
   width: 240px;
-  background: var(--bg2);
-  border-right: 1px solid var(--border);
+  background: linear-gradient(180deg, #123c22 0%, #174d2b 42%, #1d5a33 100%);
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
   display: flex;
   flex-direction: column;
   position: fixed;
@@ -273,20 +275,92 @@ a:hover {
   padding: 32px;
 }
 
+.dashboard-page {
+  display: grid;
+  gap: 18px;
+}
+
+.dashboard-heading p {
+  margin-top: 2px;
+}
+
+.dashboard-hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1.8fr) minmax(240px, 0.9fr);
+  gap: 16px;
+  background: linear-gradient(135deg, rgba(27, 94, 32, 0.1), rgba(46, 125, 50, 0.04) 55%, rgba(255, 152, 0, 0.06));
+  border: 1px solid rgba(27, 94, 32, 0.14);
+  border-radius: calc(var(--radius) + 4px);
+  padding: 18px 20px;
+}
+
+.dashboard-kicker,
+.dashboard-panel-kicker {
+  display: inline-block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+
+.dashboard-hero-copy h3 {
+  font-size: 1.15rem;
+  margin-bottom: 6px;
+}
+
+.dashboard-hero-copy p {
+  color: var(--text2);
+  font-size: 0.9rem;
+  max-width: 70ch;
+}
+
+.dashboard-hero-actions {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+  justify-items: end;
+}
+
+.dashboard-hero-stat {
+  width: 100%;
+  background: rgba(255, 255, 255, 0.78);
+  border: 1px solid rgba(27, 94, 32, 0.1);
+  border-radius: var(--radius);
+  padding: 12px 14px;
+}
+
+.dashboard-hero-stat span {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text2);
+}
+
+.dashboard-hero-stat strong {
+  display: block;
+  font-size: 1.7rem;
+  line-height: 1.1;
+  margin-top: 4px;
+}
+
 /* Sidebar nav */
 .sidebar-logo {
   padding: 0 20px 24px;
   display: flex;
   align-items: center;
   gap: 10px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
   margin-bottom: 16px;
 }
 
 .sidebar-logo span {
   font-size: 1.1rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--accent), #43A047);
+  background: linear-gradient(135deg, #f3fbf4, #bfe7c8);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
 }
@@ -298,7 +372,7 @@ a:hover {
   padding: 10px 20px;
   margin: 2px 8px;
   border-radius: var(--radius);
-  color: var(--text2);
+  color: rgba(242, 250, 244, 0.82);
   font-size: 0.9rem;
   font-weight: 500;
   cursor: pointer;
@@ -307,21 +381,22 @@ a:hover {
 }
 
 .nav-item:hover {
-  background: var(--bg3);
-  color: var(--text);
+  background: rgba(255, 255, 255, 0.1);
+  color: #ffffff;
   text-decoration: none;
 }
 
 .nav-item.active {
-  background: rgba(27, 94, 32, 0.1);
-  color: var(--accent);
+  background: linear-gradient(135deg, rgba(209, 242, 217, 0.2), rgba(255, 255, 255, 0.12));
+  color: #ffffff;
+  box-shadow: inset 0 0 0 1px rgba(223, 246, 228, 0.18);
 }
 
 .nav-section {
   padding: 10px 20px 4px;
   font-size: 0.7rem;
   font-weight: 700;
-  color: var(--text2);
+  color: rgba(210, 235, 216, 0.72);
   text-transform: uppercase;
   letter-spacing: 0.1em;
 }
@@ -443,22 +518,21 @@ a:hover {
 .stat-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-  gap: 16px;
-  margin-bottom: 28px;
+  gap: 14px;
 }
 
 .stat-card {
   background: var(--bg2);
   border: 1px solid var(--border);
   border-radius: var(--radius);
-  padding: 20px;
+  padding: 16px;
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: 4px;
 }
 
 .stat-card .stat-value {
-  font-size: 2rem;
+  font-size: 1.8rem;
   font-weight: 800;
 }
 
@@ -468,6 +542,187 @@ a:hover {
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.05em;
+}
+
+.dashboard-stat-card {
+  min-height: 122px;
+  justify-content: center;
+}
+
+.dashboard-stat-meta {
+  font-size: 0.78rem;
+  color: var(--text2);
+  line-height: 1.45;
+}
+
+.dashboard-analytics-grid {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(320px, 1.35fr) minmax(260px, 1fr);
+  gap: 16px;
+  align-items: stretch;
+}
+
+.dashboard-panel {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  padding: 16px;
+  min-width: 0;
+  height: 100%;
+}
+
+.dashboard-panel-animated {
+  opacity: 0;
+  transform: translateY(14px) scale(0.985);
+  animation: dashboardPanelIn 0.7s ease-out forwards;
+}
+
+.dashboard-panel-animated:nth-child(1) {
+  animation-delay: 0.08s;
+}
+
+.dashboard-panel-animated:nth-child(2) {
+  animation-delay: 0.18s;
+}
+
+.dashboard-panel-animated:nth-child(3) {
+  animation-delay: 0.28s;
+}
+
+.dashboard-panel-wide {
+  min-width: 0;
+}
+
+.dashboard-panel-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.dashboard-panel-head h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.98rem;
+}
+
+.dashboard-panel-total {
+  font-size: 1.4rem;
+  line-height: 1;
+  color: var(--accent);
+}
+
+.dashboard-chart {
+  position: relative;
+}
+
+.dashboard-chart-pie {
+  height: 250px;
+}
+
+.dashboard-chart-bar {
+  height: 250px;
+}
+
+.dashboard-status-list {
+  display: grid;
+  gap: 12px;
+  padding-top: 4px;
+}
+
+.dashboard-status-row {
+  display: grid;
+  grid-template-columns: minmax(88px, 110px) minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.dashboard-status-meta {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.85rem;
+  font-weight: 600;
+}
+
+.dashboard-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 999px;
+  flex-shrink: 0;
+}
+
+.dashboard-status-track {
+  width: 100%;
+  height: 9px;
+  border-radius: 999px;
+  background: var(--bg3);
+  overflow: hidden;
+}
+
+.dashboard-status-fill {
+  height: 100%;
+  border-radius: inherit;
+}
+
+.dashboard-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.dashboard-table-shell {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: calc(var(--radius) + 2px);
+  overflow: hidden;
+}
+
+.dashboard-table th {
+  padding: 10px 14px;
+}
+
+.dashboard-table td {
+  padding: 12px 14px;
+}
+
+.dashboard-skeleton {
+  padding: 24px;
+}
+
+.dashboard-card-copy {
+  color: var(--text2);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.report-meta-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 14px;
+  color: var(--text2);
+  font-size: 0.82rem;
+}
+
+.report-meta-row span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+@keyframes dashboardPanelIn {
+  from {
+    opacity: 0;
+    transform: translateY(14px) scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
 }
 
 /* Filters row */
@@ -655,7 +910,7 @@ a:hover {
   align-items: center;
   justify-content: center;
   padding: 24px;
-  background: radial-gradient(ellipse at top left, rgba(27, 94, 32, 0.08) 0%, var(--bg) 60%);
+  background: radial-gradient(ellipse at top left, rgba(15, 66, 29, 0.24) 0%, var(--bg) 56%);
   position: relative;
   overflow: hidden;
 }
@@ -666,14 +921,14 @@ a:hover {
   content: '';
   position: absolute;
   border-radius: 50%;
-  opacity: 0.12;
+  opacity: 0.24;
   pointer-events: none;
 }
 
 .auth-page::before {
   width: 300px;
   height: 300px;
-  background: radial-gradient(circle, #2E7D32, transparent 70%);
+  background: radial-gradient(circle, #15511f, transparent 70%);
   top: -60px;
   left: -80px;
   animation: floatOrb1 8s ease-in-out infinite;
@@ -682,7 +937,7 @@ a:hover {
 .auth-page::after {
   width: 220px;
   height: 220px;
-  background: radial-gradient(circle, #1B5E20, transparent 70%);
+  background: radial-gradient(circle, #0e3514, transparent 70%);
   bottom: -40px;
   right: -60px;
   animation: floatOrb2 10s ease-in-out infinite;
@@ -733,13 +988,13 @@ a:hover {
   position: absolute;
   border-radius: 50%;
   pointer-events: none;
-  opacity: 0.07;
+  opacity: 0.22;
 }
 
 .auth-orb-1 {
   width: 180px;
   height: 180px;
-  background: #43A047;
+  background: #1d6225;
   top: 15%;
   right: 10%;
   animation: floatOrb3 12s ease-in-out infinite;
@@ -748,7 +1003,7 @@ a:hover {
 .auth-orb-2 {
   width: 120px;
   height: 120px;
-  background: #1B5E20;
+  background: #124518;
   bottom: 20%;
   left: 8%;
   animation: floatOrb4 9s ease-in-out infinite;
@@ -757,7 +1012,7 @@ a:hover {
 .auth-orb-3 {
   width: 80px;
   height: 80px;
-  background: #66BB6A;
+  background: #2f7a39;
   top: 60%;
   right: 25%;
   animation: floatOrb3 14s ease-in-out infinite reverse;
@@ -766,7 +1021,7 @@ a:hover {
 .auth-orb-4 {
   width: 140px;
   height: 140px;
-  background: #2E7D32;
+  background: #15541d;
   top: 8%;
   left: 30%;
   animation: floatOrb4 11s ease-in-out infinite reverse;
@@ -811,7 +1066,7 @@ a:hover {
   padding: 40px;
   width: 100%;
   max-width: 440px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 18px 48px rgba(10, 32, 16, 0.22), 0 8px 20px rgba(27, 94, 32, 0.14);
   position: relative;
   z-index: 1;
   animation: cardEntrance 0.6s ease-out;
@@ -1044,9 +1299,56 @@ a:hover {
     padding: 16px;
   }
 
+  .page-header {
+    padding: 14px 16px;
+    gap: 12px;
+    align-items: flex-start;
+  }
+
+  .dashboard-hero {
+    grid-template-columns: 1fr;
+    padding: 16px;
+  }
+
+  .dashboard-hero-actions {
+    justify-items: stretch;
+  }
+
+  .dashboard-analytics-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .dashboard-panel,
+  .dashboard-panel-wide {
+    grid-column: auto;
+  }
+
+  .dashboard-chart-pie,
+  .dashboard-chart-bar {
+    height: 220px;
+  }
+
+  .dashboard-status-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+  }
+
+  .dashboard-section-head {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
   .fe-th-date,
   .fe-cell-date {
     display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-panel-animated {
+    opacity: 1;
+    transform: none;
+    animation: none;
   }
 }
 

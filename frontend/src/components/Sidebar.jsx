@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import LanguageSwitcher from './LanguageSwitcher'
 import { useLanguage } from '../contexts/LanguageContext'
 import {
-    LayoutDashboard, BookOpen, Upload, Shield, User, LogOut, Code2, GitBranch
+    LayoutDashboard, BookOpen, Upload, Shield, User, LogOut, Code2, GitBranch, FileText, ChartColumn
 } from 'lucide-react'
 
 export default function Sidebar() {
@@ -37,6 +37,12 @@ export default function Sidebar() {
                 </NavLink>
                 <NavLink to="/code-lab" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                     <Code2 size={18} /> {t('nav.codelab')}
+                </NavLink>
+                <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <FileText size={18} /> {t('nav.reports')}
+                </NavLink>
+                <NavLink to="/analytics" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                    <ChartColumn size={18} /> {t('nav.analytics')}
                 </NavLink>
                 <NavLink to="/collaborate" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                     <GitBranch size={18} /> Collaborate

@@ -14,6 +14,8 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import CodePlaygroundPage from './pages/CodePlaygroundPage'
 import CollaborationPage from './pages/CollaborationPage'
+import ReportGenerationPage from './pages/ReportGenerationPage'
+import AnalyticsPage from './pages/AnalyticsPage'
 import PropTypes from 'prop-types'
 
 function PrivateRoute({ children }) {
@@ -66,6 +68,8 @@ export default function App() {
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/code-lab" element={<PrivateRoute><CodePlaygroundPage /></PrivateRoute>} />
             <Route path="/collaborate" element={<PrivateRoute><CollaborationPage /></PrivateRoute>} />
+            <Route path="/reports" element={<PrivateRoute><ReportGenerationPage /></PrivateRoute>} />
+            <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>
