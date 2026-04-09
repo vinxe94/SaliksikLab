@@ -64,7 +64,15 @@ export default function Sidebar() {
                     <LanguageSwitcher />
                 </div>
                 <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <User size={18} />
+                    {user?.avatar_url ? (
+                        <img
+                            src={user.avatar_url}
+                            alt={`${user?.first_name || 'User'} avatar`}
+                            className="sidebar-user-avatar"
+                        />
+                    ) : (
+                        <User size={18} />
+                    )}
                     <span style={{ flex: 1 }}>
                         <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.85rem' }}>
                             {user?.first_name} {user?.last_name}

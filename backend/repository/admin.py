@@ -1,6 +1,9 @@
 from django.contrib import admin
 from django.utils.html import format_html
-from .models import ResearchOutput, OutputFile, DownloadLog
+from .models import (
+    ResearchOutput, OutputFile, DownloadLog,
+    Repository, RepositoryFile, ArchiveDocument,
+)
 
 
 class OutputFileInline(admin.TabularInline):
@@ -39,3 +42,27 @@ class DownloadLogAdmin(admin.ModelAdmin):
     list_filter = ['downloaded_at']
     search_fields = ['user__email', 'research_output__title']
     readonly_fields = ['user', 'research_output', 'output_file', 'downloaded_at']
+
+
+class RepositoryFileInline(admin.TabularInline):
+    model = RepositoryFile
+    extra = 0
+    readonly_fields = ['original_filename', 'file_size', 'version', 'uploaded_by', 'uploaded_at']
+    can_delete = False
+
+
+@admin.register(Repository)
+class RepositoryAdmin(admin.ModelAdmin):
+    list_display = ['title', 'created_by', 'created_at', 'updated_at', 'is_deleted']
+    list_filter = ['is_deleted', 'created_at']
+    search_fields = ['title', 'description', 'created_by__email']
+    readonly_fields = ['created_by', 'created_at', 'updated_at']
+    inlines = [RepositoryFileInline]
+
+
+@admin.register(ArchiveDocument)
+class ArchiveDocumentAdmin(admin.ModelAdmin):
+    list_display = ['title', 'author', 'linked_repository', 'uploaded_by', 'uploaded_at', 'is_deleted']
+    list_filter = ['is_deleted', 'department', 'year', 'uploaded_at']
+    search_fields = ['title', 'abstract', 'author', 'department', 'linked_repository__title']
+    readonly_fields = ['uploaded_by', 'uploaded_at', 'updated_at', 'original_filename', 'file_size']

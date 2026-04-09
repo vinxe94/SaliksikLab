@@ -3,6 +3,11 @@ from django.db import models
 import uuid
 
 
+def avatar_upload_to(instance, filename):
+    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else 'jpg'
+    return f'avatars/user_{instance.id or "new"}.{ext}'
+
+
 class UserManager(BaseUserManager):
     def create_user(self, email, password=None, **extra_fields):
         if not email:
@@ -33,6 +38,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=100)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='student')
     department = models.CharField(max_length=150, blank=True)
+    avatar = models.ImageField(upload_to=avatar_upload_to, blank=True, null=True)
     is_active = models.BooleanField(default=True)
     is_staff = models.BooleanField(default=False)
     is_account_approved = models.BooleanField(default=True)  # False for new registrations

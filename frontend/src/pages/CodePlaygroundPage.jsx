@@ -12,6 +12,23 @@
  */
 
 import { useState, useEffect, useRef, useCallback } from 'react'
+import {
+    Activity,
+    Clipboard,
+    ClipboardList,
+    Code2,
+    Coffee,
+    FileCode2,
+    History,
+    Inbox,
+    LoaderCircle,
+    Lock,
+    Play,
+    Shield,
+    Timer,
+    Trash2,
+    TriangleAlert,
+} from 'lucide-react'
 import { useLanguage } from '../contexts/LanguageContext'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
@@ -72,11 +89,19 @@ int main() {
 `,
 }
 
+const SAMPLE_STDIN = {
+    python: `8`,
+    java: `12
+4`,
+    cpp: `5
+9 3 7 1 4`,
+}
+
 // ── Language config ───────────────────────────────────────────────────────────
 const LANG_CONFIG = {
-    python: { label: 'Python 3', icon: '🐍', color: '#3b82f6', ext: '.py' },
-    java: { label: 'Java', icon: '☕', color: '#f97316', ext: '.java' },
-    cpp: { label: 'C++ 17', icon: '⚙️', color: '#8b5cf6', ext: '.cpp' },
+    python: { label: 'Python 3', icon: Code2, color: '#3b82f6', ext: '.py' },
+    java: { label: 'Java', icon: Coffee, color: '#f97316', ext: '.java' },
+    cpp: { label: 'C++ 17', icon: FileCode2, color: '#8b5cf6', ext: '.cpp' },
 }
 
 // ── Status config ─────────────────────────────────────────────────────────────
@@ -99,6 +124,13 @@ export default function CodePlaygroundPage() {
     const [lineCount, setLineCount] = useState(1)
     const textareaRef = useRef(null)
 
+    const codeLooksInteractive = useCallback((source, lang) => {
+        if (lang === 'python') return /\binput\s*\(/.test(source)
+        if (lang === 'java') return /\bScanner\b|\bnext(Int|Double|Line|Float|Long|Short|Byte)\s*\(/.test(source)
+        if (lang === 'cpp') return /\bcin\s*>>|\bgetline\s*\(/.test(source)
+        return false
+    }, [])
+
     // Compute line numbers whenever code changes
     useEffect(() => {
         setLineCount(code.split('\n').length)
@@ -112,12 +144,17 @@ export default function CodePlaygroundPage() {
     const handleLanguageChange = useCallback((lang) => {
         setLanguage(lang)
         setCode(SAMPLES[lang])
+        setStdin(SAMPLE_STDIN[lang] || '')
         setResult(null)
     }, [])
 
     const handleRun = useCallback(async () => {
         if (!code.trim()) {
             toast.error('Please write some code first.')
+            return
+        }
+        if (codeLooksInteractive(code, language) && !stdin.trim()) {
+            toast.error('This program looks like it needs input. Add values in the stdin panel first.')
             return
         }
         setRunning(true)
@@ -144,7 +181,7 @@ export default function CodePlaygroundPage() {
         } finally {
             setRunning(false)
         }
-    }, [code, language, stdin, t])
+    }, [code, language, stdin, t, codeLooksInteractive])
 
     const handleKeyDown = useCallback((e) => {
         if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
@@ -173,6 +210,12 @@ export default function CodePlaygroundPage() {
         })
     }
 
+    const tabs = [
+        { id: 'output', label: t('code.output'), icon: Play },
+        { id: 'errors', label: t('code.stderr'), icon: TriangleAlert },
+        { id: 'history', label: t('code.history'), icon: History },
+    ]
+
     return (
         <div className="layout">
             <Sidebar />
@@ -183,7 +226,10 @@ export default function CodePlaygroundPage() {
                 <header className="page-header">
                     <div>
                         <h1 style={{ fontSize: '1.2rem', marginBottom: 2 }}>
-                            💻 {t('code.title')}
+                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 8 }}>
+                                <Code2 size={18} />
+                                {t('code.title')}
+                            </span>
                         </h1>
                         <p style={{ fontSize: '0.82rem', color: 'var(--text2)' }}>{t('code.subtitle')}</p>
                     </div>
@@ -193,8 +239,10 @@ export default function CodePlaygroundPage() {
                             background: 'rgba(27,94,32,0.08)', color: 'var(--accent)',
                             border: '1px solid rgba(27,94,32,0.2)',
                             borderRadius: 999, padding: '4px 12px', fontSize: '0.75rem', fontWeight: 600,
+                            display: 'inline-flex', alignItems: 'center', gap: 6,
                         }}>
-                            🔒 {t('code.sandbox')}
+                            <Shield size={14} />
+                            {t('code.sandbox')}
                         </span>
                     </div>
                 </header>
@@ -206,6 +254,9 @@ export default function CodePlaygroundPage() {
                     <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
                         <div style={{ display: 'flex', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                             {Object.entries(LANG_CONFIG).map(([lang, cfg]) => (
+                                (() => {
+                                    const Icon = cfg.icon
+                                    return (
                                 <button
                                     key={lang}
                                     id={`lang-btn-${lang}`}
@@ -222,8 +273,10 @@ export default function CodePlaygroundPage() {
                                         borderRight: '1px solid var(--border)',
                                     }}
                                 >
-                                    <span>{cfg.icon}</span> {cfg.label}
+                                    <Icon size={15} strokeWidth={2.2} /> {cfg.label}
                                 </button>
+                                    )
+                                })()
                             ))}
                         </div>
 
@@ -231,16 +284,28 @@ export default function CodePlaygroundPage() {
                             <button
                                 className="btn btn-ghost btn-sm"
                                 id="load-sample-btn"
-                                onClick={() => setCode(SAMPLES[language])}
+                                onClick={() => {
+                                    setCode(SAMPLES[language])
+                                    setStdin(SAMPLE_STDIN[language] || '')
+                                }}
                             >
-                                📋 {t('code.loadSample')}
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <ClipboardList size={15} />
+                                    {t('code.loadSample')}
+                                </span>
                             </button>
                             <button
                                 className="btn btn-ghost btn-sm"
                                 id="clear-editor-btn"
-                                onClick={() => setCode('')}
+                                onClick={() => {
+                                    setCode('')
+                                    setStdin('')
+                                }}
                             >
-                                🗑️ {t('code.clearEditor')}
+                                <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                    <Trash2 size={15} />
+                                    {t('code.clearEditor')}
+                                </span>
                             </button>
                             <button
                                 className="btn btn-primary"
@@ -250,9 +315,9 @@ export default function CodePlaygroundPage() {
                                 style={{ minWidth: 140 }}
                             >
                                 {running ? (
-                                    <><span style={{ display: 'inline-block', animation: 'spin 0.7s linear infinite', marginRight: 4 }}>⏳</span> {t('code.running')}</>
+                                    <><LoaderCircle size={15} style={{ display: 'inline-block', animation: 'spin 0.7s linear infinite', marginRight: 4 }} /> {t('code.running')}</>
                                 ) : (
-                                    <>▶ {t('code.run')} <kbd style={{ opacity: 0.6, fontSize: '0.7rem', marginLeft: 4 }}>Ctrl+↵</kbd></>
+                                    <><Play size={15} style={{ marginRight: 4 }} /> {t('code.run')} <kbd style={{ opacity: 0.6, fontSize: '0.7rem', marginLeft: 4 }}>Ctrl+↵</kbd></>
                                 )}
                             </button>
                         </div>
@@ -277,14 +342,19 @@ export default function CodePlaygroundPage() {
                                     color: LANG_CONFIG[language].color, fontWeight: 600,
                                     fontSize: '0.82rem', display: 'flex', alignItems: 'center', gap: 6,
                                 }}>
-                                    {LANG_CONFIG[language].icon} {LANG_CONFIG[language].label}
+                                    {(() => {
+                                        const LangIcon = LANG_CONFIG[language].icon
+                                        return <LangIcon size={15} strokeWidth={2.2} />
+                                    })()}
+                                    {LANG_CONFIG[language].label}
                                     <span style={{ color: '#9e9e9e', fontWeight: 400 }}>main{LANG_CONFIG[language].ext}</span>
                                 </span>
                                 <button
                                     onClick={() => copyToClipboard(code)}
-                                    style={{ background: 'none', border: 'none', color: '#9e9e9e', cursor: 'pointer', fontSize: '0.8rem' }}
+                                    style={{ background: 'none', border: 'none', color: '#9e9e9e', cursor: 'pointer', fontSize: '0.8rem', display: 'inline-flex', alignItems: 'center', gap: 6 }}
                                 >
-                                    📋 {t('general.copy')}
+                                    <Clipboard size={14} />
+                                    {t('general.copy')}
                                 </button>
                             </div>
 
@@ -337,15 +407,16 @@ export default function CodePlaygroundPage() {
 
                             {/* Stdin */}
                             <div style={{ borderTop: '1px solid #e0e0e0', padding: '12px 16px', background: '#f5f5f5' }}>
-                                <label style={{ color: '#757575', fontSize: '0.75rem', fontWeight: 600, display: 'block', marginBottom: 6 }}>
-                                    📥 {t('code.stdin')}
+                                <label style={{ color: '#757575', fontSize: '0.75rem', fontWeight: 600, display: 'flex', alignItems: 'center', gap: 6, marginBottom: 6 }}>
+                                    <Inbox size={14} />
+                                    {t('code.stdin')}
                                 </label>
                                 <textarea
                                     id="stdin-input"
                                     value={stdin}
                                     onChange={e => setStdin(e.target.value)}
-                                    placeholder={t('code.stdinPlaceholder')}
-                                    rows={2}
+                                    placeholder={language === 'python' ? 'One value per prompt, e.g. 8' : language === 'java' ? 'Example:\n12\n4' : 'Example:\n5\n9 3 7 1 4'}
+                                    rows={4}
                                     style={{
                                         width: '100%', background: '#ffffff', border: '1px solid #e0e0e0',
                                         borderRadius: 6, color: '#1a1a2e', padding: '8px 10px',
@@ -353,6 +424,18 @@ export default function CodePlaygroundPage() {
                                         fontSize: '0.8rem', resize: 'vertical', outline: 'none',
                                     }}
                                 />
+                                <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, marginTop: 8, flexWrap: 'wrap' }}>
+                                    <span style={{ color: '#757575', fontSize: '0.73rem' }}>
+                                        Use one line per prompt, or space-separated values for `cin` / `Scanner`.
+                                    </span>
+                                    <button
+                                        type="button"
+                                        className="btn btn-ghost btn-sm"
+                                        onClick={() => setStdin(SAMPLE_STDIN[language] || '')}
+                                    >
+                                        Load sample input
+                                    </button>
+                                </div>
                             </div>
                         </div>
 
@@ -367,11 +450,9 @@ export default function CodePlaygroundPage() {
                                 display: 'flex', gap: 0,
                                 borderBottom: '1px solid #e0e0e0', background: '#f5f5f5',
                             }}>
-                                {[
-                                    { id: 'output', label: `📤 ${t('code.output')}` },
-                                    { id: 'errors', label: `⚠️ ${t('code.stderr')}` },
-                                    { id: 'history', label: `🗂 ${t('code.history')}` },
-                                ].map(tab => (
+                                {tabs.map(tab => {
+                                    const TabIcon = tab.icon
+                                    return (
                                     <button
                                         key={tab.id}
                                         id={`tab-${tab.id}`}
@@ -389,7 +470,10 @@ export default function CodePlaygroundPage() {
                                             transition: 'all 0.15s',
                                         }}
                                     >
-                                        {tab.label}
+                                        <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                            <TabIcon size={14} />
+                                            {tab.label}
+                                        </span>
                                         {tab.id === 'errors' && result?.stderr && (
                                             <span style={{
                                                 marginLeft: 6, background: '#c62828', color: '#fff',
@@ -397,7 +481,8 @@ export default function CodePlaygroundPage() {
                                             }}>!</span>
                                         )}
                                     </button>
-                                ))}
+                                    )
+                                })}
 
                                 {/* Status badge */}
                                 {result && (
@@ -421,17 +506,23 @@ export default function CodePlaygroundPage() {
                                             <>
                                                 {/* Meta info */}
                                                 <div style={{ display: 'flex', gap: 16, marginBottom: 12, flexWrap: 'wrap' }}>
-                                                    <span style={{ fontSize: '0.75rem', color: '#757575' }}>
-                                                        ⏱ {t('code.execTime')}: <strong style={{ color: '#1a1a2e' }}>{result.execution_time_ms?.toFixed(1)}ms</strong>
+                                                    <span style={{ fontSize: '0.75rem', color: '#757575', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        <Timer size={14} />
+                                                        {t('code.execTime')}: <strong style={{ color: '#1a1a2e' }}>{result.execution_time_ms?.toFixed(1)}ms</strong>
                                                     </span>
-                                                    <span style={{ fontSize: '0.75rem', color: '#757575' }}>
-                                                        🚦 {t('code.exitCode')}: <strong style={{ color: result.exit_code === 0 ? '#2e7d32' : '#c62828' }}>{result.exit_code}</strong>
+                                                    <span style={{ fontSize: '0.75rem', color: '#757575', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        <Activity size={14} />
+                                                        {t('code.exitCode')}: <strong style={{ color: result.exit_code === 0 ? '#2e7d32' : '#c62828' }}>{result.exit_code}</strong>
+                                                    </span>
+                                                    <span style={{ fontSize: '0.75rem', color: '#757575', display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                        <Inbox size={14} />
+                                                        Input: <strong style={{ color: '#1a1a2e' }}>{stdin.trim() ? 'provided' : 'none'}</strong>
                                                     </span>
                                                     <button
                                                         onClick={() => copyToClipboard(result.stdout)}
-                                                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#9e9e9e', cursor: 'pointer', fontSize: '0.75rem' }}
+                                                        style={{ marginLeft: 'auto', background: 'none', border: 'none', color: '#9e9e9e', cursor: 'pointer', fontSize: '0.75rem', display: 'inline-flex', alignItems: 'center' }}
                                                     >
-                                                        📋
+                                                        <Clipboard size={14} />
                                                     </button>
                                                 </div>
                                                 <pre style={{
@@ -446,7 +537,9 @@ export default function CodePlaygroundPage() {
                                             </>
                                         ) : (
                                             <div style={{ textAlign: 'center', marginTop: 60, color: '#bdbdbd' }}>
-                                                <div style={{ fontSize: '2.5rem', marginBottom: 12 }}>▶</div>
+                                                <div style={{ marginBottom: 12, display: 'flex', justifyContent: 'center' }}>
+                                                    <Play size={34} strokeWidth={1.8} />
+                                                </div>
                                                 <p style={{ fontSize: '0.9rem' }}>
                                                     {locale === 'fil' ? 'Pindutin ang "Patakbuhin" o Ctrl+Enter upang magsimula.' : 'Press Run or Ctrl+Enter to execute your code.'}
                                                 </p>
@@ -475,6 +568,9 @@ export default function CodePlaygroundPage() {
                                             <p style={{ color: '#bdbdbd', fontStyle: 'italic', fontSize: '0.85rem' }}>No runs yet.</p>
                                         ) : (
                                             history.map(h => (
+                                                (() => {
+                                                    const HistoryIcon = LANG_CONFIG[h.language]?.icon || Code2
+                                                    return (
                                                 <div
                                                     key={h.id}
                                                     style={{
@@ -483,7 +579,9 @@ export default function CodePlaygroundPage() {
                                                         display: 'flex', gap: 10, alignItems: 'center',
                                                     }}
                                                 >
-                                                    <span style={{ fontSize: '1rem' }}>{LANG_CONFIG[h.language]?.icon || '💻'}</span>
+                                                    <span style={{ fontSize: '1rem', color: LANG_CONFIG[h.language]?.color || '#64748b', display: 'inline-flex' }}>
+                                                        <HistoryIcon size={16} strokeWidth={2.2} />
+                                                    </span>
                                                     <div style={{ flex: 1, minWidth: 0 }}>
                                                         <div style={{
                                                             color: '#1a1a2e', fontSize: '0.78rem',
@@ -504,6 +602,8 @@ export default function CodePlaygroundPage() {
                                                         {h.status}
                                                     </span>
                                                 </div>
+                                                    )
+                                                })()
                                             ))
                                         )}
                                     </div>
@@ -513,9 +613,10 @@ export default function CodePlaygroundPage() {
                             {/* Footer info bar */}
                             <div style={{
                                 padding: '8px 16px', borderTop: '1px solid #e0e0e0', background: '#f5f5f5',
-                                fontSize: '0.72rem', color: '#9e9e9e',
+                                fontSize: '0.72rem', color: '#9e9e9e', display: 'flex', alignItems: 'center', gap: 6,
                             }}>
-                                🔒 {t('code.sandboxInfo')}
+                                <Lock size={13} />
+                                {t('code.sandboxInfo')}
                             </div>
                         </div>
                     </div>

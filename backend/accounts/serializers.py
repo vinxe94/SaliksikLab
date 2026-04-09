@@ -23,15 +23,25 @@ class RegisterSerializer(serializers.ModelSerializer):
 
 class UserSerializer(serializers.ModelSerializer):
     full_name = serializers.SerializerMethodField()
+    avatar_url = serializers.SerializerMethodField()
 
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'full_name',
-                  'role', 'department', 'date_joined', 'is_active', 'is_account_approved']
+                  'role', 'department', 'avatar', 'avatar_url',
+                  'date_joined', 'is_active', 'is_account_approved']
         read_only_fields = ['id', 'date_joined']
 
     def get_full_name(self, obj):
         return obj.get_full_name()
+
+    def get_avatar_url(self, obj):
+        request = self.context.get('request')
+        if not obj.avatar:
+            return None
+        if request is not None:
+            return request.build_absolute_uri(obj.avatar.url)
+        return obj.avatar.url
 
 
 class UserAdminSerializer(serializers.ModelSerializer):
@@ -39,5 +49,5 @@ class UserAdminSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = ['id', 'email', 'first_name', 'last_name', 'role',
-                  'department', 'is_active', 'is_account_approved', 'date_joined']
+                  'department', 'avatar', 'is_active', 'is_account_approved', 'date_joined']
         read_only_fields = ['id', 'email', 'date_joined']

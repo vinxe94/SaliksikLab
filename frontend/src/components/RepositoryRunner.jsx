@@ -18,13 +18,30 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import PropTypes from 'prop-types'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
-import { Play, ChevronDown, ChevronUp, Terminal, AlertCircle, Clock, RotateCcw } from 'lucide-react'
+import {
+    ChevronDown,
+    ChevronUp,
+    Clipboard,
+    Code2,
+    Coffee,
+    FileCode2,
+    Inbox,
+    LoaderCircle,
+    Lock,
+    Play,
+    Shield,
+    Terminal,
+    AlertCircle,
+    Clock,
+    RotateCcw,
+    TriangleAlert,
+} from 'lucide-react'
 
 // ── Language display config ───────────────────────────────────────────────────
 const LANG_CFG = {
-    python: { icon: '🐍', label: 'Python 3', color: '#3b82f6' },
-    java: { icon: '☕', label: 'Java', color: '#f97316' },
-    cpp: { icon: '⚙️', label: 'C++ 17', color: '#8b5cf6' },
+    python: { icon: Code2, label: 'Python 3', color: '#3b82f6' },
+    java: { icon: Coffee, label: 'Java', color: '#f97316' },
+    cpp: { icon: FileCode2, label: 'C++ 17', color: '#8b5cf6' },
 }
 
 const STATUS_STYLE = {
@@ -39,7 +56,7 @@ const STATUS_STYLE = {
  *   fileId        — the specific OutputFile id (latest version)
  *   filename      — original filename (used to check if runnable at all)
  */
-export default function RepositoryRunner({ repositoryId, fileId, filename }) {
+export default function RepositoryRunner({ repositoryId, fileId, filename, resourceBase = '/repository' }) {
     const [open, setOpen] = useState(false)
     const [runnable, setRunnable] = useState([])   // [{path, language}, …]
     const [loading, setLoading] = useState(false)
@@ -63,8 +80,8 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
         setLoading(true)
 
         const url = fileId
-            ? `/repository/${repositoryId}/runnable/${fileId}/`
-            : `/repository/${repositoryId}/runnable/`
+            ? `${resourceBase}/${repositoryId}/runnable/${fileId}/`
+            : `${resourceBase}/${repositoryId}/runnable/`
 
         api.get(url)
             .then(r => {
@@ -86,8 +103,8 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
 
         const token = localStorage.getItem('access_token')
         const baseUrl = fileId
-            ? `/api/repository/${repositoryId}/file-content/${fileId}/`
-            : `/api/repository/${repositoryId}/file-content/`
+            ? `/api${resourceBase}/${repositoryId}/file-content/${fileId}/`
+            : `/api${resourceBase}/${repositoryId}/file-content/`
 
         // Single-file repo — read file directly; archive — use ?path=
         const isArchive = /\.(zip|tar|gz|tgz|rar|bz2|xz|7z)$/i.test(filename || '')
@@ -118,8 +135,8 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
         setActiveTab('output')
 
         const url = fileId
-            ? `/repository/${repositoryId}/run/${fileId}/`
-            : `/repository/${repositoryId}/run/`
+            ? `${resourceBase}/${repositoryId}/run/${fileId}/`
+            : `${resourceBase}/${repositoryId}/run/`
 
         try {
             const { data } = await api.post(url, {
@@ -167,6 +184,11 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
 
     const selectedLang = runnable.find(r => r.path === selectedEntry)?.language || 'python'
     const langCfg = LANG_CFG[selectedLang] || LANG_CFG.python
+    const SelectedLangIcon = langCfg.icon
+    const outputTabs = [
+        { id: 'output', label: 'Output', icon: Clipboard },
+        { id: 'errors', label: 'Errors', icon: TriangleAlert },
+    ]
 
     return (
         <div style={{
@@ -209,7 +231,10 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                     padding: '2px 10px',
                     fontSize: '0.7rem',
                     fontWeight: 600,
-                }}>🔒 Sandboxed</span>
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 6,
+                }}><Shield size={12} /> Sandboxed</span>
                 <span style={{ marginLeft: 'auto', color: 'var(--text2)' }}>
                     {open ? <ChevronUp size={15} /> : <ChevronDown size={15} />}
                 </span>
@@ -255,7 +280,7 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                                     borderRadius: 8, padding: '6px 14px',
                                     fontSize: '0.82rem', fontWeight: 600, color: langCfg.color,
                                 }}>
-                                    {langCfg.icon} {langCfg.label}
+                                    <SelectedLangIcon size={15} strokeWidth={2.2} /> {langCfg.label}
                                 </span>
 
                                 {/* Entry-point dropdown (only shown for archives with multiple files) */}
@@ -278,7 +303,7 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                                     >
                                         {runnable.map(r => (
                                             <option key={r.path} value={r.path}>
-                                                {LANG_CFG[r.language]?.icon} {r.path}
+                                                {LANG_CFG[r.language]?.label || 'Code'} - {r.path}
                                             </option>
                                         ))}
                                     </select>
@@ -302,7 +327,7 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                                     }}
                                 >
                                     {running ? (
-                                        <><span style={{ animation: 'spin 0.7s linear infinite', display: 'inline-block' }}>⏳</span> Running…</>
+                                        <><LoaderCircle size={14} style={{ animation: 'spin 0.7s linear infinite', display: 'inline-block' }} /> Running…</>
                                     ) : (
                                         <><Play size={14} fill="currentColor" /> Run <kbd style={{ opacity: 0.6, fontSize: '0.7rem', marginLeft: 4 }}>Ctrl+↵</kbd></>
                                     )}
@@ -389,11 +414,12 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                             {/* ── Stdin input ───────────────────────────────── */}
                             <div>
                                 <label style={{
-                                    display: 'block', fontSize: '0.75rem',
+                                    display: 'flex', alignItems: 'center', gap: 6, fontSize: '0.75rem',
                                     fontWeight: 700, color: 'var(--text2)',
                                     marginBottom: 6, textTransform: 'uppercase', letterSpacing: '0.05em',
                                 }}>
-                                    📥 Standard Input (stdin)
+                                    <Inbox size={14} />
+                                    Standard Input (stdin)
                                 </label>
                                 <textarea
                                     id="repo-stdin"
@@ -425,10 +451,9 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                                     borderBottom: '1px solid var(--border)',
                                     background: 'var(--bg2)',
                                 }}>
-                                    {[
-                                        { id: 'output', label: '📤 Output' },
-                                        { id: 'errors', label: '⚠️ Errors' },
-                                    ].map(tab => (
+                                    {outputTabs.map(tab => {
+                                        const TabIcon = tab.icon
+                                        return (
                                         <button
                                             key={tab.id}
                                             id={`repo-tab-${tab.id}`}
@@ -444,7 +469,10 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                                                 fontFamily: 'inherit',
                                             }}
                                         >
-                                            {tab.label}
+                                            <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
+                                                <TabIcon size={13} />
+                                                {tab.label}
+                                            </span>
                                             {tab.id === 'errors' && result?.stderr && (
                                                 <span style={{
                                                     marginLeft: 6, background: '#c62828', color: '#fff',
@@ -452,7 +480,8 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                                                 }}>!</span>
                                             )}
                                         </button>
-                                    ))}
+                                        )
+                                    })}
 
                                     {/* Status badge */}
                                     {result && (
@@ -520,8 +549,9 @@ export default function RepositoryRunner({ repositoryId, fileId, filename }) {
                             </div>
 
                             {/* Sandbox note */}
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text2)', textAlign: 'right' }}>
-                                🔒 Code runs in an isolated sandbox · 10s timeout · 128MB memory limit
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text2)', textAlign: 'right', display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 6 }}>
+                                <Lock size={12} />
+                                Code runs in an isolated sandbox · 10s timeout · 128MB memory limit
                             </div>
                         </>
                     )}
@@ -535,9 +565,11 @@ RepositoryRunner.propTypes = {
     repositoryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     fileId: PropTypes.number,
     filename: PropTypes.string,
+    resourceBase: PropTypes.string,
 }
 
 RepositoryRunner.defaultProps = {
     fileId: null,
     filename: '',
+    resourceBase: '/repository',
 }

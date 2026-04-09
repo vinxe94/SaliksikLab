@@ -13,13 +13,27 @@ from rest_framework.views import APIView
 from rest_framework.parsers import MultiPartParser, FormParser
 import json
 
-from .models import ResearchOutput, OutputFile, DownloadLog
+from .models import (
+    ResearchOutput, OutputFile, DownloadLog,
+    Repository, RepositoryFile, ArchiveDocument,
+)
 from .serializers import (
     ResearchOutputListSerializer,
     ResearchOutputDetailSerializer,
     ResearchOutputCreateSerializer,
     OutputFileSerializer,
     RevisionSerializer,
+    RepositoryListSerializer,
+    RepositoryDetailSerializer,
+    RepositoryCreateSerializer,
+    RepositoryUpdateSerializer,
+    RepositoryRevisionSerializer,
+    RepositoryFileSerializer,
+    ArchiveDocumentListSerializer,
+    ArchiveDocumentDetailSerializer,
+    ArchiveDocumentCreateSerializer,
+    ArchiveDocumentUpdateSerializer,
+    ArchiveDocumentCompactSerializer,
 )
 from .file_browser import browse_file, read_file_content, get_file_type, MAX_PREVIEW_SIZE
 
@@ -30,6 +44,20 @@ class IsAdminUser(permissions.BasePermission):
 
 
 class IsOwnerOrAdmin(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.uploaded_by == request.user or request.user.role == 'admin'
+
+
+class IsRepositoryOwnerOrAdmin(permissions.BasePermission):
+    def has_object_permission(self, request, view, obj):
+        if request.method in permissions.SAFE_METHODS:
+            return True
+        return obj.created_by == request.user or request.user.role == 'admin'
+
+
+class IsArchiveOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
@@ -700,3 +728,307 @@ class ListRunnableFilesView(APIView):
             'original_filename': output_file.original_filename,
             'runnable_files': files,
         })
+
+
+class RepositoryListCreateView(generics.ListCreateAPIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return RepositoryCreateSerializer
+        return RepositoryListSerializer
+
+    def get_queryset(self):
+        qs = Repository.objects.filter(is_deleted=False).select_related('created_by')
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
+        if self.request.query_params.get('mine') == 'true':
+            qs = qs.filter(created_by=self.request.user)
+        has_documents = self.request.query_params.get('has_documents')
+        if has_documents == 'true':
+            qs = qs.annotate(linked_docs=Count('archive_documents')).filter(linked_docs__gt=0)
+        elif has_documents == 'false':
+            qs = qs.annotate(linked_docs=Count('archive_documents')).filter(linked_docs=0)
+        return qs
+
+
+class RepositoryDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsRepositoryOwnerOrAdmin]
+
+    def get_queryset(self):
+        return Repository.objects.filter(is_deleted=False).select_related('created_by')
+
+    def get_serializer_class(self):
+        if self.request.method in ['PATCH', 'PUT']:
+            return RepositoryUpdateSerializer
+        return RepositoryDetailSerializer
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save(update_fields=['is_deleted'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class RepositoryVersionHistoryView(generics.ListAPIView):
+    serializer_class = RepositoryFileSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return RepositoryFile.objects.filter(repository__pk=self.kwargs['pk'], repository__is_deleted=False)
+
+
+class RepositoryReviseView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated, IsRepositoryOwnerOrAdmin]
+
+    def post(self, request, pk):
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        self.check_object_permissions(request, repository)
+        serializer = RepositoryRevisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        latest = repository.files.order_by('-version').first()
+        new_version = (latest.version + 1) if latest else 1
+
+        RepositoryFile.objects.create(
+            repository=repository,
+            file=serializer.validated_data['file'],
+            original_filename=serializer.validated_data['file'].name,
+            file_size=serializer.validated_data['file'].size,
+            version=new_version,
+            change_notes=serializer.validated_data.get('change_notes', ''),
+            uploaded_by=request.user,
+        )
+        repository.save(update_fields=['updated_at'])
+        return Response({'version': new_version}, status=status.HTTP_201_CREATED)
+
+
+class RepositoryRelatedDocumentsView(generics.ListAPIView):
+    serializer_class = ArchiveDocumentCompactSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        return ArchiveDocument.objects.filter(
+            linked_repository__pk=self.kwargs['pk'],
+            linked_repository__is_deleted=False,
+            is_deleted=False,
+        ).select_related('linked_repository')
+
+
+class RepositoryDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, file_id=None):
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
+        if not output_file:
+            raise Http404('No files found.')
+        if not os.path.exists(output_file.file.path):
+            raise Http404('File not found on server.')
+        return FileResponse(open(output_file.file.path, 'rb'), as_attachment=True, filename=output_file.original_filename)
+
+
+class RepositoryPreviewView(APIView):
+    permission_classes = []
+    authentication_classes = []
+    CONTENT_TYPES = PreviewFileView.CONTENT_TYPES
+
+    def _get_user(self, request):
+        return PreviewFileView()._get_user(request)
+
+    def get(self, request, pk, file_id=None):
+        user = self._get_user(request)
+        if not user:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
+        if not output_file:
+            raise Http404('No files found.')
+        if not os.path.exists(output_file.file.path):
+            raise Http404('File not found on server.')
+        ext = output_file.original_filename.rsplit('.', 1)[-1].lower() if '.' in output_file.original_filename else ''
+        content_type = self.CONTENT_TYPES.get(ext, 'application/octet-stream')
+        response = FileResponse(open(output_file.file.path, 'rb'), content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="{output_file.original_filename}"'
+        return response
+
+
+class RepositoryBrowseFileView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, file_id=None):
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
+        if not output_file:
+            return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+        path = request.query_params.get('path', '')
+        result = browse_file(output_file.file.path, output_file.original_filename, path)
+        result['file_id'] = output_file.id
+        result['original_filename'] = output_file.original_filename
+        result['version'] = output_file.version
+        return Response(result)
+
+
+class RepositoryFileContentView(APIView):
+    permission_classes = []
+    authentication_classes = []
+    CONTENT_TYPES = FileContentView.CONTENT_TYPES
+
+    def _get_user(self, request):
+        return FileContentView()._get_user(request)
+
+    def get(self, request, pk, file_id=None):
+        user = self._get_user(request)
+        if not user:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
+        if not output_file:
+            return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+        inner_path = request.query_params.get('path', '')
+        data, filename, file_type = read_file_content(output_file.file.path, output_file.original_filename, inner_path)
+        ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+        if file_type == 'text':
+            response = HttpResponse(data[:MAX_PREVIEW_SIZE].decode('utf-8', errors='replace'), content_type='text/plain; charset=utf-8')
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            if len(data) > MAX_PREVIEW_SIZE:
+                response['X-Truncated'] = 'true'
+            return response
+        if file_type in ('image', 'pdf'):
+            response = HttpResponse(data, content_type=self.CONTENT_TYPES.get(ext, 'application/octet-stream'))
+            response['Content-Disposition'] = f'inline; filename="{filename}"'
+            return response
+        response = HttpResponse(data, content_type='application/octet-stream')
+        response['Content-Disposition'] = f'attachment; filename="{filename}"'
+        return response
+
+
+class RunRepositoryCodeView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk, file_id=None):
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
+        if not output_file:
+            return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+        result = run_repository_file(
+            file_path=output_file.file.path,
+            original_filename=output_file.original_filename,
+            stdin_input=request.data.get('stdin_input', ''),
+            entry_override=request.data.get('entry_file', ''),
+        )
+        return Response(result)
+
+
+class RepositoryRunnableFilesView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, file_id=None):
+        repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
+        if not output_file:
+            return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
+        if not os.path.exists(output_file.file.path):
+            return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+        files = list_runnable_files(output_file.file.path, output_file.original_filename)
+        return Response({'file_id': output_file.id, 'original_filename': output_file.original_filename, 'runnable_files': files})
+
+
+class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_serializer_class(self):
+        if self.request.method == 'POST':
+            return ArchiveDocumentCreateSerializer
+        return ArchiveDocumentListSerializer
+
+    def get_queryset(self):
+        qs = ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+        search = self.request.query_params.get('search', '').strip()
+        if search:
+            qs = qs.filter(
+                Q(title__icontains=search) |
+                Q(abstract__icontains=search) |
+                Q(author__icontains=search) |
+                Q(department__icontains=search)
+            )
+        linked = self.request.query_params.get('linked')
+        if linked == 'true':
+            qs = qs.filter(linked_repository__isnull=False)
+        elif linked == 'false':
+            qs = qs.filter(linked_repository__isnull=True)
+        repository_id = self.request.query_params.get('repository_id')
+        if repository_id:
+            qs = qs.filter(linked_repository_id=repository_id)
+        if self.request.query_params.get('mine') == 'true':
+            qs = qs.filter(uploaded_by=self.request.user)
+        return qs
+
+
+class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    permission_classes = [permissions.IsAuthenticated, IsArchiveOwnerOrAdmin]
+    parser_classes = [MultiPartParser, FormParser]
+
+    def get_queryset(self):
+        return ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+
+    def get_serializer_class(self):
+        if self.request.method in ['PATCH', 'PUT']:
+            return ArchiveDocumentUpdateSerializer
+        return ArchiveDocumentDetailSerializer
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        if instance.file and not instance.original_filename:
+            instance.original_filename = instance.file.name
+        if instance.file and hasattr(instance.file, 'size'):
+            instance.file_size = instance.file.size
+        instance.save()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_deleted = True
+        instance.save(update_fields=['is_deleted'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class ArchiveDocumentDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if not os.path.exists(doc.file.path):
+            raise Http404('File not found on server.')
+        return FileResponse(open(doc.file.path, 'rb'), as_attachment=True, filename=doc.original_filename)
+
+
+class ArchiveDocumentPreviewView(APIView):
+    permission_classes = []
+    authentication_classes = []
+    CONTENT_TYPES = PreviewFileView.CONTENT_TYPES
+
+    def _get_user(self, request):
+        return PreviewFileView()._get_user(request)
+
+    def get(self, request, pk):
+        user = self._get_user(request)
+        if not user:
+            return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
+        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if not os.path.exists(doc.file.path):
+            raise Http404('File not found on server.')
+        ext = doc.original_filename.rsplit('.', 1)[-1].lower() if '.' in doc.original_filename else ''
+        content_type = self.CONTENT_TYPES.get(ext, 'application/octet-stream')
+        response = FileResponse(open(doc.file.path, 'rb'), content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="{doc.original_filename}"'
+        return response

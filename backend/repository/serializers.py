@@ -1,6 +1,9 @@
 from rest_framework import serializers
 from accounts.serializers import UserSerializer
-from .models import ResearchOutput, OutputFile, DownloadLog
+from .models import (
+    ResearchOutput, OutputFile, DownloadLog,
+    Repository, RepositoryFile, ArchiveDocument,
+)
 
 
 class OutputFileSerializer(serializers.ModelSerializer):
@@ -30,7 +33,7 @@ class OutputFileSerializer(serializers.ModelSerializer):
 
 
 class ResearchOutputListSerializer(serializers.ModelSerializer):
-    """Lightweight serializer for list views."""
+    """Lightweight serializer for legacy list views."""
     uploaded_by = UserSerializer(read_only=True)
     file_count = serializers.SerializerMethodField()
     current_version = serializers.SerializerMethodField()
@@ -50,7 +53,7 @@ class ResearchOutputListSerializer(serializers.ModelSerializer):
 
 
 class ResearchOutputDetailSerializer(serializers.ModelSerializer):
-    """Full serializer including file versions."""
+    """Legacy serializer including file versions."""
     uploaded_by = UserSerializer(read_only=True)
     files = OutputFileSerializer(many=True, read_only=True)
     download_count = serializers.SerializerMethodField()
@@ -110,8 +113,6 @@ class ResearchOutputCreateSerializer(serializers.ModelSerializer):
 class RevisionSerializer(serializers.Serializer):
     file = serializers.FileField()
     change_notes = serializers.CharField(required=False, default='')
-
-    # Optional metadata updates
     title = serializers.CharField(required=False, allow_blank=True)
     abstract = serializers.CharField(required=False, allow_blank=True)
     author = serializers.CharField(required=False, allow_blank=True)
@@ -132,9 +133,227 @@ class RevisionSerializer(serializers.Serializer):
         ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
         allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
         if ext not in allowed:
-            raise serializers.ValidationError(
-                f'File type ".{ext}" is not allowed.'
-            )
+            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
+        if value.size > 104857600:
+            raise serializers.ValidationError('File size cannot exceed 100 MB.')
+        return value
+
+
+class RepositoryFileSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = RepositoryFile
+        fields = [
+            'id', 'original_filename', 'file_size', 'version',
+            'change_notes', 'uploaded_by', 'uploaded_at',
+        ]
+
+
+class RepositoryListSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+    file_count = serializers.SerializerMethodField()
+    current_version = serializers.SerializerMethodField()
+    linked_documents_count = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Repository
+        fields = [
+            'id', 'title', 'description', 'created_by',
+            'created_at', 'updated_at', 'file_count',
+            'current_version', 'linked_documents_count',
+        ]
+
+    def get_file_count(self, obj):
+        return obj.files.count()
+
+    def get_current_version(self, obj):
+        return obj.current_version
+
+    def get_linked_documents_count(self, obj):
+        return obj.archive_documents.filter(is_deleted=False).count()
+
+
+class ArchiveDocumentCompactSerializer(serializers.ModelSerializer):
+    linked_repository_title = serializers.CharField(source='linked_repository.title', read_only=True)
+
+    class Meta:
+        model = ArchiveDocument
+        fields = [
+            'id', 'title', 'abstract', 'author', 'department',
+            'course', 'year', 'uploaded_at', 'linked_repository',
+            'linked_repository_title', 'original_filename',
+        ]
+
+
+class RepositoryDetailSerializer(serializers.ModelSerializer):
+    created_by = UserSerializer(read_only=True)
+    files = RepositoryFileSerializer(many=True, read_only=True)
+    related_documents = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Repository
+        fields = [
+            'id', 'title', 'description', 'created_by',
+            'created_at', 'updated_at', 'files', 'related_documents',
+        ]
+
+    def get_related_documents(self, obj):
+        docs = obj.archive_documents.filter(is_deleted=False).order_by('-uploaded_at')[:10]
+        return ArchiveDocumentCompactSerializer(docs, many=True).data
+
+
+class RepositoryCreateSerializer(serializers.ModelSerializer):
+    file = serializers.FileField(write_only=True)
+
+    class Meta:
+        model = Repository
+        fields = ['id', 'title', 'description', 'file']
+        read_only_fields = ['id']
+
+    def validate_file(self, value):
+        from django.conf import settings
+        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
+        if ext not in allowed:
+            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
+        if value.size > 104857600:
+            raise serializers.ValidationError('File size cannot exceed 100 MB.')
+        return value
+
+    def create(self, validated_data):
+        file = validated_data.pop('file')
+        user = self.context['request'].user
+        repository = Repository.objects.create(created_by=user, **validated_data)
+        RepositoryFile.objects.create(
+            repository=repository,
+            file=file,
+            original_filename=file.name,
+            file_size=file.size,
+            version=1,
+            uploaded_by=user,
+        )
+        return repository
+
+
+class RepositoryUpdateSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Repository
+        fields = ['title', 'description']
+
+
+class RepositoryRevisionSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    change_notes = serializers.CharField(required=False, default='')
+
+    def validate_file(self, value):
+        from django.conf import settings
+        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
+        if ext not in allowed:
+            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
+        if value.size > 104857600:
+            raise serializers.ValidationError('File size cannot exceed 100 MB.')
+        return value
+
+
+class ArchiveDocumentListSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+    linked_repository = RepositoryListSerializer(read_only=True)
+    file_extension = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArchiveDocument
+        fields = [
+            'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
+            'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
+            'original_filename', 'file_size', 'file_extension',
+        ]
+
+    def get_file_extension(self, obj):
+        if '.' not in obj.original_filename:
+            return ''
+        return obj.original_filename.rsplit('.', 1)[-1].lower()
+
+
+class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+    linked_repository = RepositoryListSerializer(read_only=True)
+    file_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model = ArchiveDocument
+        fields = [
+            'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
+            'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
+            'original_filename', 'file_size', 'file_url',
+        ]
+
+    def get_file_url(self, obj):
+        if obj.file:
+            return obj.file.url
+        return None
+
+
+class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
+    linked_repository_id = serializers.PrimaryKeyRelatedField(
+        queryset=Repository.objects.filter(is_deleted=False),
+        source='linked_repository',
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = ArchiveDocument
+        fields = [
+            'id', 'title', 'abstract', 'file', 'author',
+            'department', 'course', 'year', 'linked_repository_id',
+        ]
+        read_only_fields = ['id']
+
+    def validate_file(self, value):
+        from django.conf import settings
+        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
+        if ext not in allowed:
+            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
+        if value.size > 104857600:
+            raise serializers.ValidationError('File size cannot exceed 100 MB.')
+        return value
+
+    def create(self, validated_data):
+        file = validated_data.pop('file')
+        user = self.context['request'].user
+        return ArchiveDocument.objects.create(
+            uploaded_by=user,
+            file=file,
+            original_filename=file.name,
+            file_size=file.size,
+            **validated_data,
+        )
+
+
+class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
+    linked_repository_id = serializers.PrimaryKeyRelatedField(
+        queryset=Repository.objects.filter(is_deleted=False),
+        source='linked_repository',
+        required=False,
+        allow_null=True,
+    )
+
+    class Meta:
+        model = ArchiveDocument
+        fields = [
+            'title', 'abstract', 'file', 'author',
+            'department', 'course', 'year', 'linked_repository_id',
+        ]
+
+    def validate_file(self, value):
+        from django.conf import settings
+        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
+        if ext not in allowed:
+            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
         if value.size > 104857600:
             raise serializers.ValidationError('File size cannot exceed 100 MB.')
         return value

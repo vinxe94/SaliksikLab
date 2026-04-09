@@ -8,10 +8,16 @@ export function AuthProvider({ children }) {
     const [user, setUser] = useState(null)
     const [loading, setLoading] = useState(true)
 
+    const refreshUser = async () => {
+        const { data } = await api.get('/auth/me/')
+        setUser(data)
+        return data
+    }
+
     useEffect(() => {
         const token = localStorage.getItem('access_token')
         if (token) {
-            api.get('/auth/me/').then(r => setUser(r.data)).catch(() => {
+            refreshUser().catch(() => {
                 localStorage.clear()
             }).finally(() => setLoading(false))
         } else {
@@ -33,7 +39,7 @@ export function AuthProvider({ children }) {
     }
 
     return (
-        <AuthContext.Provider value={{ user, login, logout, loading }}>
+        <AuthContext.Provider value={{ user, login, logout, loading, refreshUser }}>
             {children}
         </AuthContext.Provider>
     )

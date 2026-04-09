@@ -42,7 +42,7 @@ function formatDate(iso) {
 }
 
 /* ── Main Component ── */
-export default function FileExplorer({ repositoryId, fileId }) {
+export default function FileExplorer({ repositoryId, fileId, resourceBase = '/repository' }) {
     const [entries, setEntries] = useState([])
     const [currentPath, setCurrentPath] = useState('')
     const [archiveType, setArchiveType] = useState(null)
@@ -60,8 +60,8 @@ export default function FileExplorer({ repositoryId, fileId }) {
         setError(null)
         try {
             const url = fileId
-                ? `/repository/${repositoryId}/browse/${fileId}/`
-                : `/repository/${repositoryId}/browse/`
+                ? `${resourceBase}/${repositoryId}/browse/${fileId}/`
+                : `${resourceBase}/${repositoryId}/browse/`
             const { data } = await api.get(url, { params: { path } })
             setEntries(data.entries || [])
             setCurrentPath(data.current_path || '')
@@ -103,8 +103,8 @@ export default function FileExplorer({ repositoryId, fileId }) {
         try {
             const token = localStorage.getItem('access_token')
             const url = fileId
-                ? `/api/repository/${repositoryId}/file-content/${fileId}/?path=${encodeURIComponent(entry.path)}`
-                : `/api/repository/${repositoryId}/file-content/?path=${encodeURIComponent(entry.path)}`
+                ? `/api${resourceBase}/${repositoryId}/file-content/${fileId}/?path=${encodeURIComponent(entry.path)}`
+                : `/api${resourceBase}/${repositoryId}/file-content/?path=${encodeURIComponent(entry.path)}`
 
             if (entry.file_type === 'text') {
                 const res = await fetch(url, { headers: { Authorization: `Bearer ${token}` } })
@@ -128,8 +128,8 @@ export default function FileExplorer({ repositoryId, fileId }) {
     const downloadFile = (entry) => {
         const token = localStorage.getItem('access_token')
         const url = fileId
-            ? `/api/repository/${repositoryId}/file-content/${fileId}/?path=${encodeURIComponent(entry.path)}`
-            : `/api/repository/${repositoryId}/file-content/?path=${encodeURIComponent(entry.path)}`
+            ? `/api${resourceBase}/${repositoryId}/file-content/${fileId}/?path=${encodeURIComponent(entry.path)}`
+            : `/api${resourceBase}/${repositoryId}/file-content/?path=${encodeURIComponent(entry.path)}`
         fetch(url, { headers: { Authorization: `Bearer ${token}` } })
             .then(r => r.blob()).then(blob => {
                 const href = URL.createObjectURL(blob)
@@ -367,4 +367,10 @@ export default function FileExplorer({ repositoryId, fileId }) {
 FileExplorer.propTypes = {
     repositoryId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]).isRequired,
     fileId: PropTypes.oneOfType([PropTypes.string, PropTypes.number]),
+    resourceBase: PropTypes.string,
+}
+
+FileExplorer.defaultProps = {
+    fileId: null,
+    resourceBase: '/repository',
 }
