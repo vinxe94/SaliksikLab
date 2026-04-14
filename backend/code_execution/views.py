@@ -46,7 +46,11 @@ class ExecuteCodeView(APIView):
 
         language    = ser.validated_data['language']
         source_code = ser.validated_data['source_code']
-        stdin_input = ser.validated_data['stdin_input']
+        stdin_input = ser.validated_data.get('stdin_input', '')
+        if stdin_input is None:
+            stdin_input = ''
+        elif not isinstance(stdin_input, str):
+            stdin_input = str(stdin_input)
 
         # Create a pending record
         submission = CodeSubmission.objects.create(

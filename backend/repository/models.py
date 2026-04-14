@@ -4,20 +4,23 @@ from django.conf import settings
 
 
 def upload_to(instance, filename):
-    ext = filename.rsplit('.', 1)[-1].lower()
-    return f'outputs/{instance.research_output.id}/v{instance.version}/{filename}'
+    safe_name = os.path.basename(filename)
+    return f'outputs/{instance.research_output.id}/v{instance.version}/{safe_name}'
 
 
 def repository_upload_to(instance, filename):
-    ext = filename.rsplit('.', 1)[-1].lower() if '.' in filename else ''
+    safe_name = os.path.basename(filename)
+    ext = safe_name.rsplit('.', 1)[-1].lower() if '.' in safe_name else ''
     suffix = f'.{ext}' if ext else ''
     repo_id = instance.repository_id or 'new'
-    return f'repositories/{repo_id}/v{instance.version}/{filename.rsplit(".", 1)[0] if "." in filename else filename}{suffix}'
+    stem = safe_name.rsplit(".", 1)[0] if "." in safe_name else safe_name
+    return f'repositories/{repo_id}/v{instance.version}/{stem}{suffix}'
 
 
 def archive_upload_to(instance, filename):
     archive_id = instance.id or 'new'
-    return f'archives/{archive_id}/{filename}'
+    safe_name = os.path.basename(filename)
+    return f'archives/{archive_id}/{safe_name}'
 
 
 class ResearchOutput(models.Model):
@@ -201,6 +204,9 @@ class ArchiveDocument(models.Model):
         blank=True,
         related_name='archive_documents'
     )
+    is_approved = models.BooleanField(default=False)
+    is_rejected = models.BooleanField(default=False)
+    rejection_reason = models.TextField(blank=True)
     is_deleted = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -35,6 +35,14 @@ class ExecuteRequestSerializer(serializers.Serializer):
     language = serializers.ChoiceField(choices=['python', 'java', 'cpp'])
     source_code = serializers.CharField(max_length=50_000)
     stdin_input = serializers.CharField(required=False, default='', allow_blank=True)
+    stdin = serializers.CharField(required=False, allow_blank=True, write_only=True)
+
+    def validate(self, attrs):
+        # Backward/alternate key support for clients that send `stdin`.
+        if 'stdin' in attrs and not attrs.get('stdin_input'):
+            attrs['stdin_input'] = attrs.get('stdin', '')
+        attrs.pop('stdin', None)
+        return attrs
 
 
 class TranslateRequestSerializer(serializers.Serializer):

@@ -2,7 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from .models import (
     CollabProject, ProjectMember, Issue, IssueComment,
-    MergeRequest, MRComment, Commit, Notification
+    MergeRequest, MRComment, Commit, Notification, CollabProjectFile
 )
 
 User = get_user_model()
@@ -39,6 +39,8 @@ class CollabProjectSerializer(serializers.ModelSerializer):
     open_issues = serializers.SerializerMethodField()
     open_mrs = serializers.SerializerMethodField()
     commit_count = serializers.SerializerMethodField()
+    linked_repository_title = serializers.SerializerMethodField()
+    linked_repository_current_version = serializers.SerializerMethodField()
 
     class Meta:
         model = CollabProject
@@ -46,7 +48,9 @@ class CollabProjectSerializer(serializers.ModelSerializer):
             'id', 'name', 'description', 'status',
             'owner', 'members', 'member_count',
             'open_issues', 'open_mrs', 'commit_count',
-            'research_output', 'created_at', 'updated_at',
+            'research_output', 'linked_repository',
+            'linked_repository_title', 'linked_repository_current_version',
+            'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'owner', 'created_at', 'updated_at']
 
@@ -61,6 +65,16 @@ class CollabProjectSerializer(serializers.ModelSerializer):
 
     def get_commit_count(self, obj):
         return obj.commits.count()
+
+    def get_linked_repository_title(self, obj):
+        if not obj.linked_repository:
+            return None
+        return obj.linked_repository.title
+
+    def get_linked_repository_current_version(self, obj):
+        if not obj.linked_repository:
+            return 0
+        return obj.linked_repository.current_version
 
 
 # ── Issue ─────────────────────────────────────────────────────────────────────
@@ -160,3 +174,19 @@ class NotificationSerializer(serializers.ModelSerializer):
             'object_id', 'is_read', 'created_at',
         ]
         read_only_fields = ['id', 'notif_type', 'message', 'actor', 'project', 'created_at']
+
+
+# ── IDE File ──────────────────────────────────────────────────────────────────
+
+class CollabProjectFileSerializer(serializers.ModelSerializer):
+    created_by = UserMiniSerializer(read_only=True)
+    last_edited_by = UserMiniSerializer(read_only=True)
+
+    class Meta:
+        model = CollabProjectFile
+        fields = [
+            'id', 'path', 'content', 'language',
+            'created_by', 'last_edited_by',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'created_by', 'last_edited_by', 'created_at', 'updated_at']

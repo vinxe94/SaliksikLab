@@ -62,7 +62,28 @@ class RepositoryAdmin(admin.ModelAdmin):
 
 @admin.register(ArchiveDocument)
 class ArchiveDocumentAdmin(admin.ModelAdmin):
-    list_display = ['title', 'author', 'linked_repository', 'uploaded_by', 'uploaded_at', 'is_deleted']
-    list_filter = ['is_deleted', 'department', 'year', 'uploaded_at']
+    list_display = ['title', 'author', 'linked_repository', 'uploaded_by', 'status_display', 'uploaded_at', 'is_deleted']
+    list_filter = ['is_approved', 'is_rejected', 'is_deleted', 'department', 'year', 'uploaded_at']
     search_fields = ['title', 'abstract', 'author', 'department', 'linked_repository__title']
     readonly_fields = ['uploaded_by', 'uploaded_at', 'updated_at', 'original_filename', 'file_size']
+    actions = ['approve_selected_archives', 'reject_selected_archives', 'mark_pending_archives']
+
+    def status_display(self, obj):
+        if obj.is_approved:
+            return 'Approved'
+        if obj.is_rejected:
+            return 'Rejected'
+        return 'Pending'
+    status_display.short_description = 'Status'
+
+    def approve_selected_archives(self, request, queryset):
+        queryset.update(is_approved=True, is_rejected=False, rejection_reason='')
+    approve_selected_archives.short_description = 'Approve selected archives'
+
+    def reject_selected_archives(self, request, queryset):
+        queryset.update(is_approved=False, is_rejected=True)
+    reject_selected_archives.short_description = 'Reject selected archives'
+
+    def mark_pending_archives(self, request, queryset):
+        queryset.update(is_approved=False, is_rejected=False, rejection_reason='')
+    mark_pending_archives.short_description = 'Mark selected archives as pending'

@@ -7,6 +7,11 @@ from .views import (
     CommitListCreateView,
     NotificationListView, MarkNotificationsReadView,
     UserSearchView,
+    IDEFileListCreateView, IDEFileDetailView,
+    IDEPreviewView, IDERunView,
+    ProjectLinkedReposView,
+    ProjectLinkRepositoryView,
+    PublishToRepositoryView,
 )
 
 urlpatterns = [
@@ -30,6 +35,19 @@ urlpatterns = [
 
     # Commits
     path('projects/<uuid:project_pk>/commits/', CommitListCreateView.as_view(), name='collab-commit-list'),
+
+    # IDE files
+    path('projects/<uuid:project_pk>/ide-files/', IDEFileListCreateView.as_view(), name='collab-ide-files'),
+    path('projects/<uuid:project_pk>/ide-files/<int:file_pk>/', IDEFileDetailView.as_view(), name='collab-ide-file-detail'),
+    path('projects/<uuid:project_pk>/ide-preview/', IDEPreviewView.as_view(), name='collab-ide-preview'),
+    path('projects/<uuid:project_pk>/ide-run/', IDERunView.as_view(), name='collab-ide-run'),
+
+    # Linked repositories (for IDE import)
+    path('projects/<uuid:project_pk>/repos/', ProjectLinkedReposView.as_view(), name='collab-project-repos'),
+    path('projects/<uuid:project_pk>/link-repository/', ProjectLinkRepositoryView.as_view(), name='collab-project-link-repository'),
+
+    # Publish IDE workspace → repository
+    path('projects/<uuid:project_pk>/publish-to-repo/', PublishToRepositoryView.as_view(), name='collab-publish-to-repo'),
 
     # Notifications
     path('notifications/', NotificationListView.as_view(), name='collab-notifications'),

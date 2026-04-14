@@ -4,6 +4,7 @@ from .models import (
     ResearchOutput, OutputFile, DownloadLog,
     Repository, RepositoryFile, ArchiveDocument,
 )
+from .upload_security import validate_and_normalize_upload, UploadSecurityError
 
 
 class OutputFileSerializer(serializers.ModelSerializer):
@@ -83,17 +84,10 @@ class ResearchOutputCreateSerializer(serializers.ModelSerializer):
                   'keywords', 'author', 'adviser', 'co_authors', 'file']
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(
-                f'File type ".{ext}" is not allowed. Allowed: {", ".join(allowed)}'
-            )
-        max_size = 104857600  # 100 MB
-        if value.size > max_size:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        try:
+            return validate_and_normalize_upload(value)
+        except UploadSecurityError as exc:
+            raise serializers.ValidationError(str(exc))
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -129,14 +123,10 @@ class RevisionSerializer(serializers.Serializer):
     )
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        try:
+            return validate_and_normalize_upload(value)
+        except UploadSecurityError as exc:
+            raise serializers.ValidationError(str(exc))
 
 
 class RepositoryFileSerializer(serializers.ModelSerializer):
@@ -212,14 +202,10 @@ class RepositoryCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        try:
+            return validate_and_normalize_upload(value)
+        except UploadSecurityError as exc:
+            raise serializers.ValidationError(str(exc))
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -247,20 +233,17 @@ class RepositoryRevisionSerializer(serializers.Serializer):
     change_notes = serializers.CharField(required=False, default='')
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        try:
+            return validate_and_normalize_upload(value)
+        except UploadSecurityError as exc:
+            raise serializers.ValidationError(str(exc))
 
 
 class ArchiveDocumentListSerializer(serializers.ModelSerializer):
     uploaded_by = UserSerializer(read_only=True)
     linked_repository = RepositoryListSerializer(read_only=True)
     file_extension = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = ArchiveDocument
@@ -268,6 +251,7 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
             'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'original_filename', 'file_size', 'file_extension',
+            'is_approved', 'is_rejected', 'rejection_reason', 'status',
         ]
 
     def get_file_extension(self, obj):
@@ -275,11 +259,19 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
             return ''
         return obj.original_filename.rsplit('.', 1)[-1].lower()
 
+    def get_status(self, obj):
+        if obj.is_approved:
+            return 'approved'
+        if obj.is_rejected:
+            return 'rejected'
+        return 'pending'
+
 
 class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
     uploaded_by = UserSerializer(read_only=True)
     linked_repository = RepositoryListSerializer(read_only=True)
     file_url = serializers.SerializerMethodField()
+    status = serializers.SerializerMethodField()
 
     class Meta:
         model = ArchiveDocument
@@ -287,12 +279,20 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'original_filename', 'file_size', 'file_url',
+            'is_approved', 'is_rejected', 'rejection_reason', 'status',
         ]
 
     def get_file_url(self, obj):
         if obj.file:
             return obj.file.url
         return None
+
+    def get_status(self, obj):
+        if obj.is_approved:
+            return 'approved'
+        if obj.is_rejected:
+            return 'rejected'
+        return 'pending'
 
 
 class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
@@ -312,14 +312,10 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        try:
+            return validate_and_normalize_upload(value)
+        except UploadSecurityError as exc:
+            raise serializers.ValidationError(str(exc))
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -349,11 +345,7 @@ class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        try:
+            return validate_and_normalize_upload(value)
+        except UploadSecurityError as exc:
+            raise serializers.ValidationError(str(exc))

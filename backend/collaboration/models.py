@@ -3,14 +3,15 @@ Collaboration models – Git/GitHub-inspired research project collaboration.
 
 Entities
 --------
-CollabProject   – A shared research workspace (like a GitHub repo)
-ProjectMember   – Members with roles: owner, contributor, viewer
-Issue           – Task / discussion thread tied to a project
-IssueComment    – Threaded reply on an Issue
-MergeRequest    – A merge/pull-request-like change proposal
-MRComment       – Comment on a MergeRequest
-Commit          – Represents a file submission / revision within a project
-Notification    – In-app notification for mentions, reviews, etc.
+CollabProject      – A shared research workspace (like a GitHub repo)
+ProjectMember      – Members with roles: owner, contributor, viewer
+Issue              – Task / discussion thread tied to a project
+IssueComment       – Threaded reply on an Issue
+MergeRequest       – A merge/pull-request-like change proposal
+MRComment          – Comment on a MergeRequest
+Commit             – Represents a file submission / revision within a project
+Notification       – In-app notification for mentions, reviews, etc.
+CollabProjectFile  – An editable text file stored in a collab project's IDE
 """
 
 import uuid
@@ -36,6 +37,13 @@ class CollabProject(models.Model):
     # Link to a repository output (optional)
     research_output = models.ForeignKey(
         'repository.ResearchOutput',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='collab_projects'
+    )
+    # Published repository (created when IDE workspace is exported)
+    linked_repository = models.ForeignKey(
+        'repository.Repository',
         null=True, blank=True,
         on_delete=models.SET_NULL,
         related_name='collab_projects'
@@ -283,3 +291,38 @@ class Notification(models.Model):
 
     def __str__(self):
         return f'{self.recipient} – {self.notif_type}'
+
+
+class CollabProjectFile(models.Model):
+    """A text file living inside a collaboration project (IDE workspace)."""
+    project = models.ForeignKey(
+        CollabProject, on_delete=models.CASCADE, related_name='ide_files'
+    )
+    path = models.CharField(
+        max_length=1000,
+        help_text='Relative path inside the project, e.g. "src/main.py"'
+    )
+    content = models.TextField(blank=True)
+    language = models.CharField(
+        max_length=50, blank=True,
+        help_text='Monaco language id, e.g. python, javascript, markdown'
+    )
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True,
+        related_name='ide_files_created'
+    )
+    last_edited_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL, null=True,
+        related_name='ide_files_edited'
+    )
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['path']
+        unique_together = ('project', 'path')
+
+    def __str__(self):
+        return f'{self.project.name}/{self.path}'

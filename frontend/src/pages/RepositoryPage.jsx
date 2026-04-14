@@ -25,6 +25,16 @@ function fileKindLabel(filename = '') {
     return ext
 }
 
+function archiveStatusConfig(doc) {
+    if (doc.is_approved) {
+        return { label: 'Approved', bg: 'rgba(46,125,50,0.12)', color: '#2E7D32' }
+    }
+    if (doc.is_rejected) {
+        return { label: 'Rejected', bg: 'rgba(198,40,40,0.12)', color: '#c62828' }
+    }
+    return { label: 'Pending', bg: 'rgba(230,81,0,0.12)', color: '#e65100' }
+}
+
 export default function RepositoryPage() {
     const navigate = useNavigate()
     const [module, setModule] = useState('repositories')
@@ -213,6 +223,9 @@ export default function RepositoryPage() {
                                 <div className="repo-list">
                                     {archives.map((doc) => (
                                         <article key={doc.id} className="activity-card archive-card" onClick={() => navigate(`/archives/${doc.id}`)}>
+                                            {(() => {
+                                                const status = archiveStatusConfig(doc)
+                                                return (
                                             <div className="archive-card-head">
                                                 <div className="archive-file-icon">{fileKindLabel(doc.original_filename)}</div>
                                                 <div style={{ flex: 1 }}>
@@ -221,8 +234,26 @@ export default function RepositoryPage() {
                                                         Uploaded {timeAgo(doc.uploaded_at)} by {doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'Researcher'}
                                                     </div>
                                                 </div>
+                                                <span style={{
+                                                    background: status.bg,
+                                                    color: status.color,
+                                                    borderRadius: 999,
+                                                    padding: '4px 10px',
+                                                    fontSize: '0.72rem',
+                                                    fontWeight: 700,
+                                                }}>
+                                                    {status.label}
+                                                </span>
                                             </div>
+                                                )
+                                            })()}
                                             <p className="archive-card-copy">{doc.abstract || 'No abstract available for this document.'}</p>
+                                            <div className="repository-preview-meta" style={{ marginBottom: 10 }}>
+                                                <span className="feed-meta-item"><FileText size={13} /> {doc.author || 'Unknown author'}</span>
+                                                <span className="feed-meta-item">{doc.department || 'No department'}</span>
+                                                <span className="feed-meta-item">{doc.course || 'No course'}</span>
+                                                <span className="feed-meta-item">{doc.year || 'No year'}</span>
+                                            </div>
                                             <div className="repository-preview-meta">
                                                 <span className="language-chip"><span className="language-dot" style={{ background: '#6e7781' }} /> {fileKindLabel(doc.original_filename)}</span>
                                                 {doc.linked_repository ? (

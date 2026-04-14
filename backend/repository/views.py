@@ -659,6 +659,13 @@ class RunRepositoryFileView(APIView):
     """
     permission_classes = [permissions.IsAuthenticated]
 
+    @staticmethod
+    def _coerce_stdin(request):
+        stdin_input = request.data.get('stdin_input', request.data.get('stdin', ''))
+        if stdin_input is None:
+            return ''
+        return stdin_input if isinstance(stdin_input, str) else str(stdin_input)
+
     def post(self, request, pk, file_id=None):
         output = get_object_or_404(ResearchOutput, pk=pk, is_deleted=False)
         user = request.user
@@ -675,7 +682,7 @@ class RunRepositoryFileView(APIView):
         if not os.path.exists(output_file.file.path):
             return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
 
-        stdin_input  = request.data.get('stdin_input', '')
+        stdin_input = self._coerce_stdin(request)
         entry_override = request.data.get('entry_file', '')
 
         try:
@@ -920,10 +927,16 @@ class RunRepositoryCodeView(APIView):
             return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
         if not os.path.exists(output_file.file.path):
             return Response({'detail': 'File not found on server.'}, status=status.HTTP_404_NOT_FOUND)
+        stdin_input = request.data.get('stdin_input', request.data.get('stdin', ''))
+        if stdin_input is None:
+            stdin_input = ''
+        elif not isinstance(stdin_input, str):
+            stdin_input = str(stdin_input)
+
         result = run_repository_file(
             file_path=output_file.file.path,
             original_filename=output_file.original_filename,
-            stdin_input=request.data.get('stdin_input', ''),
+            stdin_input=stdin_input,
             entry_override=request.data.get('entry_file', ''),
         )
         return Response(result)
@@ -954,6 +967,9 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+        user = self.request.user
+        if user.role != 'admin':
+            qs = qs.filter(Q(is_approved=True) | Q(uploaded_by=user))
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -980,7 +996,11 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
-        return ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+        qs = ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+        user = self.request.user
+        if user.role != 'admin':
+            qs = qs.filter(Q(is_approved=True) | Q(uploaded_by=user))
+        return qs
 
     def get_serializer_class(self):
         if self.request.method in ['PATCH', 'PUT']:
@@ -1007,6 +1027,8 @@ class ArchiveDocumentDownloadView(APIView):
 
     def get(self, request, pk):
         doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if request.user.role != 'admin' and not doc.is_approved and doc.uploaded_by != request.user:
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         if not os.path.exists(doc.file.path):
             raise Http404('File not found on server.')
         return FileResponse(open(doc.file.path, 'rb'), as_attachment=True, filename=doc.original_filename)
@@ -1025,6 +1047,8 @@ class ArchiveDocumentPreviewView(APIView):
         if not user:
             return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if user.role != 'admin' and not doc.is_approved and doc.uploaded_by != user:
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         if not os.path.exists(doc.file.path):
             raise Http404('File not found on server.')
         ext = doc.original_filename.rsplit('.', 1)[-1].lower() if '.' in doc.original_filename else ''

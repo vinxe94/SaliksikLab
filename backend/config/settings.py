@@ -123,6 +123,7 @@ SIMPLE_JWT = {
 # File upload settings
 DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600   # 100 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600   # 100 MB
+UPLOAD_MAX_FILE_SIZE_BYTES = int(os.getenv('UPLOAD_MAX_FILE_SIZE_BYTES', '104857600'))  # 100 MB
 
 ALLOWED_UPLOAD_EXTENSIONS = [
     'pdf', 'doc', 'docx', 'txt',       # Documents
@@ -131,6 +132,18 @@ ALLOWED_UPLOAD_EXTENSIONS = [
     'html', 'css', 'json', 'xml', 'yaml', 'yml', 'md',  # Web / Config
     'png', 'jpg', 'jpeg', 'gif', 'svg',  # Images
 ]
+
+# Archive upload hardening
+UPLOAD_MAX_ARCHIVE_FILES = int(os.getenv('UPLOAD_MAX_ARCHIVE_FILES', '2000'))
+UPLOAD_MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES = int(
+    os.getenv('UPLOAD_MAX_ARCHIVE_TOTAL_UNCOMPRESSED_BYTES', str(500 * 1024 * 1024))
+)  # 500 MB
+UPLOAD_MAX_ARCHIVE_MEMBER_SIZE_BYTES = int(
+    os.getenv('UPLOAD_MAX_ARCHIVE_MEMBER_SIZE_BYTES', '104857600')
+)  # 100 MB per file
+UPLOAD_MAX_ARCHIVE_COMPRESSION_RATIO = int(
+    os.getenv('UPLOAD_MAX_ARCHIVE_COMPRESSION_RATIO', '200')
+)
 
 # Email
 EMAIL_BACKEND = os.getenv('EMAIL_BACKEND', 'django.core.mail.backends.console.EmailBackend')

@@ -113,6 +113,16 @@ def run_python(source_code: str, stdin_input: str) -> dict:
             f.write(source_code)
 
         result = _run(['python3', '-I', '-B', src_path], stdin_input, tmpdir)
+        if (
+            not stdin_input.strip()
+            and result.get('exit_code') != 0
+            and 'EOFError' in (result.get('stderr') or '')
+        ):
+            result['stderr'] = (
+                f'{result["stderr"]}\n\n'
+                'Tip: Your program called input(), but no stdin was provided. '
+                'Add input values (one per line) in the IDE stdin box.'
+            )
         result['language'] = 'python'
         return result
     finally:

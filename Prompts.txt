@@ -1,0 +1,15 @@
+Prompts **
+
+in collaborate make a an IDE where the user or researcher,student, faculty can collaborate and push commits and merges etc inside the saliksiklab connect it in the repository where the collaborate can open their repositories and edit them in the IDE in the collaborate.
+
+
+unprompt messages
+
+
+if a repository is created in the collaboration it should be saved and uploaded in the repository 
+
+the repository  created in collaborate should be runnable  in the IDE inside  like a real IDE(like running on localhost where the admin can see the output of the research/systems uploaded in saliksiklab), and should support basic languages for web applications like javascript,html, css ,python 
+
+in the repository archives put the metadata and pending,approved, rejected status in each archive repository. and inside each file it should show the abstract and the ai powered translation from filipino-english using the pretrained ai from hugging face in the backend 
+
+the collaborate feature should be able to edit the existing repository in the collaborate feature and can push or commit a new version just like github but inside the system	 

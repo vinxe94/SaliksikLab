@@ -3,12 +3,12 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
-import { BookOpen, Upload, Clock, CheckCircle, AlertCircle, XCircle, BarChart2, PieChart, Activity, ArrowRight } from 'lucide-react'
-import { Chart as ChartJS, ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
-import { Pie, Bar } from 'react-chartjs-2'
+import { BookOpen, Upload, Clock, CheckCircle, AlertCircle, XCircle, BarChart2, PieChart, Activity, ArrowRight, LineChart } from 'lucide-react'
+import { Chart as ChartJS, ArcElement, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler } from 'chart.js'
+import { Pie, Line } from 'react-chartjs-2'
 
 // Register Chart.js components
-ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
+ChartJS.register(ArcElement, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend, Filler)
 
 const TYPE_LABELS = { thesis: 'Thesis', software: 'Software', sourcecode: 'Source Code', documentation: 'Docs', other: 'Other' }
 const typeColor = { thesis: 'badge-blue', software: 'badge-green', sourcecode: 'badge-yellow', documentation: 'badge-gray', other: 'badge-gray' }
@@ -83,7 +83,7 @@ export default function DashboardPage() {
               </div>
               <div className="card">
                 <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <BarChart2 size={14} color="var(--accent2)" /> By Department (Top 8)
+                  <LineChart size={14} color="var(--accent2)" /> By Department (Top 8)
                 </h3>
                 <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
                 <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
@@ -158,10 +158,9 @@ export default function DashboardPage() {
         }
     }
 
-    const compactBarOptions = {
+    const compactLineOptions = {
         responsive: true,
         maintainAspectRatio: false,
-        indexAxis: 'y',
         animation: {
             duration: 950,
             easing: 'easeOutQuart',
@@ -170,14 +169,14 @@ export default function DashboardPage() {
             }
         },
         scales: {
-            x: {
+            y: {
                 beginAtZero: true,
                 grid: { color: 'rgba(27, 94, 32, 0.08)' },
                 ticks: { precision: 0, font: { size: 11 } }
             },
-            y: {
+            x: {
                 grid: { display: false },
-                ticks: { font: { size: 11 } }
+                ticks: { font: { size: 11 }, maxRotation: 0 }
             }
         },
         plugins: {
@@ -185,7 +184,7 @@ export default function DashboardPage() {
             tooltip: {
                 callbacks: {
                     label(context) {
-                        return `${context.parsed.x.toLocaleString()} outputs`
+                        return `${context.parsed.y.toLocaleString()} outputs`
                     }
                 }
             }
@@ -295,22 +294,29 @@ export default function DashboardPage() {
                                      <div className="dashboard-panel-head">
                                          <div>
                                              <span className="dashboard-panel-kicker">Activity</span>
-                                             <h3><BarChart2 size={16} /> Top Departments</h3>
+                                             <h3><LineChart size={16} /> Top Departments</h3>
                                          </div>
                                      </div>
-                                     <div className="dashboard-chart dashboard-chart-bar">
-                                         <Bar
+                                     <div className="dashboard-chart dashboard-chart-line">
+                                         <Line
                                              data={{
                                                  labels: stats.by_dept.slice(0, 6).map(d => d.department || 'Unknown'),
                                                  datasets: [{
+                                                     label: 'Outputs',
                                                      data: stats.by_dept.slice(0, 6).map(d => d.count),
-                                                     backgroundColor: chartColors.vibrant,
                                                      borderColor: chartColors.primary,
-                                                     borderWidth: 1,
-                                                     borderRadius: 6
+                                                     backgroundColor: 'rgba(27, 94, 32, 0.14)',
+                                                     pointBackgroundColor: '#ffffff',
+                                                     pointBorderColor: chartColors.primary,
+                                                     pointBorderWidth: 2,
+                                                     pointRadius: 4,
+                                                     pointHoverRadius: 6,
+                                                     borderWidth: 3,
+                                                     tension: 0.35,
+                                                     fill: true
                                                  }]
                                              }}
-                                             options={compactBarOptions}
+                                             options={compactLineOptions}
                                          />
                                      </div>
                                  </div>

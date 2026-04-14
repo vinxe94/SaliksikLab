@@ -16,11 +16,12 @@ import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import toast from 'react-hot-toast'
+import CollabIDETab from './CollabIDETab'
 import {
     GitBranch, GitMerge, GitPullRequest, Users, Bell, Plus,
     Circle, CheckCircle, XCircle, MessageSquare, Clock,
     ChevronRight, ArrowLeft, Loader, Hash, GitCommit, Search,
-    UserPlus, Archive, X, RefreshCw
+    UserPlus, Archive, X, RefreshCw, Code, Download,
 } from 'lucide-react'
 
 // ── helpers ───────────────────────────────────────────────────────────────────
@@ -128,7 +129,10 @@ function ProjectsList({ onSelect }) {
     const [projects, setProjects] = useState([])
     const [loading, setLoading] = useState(true)
     const [showCreate, setShowCreate] = useState(false)
-    const [form, setForm] = useState({ name: '', description: '' })
+    const [createMode, setCreateMode] = useState('new')
+    const [reposLoading, setReposLoading] = useState(false)
+    const [ownedRepos, setOwnedRepos] = useState([])
+    const [form, setForm] = useState({ name: '', description: '', linked_repository: '' })
 
     const load = useCallback(() => {
         setLoading(true)
@@ -137,13 +141,44 @@ function ProjectsList({ onSelect }) {
 
     useEffect(() => { load() }, [load])
 
+    const loadOwnedRepos = useCallback(() => {
+        setReposLoading(true)
+        api.get('/repository/repos/?mine=true&page_size=100')
+            .then(r => setOwnedRepos(r.data.results || r.data || []))
+            .catch(() => setOwnedRepos([]))
+            .finally(() => setReposLoading(false))
+    }, [])
+
+    const openCreateModal = () => {
+        setCreateMode('new')
+        setShowCreate(true)
+        loadOwnedRepos()
+    }
+
+    const openImportModal = () => {
+        setCreateMode('import')
+        setShowCreate(true)
+        loadOwnedRepos()
+    }
+
     const create = async () => {
         if (!form.name.trim()) return toast.error('Project name is required.')
+        if (createMode === 'import' && !form.linked_repository) {
+            return toast.error('Select a base repository to import.')
+        }
         try {
-            const { data } = await api.post('/collab/projects/', form)
+            const payload = {
+                name: form.name.trim(),
+                description: form.description,
+            }
+            if (form.linked_repository) {
+                payload.linked_repository = Number(form.linked_repository)
+            }
+
+            const { data } = await api.post('/collab/projects/', payload)
             toast.success('Project created!')
             setShowCreate(false)
-            setForm({ name: '', description: '' })
+            setForm({ name: '', description: '', linked_repository: '' })
             setProjects(p => [data, ...p])
         } catch { toast.error('Failed to create project.') }
     }
@@ -154,9 +189,14 @@ function ProjectsList({ onSelect }) {
         <div>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
                 <h2 style={{ fontSize: '1.1rem' }}>🤝 Collaboration Projects</h2>
-                <button className="btn btn-primary btn-sm" onClick={() => setShowCreate(true)}>
-                    <Plus size={15} /> New Project
-                </button>
+                <div style={{ display: 'flex', gap: 8 }}>
+                    <button className="btn btn-ghost btn-sm" onClick={openImportModal}>
+                        <Download size={15} /> Import Repository
+                    </button>
+                    <button className="btn btn-primary btn-sm" onClick={openCreateModal}>
+                        <Plus size={15} /> New Project
+                    </button>
+                </div>
             </div>
 
             {projects.length === 0 ? (
@@ -180,6 +220,11 @@ function ProjectsList({ onSelect }) {
                             <div style={{ flex: 1, minWidth: 0 }}>
                                 <div style={{ fontWeight: 700, fontSize: '0.95rem' }}>{p.name}</div>
                                 {p.description && <div style={{ fontSize: '0.8rem', color: 'var(--text2)', marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{p.description}</div>}
+                                {p.linked_repository && (
+                                    <div style={{ marginTop: 4, fontSize: '0.75rem', color: 'var(--accent)', fontWeight: 600 }}>
+                                        Linked repository: {p.linked_repository_title || `#${p.linked_repository}`} · v{p.linked_repository_current_version || 0}
+                                    </div>
+                                )}
                                 <div style={{ display: 'flex', gap: 14, marginTop: 6 }}>
                                     {[
                                         { icon: <Users size={12} />, val: p.member_count, label: 'members' },
@@ -200,7 +245,7 @@ function ProjectsList({ onSelect }) {
             )}
 
             {showCreate && (
-                <Modal title="✨ New Collaboration Project" onClose={() => setShowCreate(false)}>
+                <Modal title={createMode === 'import' ? '📥 Import Repository to Collaboration' : '✨ New Collaboration Project'} onClose={() => setShowCreate(false)}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                         <div className="form-group">
                             <label className="form-label">Project Name *</label>
@@ -209,6 +254,25 @@ function ProjectsList({ onSelect }) {
                         <div className="form-group">
                             <label className="form-label">Description</label>
                             <textarea className="form-textarea" value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} placeholder="What is this project about?" rows={3} />
+                        </div>
+                        <div className="form-group">
+                            <label className="form-label">Base Repository (optional)</label>
+                            <select
+                                className="form-select"
+                                value={form.linked_repository}
+                                onChange={e => setForm(f => ({ ...f, linked_repository: e.target.value }))}
+                                disabled={reposLoading}
+                            >
+                                <option value="">Start with an empty workspace</option>
+                                {ownedRepos.map(repo => (
+                                    <option key={repo.id} value={repo.id}>
+                                        {repo.title} (v{repo.current_version || 0})
+                                    </option>
+                                ))}
+                            </select>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--text2)' }}>
+                                If selected, IDE files are initialized from the repository&apos;s latest version so your team can edit and push new versions inside Collaboration.
+                            </span>
                         </div>
                         <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowCreate(false)}>Cancel</button>
@@ -811,9 +875,10 @@ function NotificationsPanel({ onClose }) {
 
 // ── Project detail ────────────────────────────────────────────────────────────
 function ProjectDetail({ project, onBack }) {
-    const [tab, setTab] = useState('issues')
+    const [tab, setTab] = useState('ide')
 
     const tabs = [
+        { id: 'ide', label: 'IDE', icon: <Code size={14} /> },
         { id: 'issues', label: 'Issues', icon: <Circle size={14} />, count: project.open_issues },
         { id: 'mrs', label: 'Merge Requests', icon: <GitPullRequest size={14} />, count: project.open_mrs },
         { id: 'commits', label: 'Commits', icon: <GitCommit size={14} />, count: project.commit_count },
@@ -834,6 +899,11 @@ function ProjectDetail({ project, onBack }) {
                     <div>
                         <h2 style={{ fontSize: '1.2rem' }}>{project.name}</h2>
                         {project.description && <p style={{ color: 'var(--text2)', fontSize: '0.85rem', marginTop: 2 }}>{project.description}</p>}
+                        {project.linked_repository && (
+                            <p style={{ color: 'var(--accent)', fontSize: '0.78rem', marginTop: 4, fontWeight: 600 }}>
+                                Linked repository: {project.linked_repository_title || `#${project.linked_repository}`} · v{project.linked_repository_current_version || 0}
+                            </p>
+                        )}
                     </div>
                     <div style={{ display: 'flex', gap: 8, marginLeft: 'auto' }}>
                         <span style={{ background: project.status === 'active' ? 'rgba(46,125,50,0.1)' : 'var(--bg3)', color: project.status === 'active' ? 'var(--accent2)' : 'var(--text2)', borderRadius: 999, padding: '3px 12px', fontSize: '0.75rem', fontWeight: 700 }}>
@@ -845,6 +915,7 @@ function ProjectDetail({ project, onBack }) {
 
             <TabBar tabs={tabs} active={tab} onChange={setTab} />
 
+            {tab === 'ide' && <CollabIDETab project={project} />}
             {tab === 'issues' && <IssuesTab project={project} />}
             {tab === 'mrs' && <MRTab project={project} />}
             {tab === 'commits' && <CommitsTab project={project} />}
