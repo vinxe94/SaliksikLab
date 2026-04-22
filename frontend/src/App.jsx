@@ -9,6 +9,7 @@ import RepositoryPage from './pages/RepositoryPage'
 import UploadPage from './pages/UploadPage'
 import DetailPage from './pages/DetailPage'
 import ArchiveDetailPage from './pages/ArchiveDetailPage'
+import ArchivePdfViewerPage from './pages/ArchivePdfViewerPage'
 import AdminPage from './pages/AdminPage'
 import ProfilePage from './pages/ProfilePage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/repository" element={<PrivateRoute><RepositoryPage /></PrivateRoute>} />
             <Route path="/repository/:id" element={<PrivateRoute><DetailPage /></PrivateRoute>} />
             <Route path="/archives/:id" element={<PrivateRoute><ArchiveDetailPage /></PrivateRoute>} />
+            <Route path="/archives/:id/view" element={<PrivateRoute><ArchivePdfViewerPage /></PrivateRoute>} />
             <Route path="/upload" element={<PrivateRoute><UploadPage /></PrivateRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />

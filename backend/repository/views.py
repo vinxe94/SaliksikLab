@@ -960,13 +960,20 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
                 Q(title__icontains=search) |
                 Q(abstract__icontains=search) |
                 Q(author__icontains=search) |
-                Q(department__icontains=search)
+                Q(department__icontains=search) |
+                Q(course__icontains=search)
             )
+        department = self.request.query_params.get('department', '').strip()
+        if department:
+            qs = qs.filter(department__icontains=department)
+        course = self.request.query_params.get('course', '').strip()
+        if course:
+            qs = qs.filter(course__icontains=course)
         linked = self.request.query_params.get('linked')
         if linked == 'true':
-            qs = qs.filter(linked_repository__isnull=False)
+            qs = qs.exclude(system_link='')
         elif linked == 'false':
-            qs = qs.filter(linked_repository__isnull=True)
+            qs = qs.filter(system_link='')
         repository_id = self.request.query_params.get('repository_id')
         if repository_id:
             qs = qs.filter(linked_repository_id=repository_id)
@@ -1006,10 +1013,11 @@ class ArchiveDocumentDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request, pk):
-        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
-        if not os.path.exists(doc.file.path):
-            raise Http404('File not found on server.')
-        return FileResponse(open(doc.file.path, 'rb'), as_attachment=True, filename=doc.original_filename)
+        get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        return Response(
+            {'detail': 'Archive PDFs are view-only and cannot be downloaded.'},
+            status=status.HTTP_403_FORBIDDEN,
+        )
 
 
 class ArchiveDocumentPreviewView(APIView):
@@ -1031,4 +1039,5 @@ class ArchiveDocumentPreviewView(APIView):
         content_type = self.CONTENT_TYPES.get(ext, 'application/octet-stream')
         response = FileResponse(open(doc.file.path, 'rb'), content_type=content_type)
         response['Content-Disposition'] = f'inline; filename="{doc.original_filename}"'
+        response['X-Frame-Options'] = 'SAMEORIGIN'
         return response

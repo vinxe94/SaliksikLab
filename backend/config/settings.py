@@ -125,11 +125,7 @@ DATA_UPLOAD_MAX_MEMORY_SIZE = 104857600   # 100 MB
 FILE_UPLOAD_MAX_MEMORY_SIZE = 104857600   # 100 MB
 
 ALLOWED_UPLOAD_EXTENSIONS = [
-    'pdf', 'doc', 'docx', 'txt',       # Documents
-    'zip', 'tar', 'gz', 'rar',          # Archives
-    'py', 'js', 'ts', 'java', 'c', 'cpp', 'h', 'cs', 'php', 'rb',  # Source code
-    'html', 'css', 'json', 'xml', 'yaml', 'yml', 'md',  # Web / Config
-    'png', 'jpg', 'jpeg', 'gif', 'svg',  # Images
+    'pdf',
 ]
 
 # Email

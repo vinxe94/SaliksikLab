@@ -1,11 +1,12 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import api from '../api/axios'
+import { useAuth } from '../contexts/AuthContext'
 import 'react'
 
 const ROLES = ['student', 'faculty', 'researcher']
 
 export default function RegisterPage() {
+    const { register } = useAuth()
     const navigate = useNavigate()
     const [form, setForm] = useState({ email: '', first_name: '', last_name: '', role: 'student', department: '', password: '', password2: '' })
     const [errors, setErrors] = useState({})
@@ -18,8 +19,8 @@ export default function RegisterPage() {
         setErrors({})
         setLoading(true)
         try {
-            await api.post('/auth/register/', form)
-            navigate('/login', { state: { registered: true } })
+            const user = await register(form)
+            navigate(user.role === 'admin' ? '/admin' : '/dashboard')
         } catch (err) {
             setErrors(err.response?.data || { non_field_errors: ['Registration failed.'] })
         } finally {

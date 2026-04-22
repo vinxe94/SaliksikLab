@@ -201,6 +201,10 @@ class ArchiveDocument(models.Model):
         blank=True,
         related_name='archive_documents'
     )
+    system_link = models.URLField(max_length=500, blank=True)
+    is_approved = models.BooleanField(default=False)
+    is_rejected = models.BooleanField(default=False)
+    rejection_reason = models.TextField(blank=True)
     is_deleted = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

@@ -8,6 +8,19 @@ import FileExplorer from '../components/FileExplorer'
 import RepositoryRunner from '../components/RepositoryRunner'
 import { ArrowLeft, Download, RefreshCw, Trash2, Link2, FileText } from 'lucide-react'
 
+const PDF_ONLY_MESSAGE = 'Only PDF files are allowed.'
+
+function isPdf(file) {
+    return file?.name?.toLowerCase().endsWith('.pdf')
+}
+
+function uploadErrorMessage(err) {
+    const data = err.response?.data
+    if (data?.file?.[0]) return data.file[0]
+    if (data?.detail) return data.detail
+    return 'Revision failed.'
+}
+
 export default function DetailPage() {
     const { id } = useParams()
     const navigate = useNavigate()
@@ -62,6 +75,10 @@ export default function DetailPage() {
             toast.error('Select a file.')
             return
         }
+        if (!isPdf(revFile)) {
+            toast.error(PDF_ONLY_MESSAGE)
+            return
+        }
         setRevLoading(true)
         try {
             const fd = new FormData()
@@ -73,11 +90,21 @@ export default function DetailPage() {
             setRevFile(null)
             setRevNotes('')
             load()
-        } catch {
-            toast.error('Revision failed.')
+        } catch (err) {
+            toast.error(uploadErrorMessage(err))
         } finally {
             setRevLoading(false)
         }
+    }
+
+    const chooseRevisionFile = (selected) => {
+        if (!selected) return
+        if (!isPdf(selected)) {
+            setRevFile(null)
+            toast.error(PDF_ONLY_MESSAGE)
+            return
+        }
+        setRevFile(selected)
     }
 
     const deleteRepository = async () => {
@@ -135,7 +162,8 @@ export default function DetailPage() {
                                     <form onSubmit={submitRevision} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                         <div className="form-group">
                                             <label className="form-label">Repository File</label>
-                                            <input type="file" className="form-input" onChange={(e) => setRevFile(e.target.files[0])} />
+                                            <input type="file" accept=".pdf" className="form-input" onChange={(e) => chooseRevisionFile(e.target.files[0])} />
+                                            <span className="dashboard-stat-meta">PDF files only.</span>
                                         </div>
                                         <div className="form-group">
                                             <label className="form-label">Change Notes</label>

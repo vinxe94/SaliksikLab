@@ -1,9 +1,39 @@
 from rest_framework import serializers
+from django.core.validators import URLValidator
+from django.core.exceptions import ValidationError as DjangoValidationError
 from accounts.serializers import UserSerializer
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
     Repository, RepositoryFile, ArchiveDocument,
 )
+
+
+def validate_pdf_upload(value):
+    ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
+    if ext != 'pdf':
+        raise serializers.ValidationError('Only PDF files are allowed.')
+    position = value.tell() if hasattr(value, 'tell') else None
+    header = value.read(5)
+    if position is not None and hasattr(value, 'seek'):
+        value.seek(position)
+    if header != b'%PDF-':
+        raise serializers.ValidationError('Only valid PDF files are allowed.')
+    if value.size > 104857600:
+        raise serializers.ValidationError('File size cannot exceed 100 MB.')
+    return value
+
+
+def validate_system_link(value):
+    if not value:
+        return value
+    if not value.startswith(('http://', 'https://')):
+        raise serializers.ValidationError('System link must start with http:// or https://.')
+    validator = URLValidator(schemes=['http', 'https'])
+    try:
+        validator(value)
+    except DjangoValidationError:
+        raise serializers.ValidationError('Enter a valid system link.')
+    return value
 
 
 class OutputFileSerializer(serializers.ModelSerializer):
@@ -83,17 +113,7 @@ class ResearchOutputCreateSerializer(serializers.ModelSerializer):
                   'keywords', 'author', 'adviser', 'co_authors', 'file']
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(
-                f'File type ".{ext}" is not allowed. Allowed: {", ".join(allowed)}'
-            )
-        max_size = 104857600  # 100 MB
-        if value.size > max_size:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        return validate_pdf_upload(value)
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -129,14 +149,7 @@ class RevisionSerializer(serializers.Serializer):
     )
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        return validate_pdf_upload(value)
 
 
 class RepositoryFileSerializer(serializers.ModelSerializer):
@@ -182,7 +195,7 @@ class ArchiveDocumentCompactSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'abstract', 'author', 'department',
             'course', 'year', 'uploaded_at', 'linked_repository',
-            'linked_repository_title', 'original_filename',
+            'linked_repository_title', 'system_link', 'original_filename',
         ]
 
 
@@ -212,14 +225,7 @@ class RepositoryCreateSerializer(serializers.ModelSerializer):
         read_only_fields = ['id']
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        return validate_pdf_upload(value)
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -247,14 +253,7 @@ class RepositoryRevisionSerializer(serializers.Serializer):
     change_notes = serializers.CharField(required=False, default='')
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        return validate_pdf_upload(value)
 
 
 class ArchiveDocumentListSerializer(serializers.ModelSerializer):
@@ -267,7 +266,7 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
-            'original_filename', 'file_size', 'file_extension',
+            'system_link', 'original_filename', 'file_size', 'file_extension',
         ]
 
     def get_file_extension(self, obj):
@@ -286,7 +285,7 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
-            'original_filename', 'file_size', 'file_url',
+            'system_link', 'original_filename', 'file_size', 'file_url',
         ]
 
     def get_file_url(self, obj):
@@ -296,30 +295,19 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
 
 
 class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
-    linked_repository_id = serializers.PrimaryKeyRelatedField(
-        queryset=Repository.objects.filter(is_deleted=False),
-        source='linked_repository',
-        required=False,
-        allow_null=True,
-    )
-
     class Meta:
         model = ArchiveDocument
         fields = [
             'id', 'title', 'abstract', 'file', 'author',
-            'department', 'course', 'year', 'linked_repository_id',
+            'department', 'course', 'year', 'system_link',
         ]
         read_only_fields = ['id']
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        return validate_pdf_upload(value)
+
+    def validate_system_link(self, value):
+        return validate_system_link(value)
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -334,26 +322,15 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
 
 
 class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
-    linked_repository_id = serializers.PrimaryKeyRelatedField(
-        queryset=Repository.objects.filter(is_deleted=False),
-        source='linked_repository',
-        required=False,
-        allow_null=True,
-    )
-
     class Meta:
         model = ArchiveDocument
         fields = [
             'title', 'abstract', 'file', 'author',
-            'department', 'course', 'year', 'linked_repository_id',
+            'department', 'course', 'year', 'system_link',
         ]
 
     def validate_file(self, value):
-        from django.conf import settings
-        ext = value.name.rsplit('.', 1)[-1].lower() if '.' in value.name else ''
-        allowed = getattr(settings, 'ALLOWED_UPLOAD_EXTENSIONS', [])
-        if ext not in allowed:
-            raise serializers.ValidationError(f'File type ".{ext}" is not allowed.')
-        if value.size > 104857600:
-            raise serializers.ValidationError('File size cannot exceed 100 MB.')
-        return value
+        return validate_pdf_upload(value)
+
+    def validate_system_link(self, value):
+        return validate_system_link(value)

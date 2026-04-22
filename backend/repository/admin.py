@@ -62,7 +62,7 @@ class RepositoryAdmin(admin.ModelAdmin):
 
 @admin.register(ArchiveDocument)
 class ArchiveDocumentAdmin(admin.ModelAdmin):
-    list_display = ['title', 'author', 'linked_repository', 'uploaded_by', 'uploaded_at', 'is_deleted']
+    list_display = ['title', 'author', 'system_link', 'uploaded_by', 'uploaded_at', 'is_deleted']
     list_filter = ['is_deleted', 'department', 'year', 'uploaded_at']
-    search_fields = ['title', 'abstract', 'author', 'department', 'linked_repository__title']
+    search_fields = ['title', 'abstract', 'author', 'department', 'system_link']
     readonly_fields = ['uploaded_by', 'uploaded_at', 'updated_at', 'original_filename', 'file_size']
