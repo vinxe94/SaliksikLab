@@ -20,6 +20,13 @@ function fileKindLabel(filename = '') {
     return ext
 }
 
+function reviewBadge(doc) {
+    if (doc.is_approved) return <span className="badge badge-green">Approved</span>
+    if (doc.is_rejected && doc.revision_comment && !doc.rejection_reason) return <span className="badge badge-yellow">Revision</span>
+    if (doc.is_rejected) return <span className="badge" style={{ background: 'rgba(248,81,73,0.12)', color: 'var(--danger)' }}>Rejected</span>
+    return <span className="badge badge-yellow">Pending</span>
+}
+
 export default function RepositoryPage() {
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
@@ -165,6 +172,7 @@ export default function RepositoryPage() {
                                             <p className="archive-card-copy">{doc.abstract || 'No abstract available for this document.'}</p>
                                             <div className="repository-preview-meta">
                                                 <span className="language-chip"><span className="language-dot" style={{ background: '#6e7781' }} /> {fileKindLabel(doc.original_filename)}</span>
+                                                {reviewBadge(doc)}
                                                 {doc.department && <span className="feed-meta-item">{doc.department}</span>}
                                                 {doc.course && <span className="feed-meta-item">{doc.course}</span>}
                                                 {doc.system_link ? (

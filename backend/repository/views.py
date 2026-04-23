@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404
 from django.core.mail import send_mail
 from django.conf import settings as django_settings
 from django.db.models import Q, Count
+from django.utils import timezone
 from rest_framework import generics, permissions, status, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
@@ -16,6 +17,7 @@ import json
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
     Repository, RepositoryFile, ArchiveDocument,
+    Department, Course,
 )
 from .serializers import (
     ResearchOutputListSerializer,
@@ -34,6 +36,9 @@ from .serializers import (
     ArchiveDocumentCreateSerializer,
     ArchiveDocumentUpdateSerializer,
     ArchiveDocumentCompactSerializer,
+    ArchiveDocumentReviewSerializer,
+    DepartmentSerializer,
+    CourseSerializer,
 )
 from .file_browser import browse_file, read_file_content, get_file_type, MAX_PREVIEW_SIZE
 
@@ -62,6 +67,35 @@ class IsArchiveOwnerOrAdmin(permissions.BasePermission):
         if request.method in permissions.SAFE_METHODS:
             return True
         return obj.uploaded_by == request.user or request.user.role == 'admin'
+
+
+def user_can_access_repository(user, repository):
+    return (
+        user.is_authenticated and (
+            user.role == 'admin' or
+            repository.is_public or
+            repository.created_by == user
+        )
+    )
+
+
+def user_can_access_archive(user, doc):
+    return (
+        user.is_authenticated and (
+            user.role == 'admin' or
+            doc.is_approved or
+            doc.uploaded_by == user or
+            doc.assigned_faculty == user
+        )
+    )
+
+
+def user_can_review_archive(user, doc):
+    return (
+        user.is_authenticated and
+        user.role == 'faculty' and
+        doc.assigned_faculty == user
+    )
 
 
 class ResearchOutputListCreateView(generics.ListCreateAPIView):
@@ -741,6 +775,8 @@ class RepositoryListCreateView(generics.ListCreateAPIView):
 
     def get_queryset(self):
         qs = Repository.objects.filter(is_deleted=False).select_related('created_by')
+        if self.request.user.role != 'admin':
+            qs = qs.filter(Q(is_public=True) | Q(created_by=self.request.user))
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(Q(title__icontains=search) | Q(description__icontains=search))
@@ -758,7 +794,10 @@ class RepositoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsRepositoryOwnerOrAdmin]
 
     def get_queryset(self):
-        return Repository.objects.filter(is_deleted=False).select_related('created_by')
+        qs = Repository.objects.filter(is_deleted=False).select_related('created_by')
+        if self.request.user.role != 'admin':
+            qs = qs.filter(Q(is_public=True) | Q(created_by=self.request.user))
+        return qs
 
     def get_serializer_class(self):
         if self.request.method in ['PATCH', 'PUT']:
@@ -777,7 +816,10 @@ class RepositoryVersionHistoryView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return RepositoryFile.objects.filter(repository__pk=self.kwargs['pk'], repository__is_deleted=False)
+        repository = get_object_or_404(Repository, pk=self.kwargs['pk'], is_deleted=False)
+        if not user_can_access_repository(self.request.user, repository):
+            return RepositoryFile.objects.none()
+        return RepositoryFile.objects.filter(repository=repository)
 
 
 class RepositoryReviseView(APIView):
@@ -811,11 +853,21 @@ class RepositoryRelatedDocumentsView(generics.ListAPIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get_queryset(self):
-        return ArchiveDocument.objects.filter(
+        repository = get_object_or_404(Repository, pk=self.kwargs['pk'], is_deleted=False)
+        if not user_can_access_repository(self.request.user, repository):
+            return ArchiveDocument.objects.none()
+        qs = ArchiveDocument.objects.filter(
             linked_repository__pk=self.kwargs['pk'],
             linked_repository__is_deleted=False,
             is_deleted=False,
         ).select_related('linked_repository')
+        if self.request.user.role != 'admin':
+            qs = qs.filter(
+                Q(is_approved=True) |
+                Q(uploaded_by=self.request.user) |
+                Q(assigned_faculty=self.request.user)
+            )
+        return qs
 
 
 class RepositoryDownloadView(APIView):
@@ -823,6 +875,8 @@ class RepositoryDownloadView(APIView):
 
     def get(self, request, pk, file_id=None):
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        if not user_can_access_repository(request.user, repository):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
         if not output_file:
             raise Http404('No files found.')
@@ -844,6 +898,8 @@ class RepositoryPreviewView(APIView):
         if not user:
             return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        if not user_can_access_repository(user, repository):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
         if not output_file:
             raise Http404('No files found.')
@@ -861,6 +917,8 @@ class RepositoryBrowseFileView(APIView):
 
     def get(self, request, pk, file_id=None):
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        if not user_can_access_repository(request.user, repository):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
         if not output_file:
             return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -887,6 +945,8 @@ class RepositoryFileContentView(APIView):
         if not user:
             return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        if not user_can_access_repository(user, repository):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
         if not output_file:
             return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -915,6 +975,8 @@ class RunRepositoryCodeView(APIView):
 
     def post(self, request, pk, file_id=None):
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        if not user_can_access_repository(request.user, repository):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
         if not output_file:
             return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -934,6 +996,8 @@ class RepositoryRunnableFilesView(APIView):
 
     def get(self, request, pk, file_id=None):
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
+        if not user_can_access_repository(request.user, repository):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         output_file = get_object_or_404(RepositoryFile, pk=file_id, repository=repository) if file_id else repository.files.order_by('-version').first()
         if not output_file:
             return Response({'detail': 'No files found.'}, status=status.HTTP_404_NOT_FOUND)
@@ -953,7 +1017,13 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
         return ArchiveDocumentListSerializer
 
     def get_queryset(self):
-        qs = ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+        qs = ArchiveDocument.objects.filter(is_deleted=False).select_related(
+            'uploaded_by', 'linked_repository', 'linked_repository__created_by',
+            'assigned_faculty', 'reviewed_by',
+        )
+        user = self.request.user
+        if user.role != 'admin':
+            qs = qs.filter(Q(is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -979,6 +1049,8 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
             qs = qs.filter(linked_repository_id=repository_id)
         if self.request.query_params.get('mine') == 'true':
             qs = qs.filter(uploaded_by=self.request.user)
+        if self.request.query_params.get('assigned') == 'true':
+            qs = qs.filter(assigned_faculty=self.request.user)
         return qs
 
 
@@ -987,7 +1059,14 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_queryset(self):
-        return ArchiveDocument.objects.filter(is_deleted=False).select_related('uploaded_by', 'linked_repository', 'linked_repository__created_by')
+        qs = ArchiveDocument.objects.filter(is_deleted=False).select_related(
+            'uploaded_by', 'linked_repository', 'linked_repository__created_by',
+            'assigned_faculty', 'reviewed_by',
+        )
+        user = self.request.user
+        if user.role != 'admin':
+            qs = qs.filter(Q(is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+        return qs
 
     def get_serializer_class(self):
         if self.request.method in ['PATCH', 'PUT']:
@@ -1033,6 +1112,8 @@ class ArchiveDocumentPreviewView(APIView):
         if not user:
             return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if not user_can_access_archive(user, doc):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
         if not os.path.exists(doc.file.path):
             raise Http404('File not found on server.')
         ext = doc.original_filename.rsplit('.', 1)[-1].lower() if '.' in doc.original_filename else ''
@@ -1041,3 +1122,103 @@ class ArchiveDocumentPreviewView(APIView):
         response['Content-Disposition'] = f'inline; filename="{doc.original_filename}"'
         response['X-Frame-Options'] = 'SAMEORIGIN'
         return response
+
+
+class ArchiveDocumentReviewView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def post(self, request, pk):
+        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if not user_can_review_archive(request.user, doc):
+            return Response(
+                {'detail': 'Only the assigned faculty can review this paper.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = ArchiveDocumentReviewSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data['action']
+        comment = serializer.validated_data.get('comment', '')
+
+        if action == 'approve':
+            doc.is_approved = True
+            doc.is_rejected = False
+            doc.rejection_reason = ''
+            doc.revision_comment = comment
+        elif action == 'reject':
+            doc.is_approved = False
+            doc.is_rejected = True
+            doc.rejection_reason = comment
+            doc.revision_comment = comment
+        else:
+            doc.is_approved = False
+            doc.is_rejected = True
+            doc.rejection_reason = ''
+            doc.revision_comment = comment
+
+        doc.reviewed_by = request.user
+        doc.reviewed_at = timezone.now()
+        doc.save(update_fields=[
+            'is_approved', 'is_rejected', 'rejection_reason', 'revision_comment',
+            'reviewed_by', 'reviewed_at', 'updated_at',
+        ])
+        return Response(ArchiveDocumentDetailSerializer(doc, context={'request': request}).data)
+
+
+class DepartmentListCreateView(generics.ListCreateAPIView):
+    serializer_class = DepartmentSerializer
+    pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+    def get_queryset(self):
+        qs = Department.objects.all()
+        if self.request.user.role != 'admin':
+            qs = qs.filter(is_active=True)
+        return qs
+
+
+class DepartmentDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = DepartmentSerializer
+    permission_classes = [IsAdminUser]
+    queryset = Department.objects.all()
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save(update_fields=['is_active', 'updated_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+
+class CourseListCreateView(generics.ListCreateAPIView):
+    serializer_class = CourseSerializer
+    pagination_class = None
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
+    def get_queryset(self):
+        qs = Course.objects.select_related('department')
+        if self.request.user.role != 'admin':
+            qs = qs.filter(is_active=True).filter(Q(department__is_active=True) | Q(department__isnull=True))
+        department_id = self.request.query_params.get('department')
+        if department_id:
+            qs = qs.filter(department_id=department_id)
+        return qs
+
+
+class CourseDetailView(generics.RetrieveUpdateDestroyAPIView):
+    serializer_class = CourseSerializer
+    permission_classes = [IsAdminUser]
+    queryset = Course.objects.select_related('department')
+
+    def destroy(self, request, *args, **kwargs):
+        instance = self.get_object()
+        instance.is_active = False
+        instance.save(update_fields=['is_active', 'updated_at'])
+        return Response(status=status.HTTP_204_NO_CONTENT)

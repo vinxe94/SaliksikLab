@@ -72,8 +72,8 @@ export default function App() {
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/code-lab" element={<PrivateRoute><CodePlaygroundPage /></PrivateRoute>} />
             <Route path="/collaborate" element={<PrivateRoute><CollaborationPage /></PrivateRoute>} />
-            <Route path="/reports" element={<PrivateRoute><ReportGenerationPage /></PrivateRoute>} />
-            <Route path="/analytics" element={<PrivateRoute><AnalyticsPage /></PrivateRoute>} />
+            <Route path="/reports" element={<AdminRoute><ReportGenerationPage /></AdminRoute>} />
+            <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           </Routes>
         </BrowserRouter>
       </AuthProvider>

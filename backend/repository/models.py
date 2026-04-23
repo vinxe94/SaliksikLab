@@ -122,6 +122,44 @@ class DownloadLog(models.Model):
         return f'{self.user} downloaded {self.research_output} at {self.downloaded_at}'
 
 
+class Department(models.Model):
+    name = models.CharField(max_length=200, unique=True)
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+
+    def __str__(self):
+        return self.name
+
+
+class Course(models.Model):
+    name = models.CharField(max_length=200)
+    department = models.ForeignKey(
+        Department,
+        on_delete=models.CASCADE,
+        related_name='courses',
+        null=True,
+        blank=True,
+    )
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['name', 'department'], name='uniq_course_department'),
+        ]
+
+    def __str__(self):
+        if self.department:
+            return f'{self.name} ({self.department.name})'
+        return self.name
+
+
 class Repository(models.Model):
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
@@ -131,6 +169,7 @@ class Repository(models.Model):
         null=True,
         related_name='repositories'
     )
+    is_public = models.BooleanField(default=True)
     is_deleted = models.BooleanField(default=False)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -202,9 +241,26 @@ class ArchiveDocument(models.Model):
         related_name='archive_documents'
     )
     system_link = models.URLField(max_length=500, blank=True)
+    assigned_faculty = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_archive_documents',
+        limit_choices_to={'role': 'faculty'},
+    )
     is_approved = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)
     rejection_reason = models.TextField(blank=True)
+    revision_comment = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_archive_documents',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
     is_deleted = models.BooleanField(default=False)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)

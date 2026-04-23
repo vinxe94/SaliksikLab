@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
-import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText } from 'lucide-react'
+import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus } from 'lucide-react'
 
 const ROLES = ['admin', 'faculty', 'student', 'researcher']
 
@@ -11,9 +11,16 @@ export default function AdminPage() {
     const navigate = useNavigate()
     const [tab, setTab] = useState('outputs')
     const [outputs, setOutputs] = useState([])
+    const [repositories, setRepositories] = useState([])
     const [users, setUsers] = useState([])
+    const [departments, setDepartments] = useState([])
+    const [courses, setCourses] = useState([])
     const [loadingO, setLoadingO] = useState(true)
+    const [loadingR, setLoadingR] = useState(true)
     const [loadingU, setLoadingU] = useState(true)
+    const [academicLoading, setAcademicLoading] = useState(true)
+    const [departmentName, setDepartmentName] = useState('')
+    const [courseForm, setCourseForm] = useState({ name: '', department: '' })
     // Rejection modal state
     const [rejectTarget, setRejectTarget] = useState(null)   // output object
     const [rejectReason, setRejectReason] = useState('')
@@ -24,10 +31,22 @@ export default function AdminPage() {
             .then(r => setOutputs(r.data.results || []))
             .catch(() => toast.error('Failed to load outputs.'))
             .finally(() => setLoadingO(false))
+        api.get('/repository/repos/?page_size=100')
+            .then(r => setRepositories(r.data.results || []))
+            .catch(() => toast.error('Failed to load repositories.'))
+            .finally(() => setLoadingR(false))
         api.get('/auth/admin/users/')
             .then(r => setUsers(r.data))
             .catch(() => toast.error('Failed to load users.'))
             .finally(() => setLoadingU(false))
+        Promise.all([
+            api.get('/repository/departments/'),
+            api.get('/repository/courses/'),
+        ]).then(([deptRes, courseRes]) => {
+            setDepartments(deptRes.data || [])
+            setCourses(courseRes.data || [])
+        }).catch(() => toast.error('Failed to load departments and courses.'))
+            .finally(() => setAcademicLoading(false))
     }, [])
 
     const approve = async (id) => {
@@ -96,6 +115,37 @@ export default function AdminPage() {
         } catch { toast.error('Export failed.') }
     }
 
+    const addDepartment = async (e) => {
+        e.preventDefault()
+        if (!departmentName.trim()) return
+        const { data } = await api.post('/repository/departments/', { name: departmentName.trim() })
+        setDepartments((items) => [...items, data].sort((a, b) => a.name.localeCompare(b.name)))
+        setDepartmentName('')
+        toast.success('Department added.')
+    }
+
+    const addCourse = async (e) => {
+        e.preventDefault()
+        if (!courseForm.name.trim()) return
+        const payload = { name: courseForm.name.trim(), department: courseForm.department || null }
+        const { data } = await api.post('/repository/courses/', payload)
+        setCourses((items) => [...items, data].sort((a, b) => a.name.localeCompare(b.name)))
+        setCourseForm({ name: '', department: '' })
+        toast.success('Course added.')
+    }
+
+    const toggleDepartment = async (department) => {
+        const { data } = await api.patch(`/repository/departments/${department.id}/`, { is_active: !department.is_active })
+        setDepartments((items) => items.map((item) => item.id === department.id ? data : item))
+        toast.success(data.is_active ? 'Department activated.' : 'Department deactivated.')
+    }
+
+    const toggleCourse = async (course) => {
+        const { data } = await api.patch(`/repository/courses/${course.id}/`, { is_active: !course.is_active })
+        setCourses((items) => items.map((item) => item.id === course.id ? data : item))
+        toast.success(data.is_active ? 'Course activated.' : 'Course deactivated.')
+    }
+
     const pending = outputs.filter(o => !o.is_approved && !o.is_rejected)
     const approved = outputs.filter(o => o.is_approved)
     const rejected = outputs.filter(o => o.is_rejected)
@@ -140,7 +190,7 @@ export default function AdminPage() {
 
                     {/* Tabs */}
                     <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-                        {[['outputs', 'Research Outputs'], ['users', 'User Management']].map(([key, label]) => (
+                        {[['outputs', 'Research Outputs'], ['repositories', 'Repositories'], ['users', 'User Management'], ['academic', 'Departments & Courses']].map(([key, label]) => (
                             <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', color: tab === key ? 'var(--accent)' : 'var(--text2)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', marginBottom: -1 }}>
                                 {label}
                             </button>
@@ -238,6 +288,88 @@ export default function AdminPage() {
                                     </tbody>
                                 </table>
                             )}
+                        </div>
+                    )}
+
+                    {tab === 'repositories' && (
+                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                            {loadingR ? <div className="spinner" /> : (
+                                <table className="table">
+                                    <thead><tr><th>Title</th><th>Owner</th><th>Status</th><th>Files</th><th>Linked Docs</th><th>Updated</th></tr></thead>
+                                    <tbody>
+                                        {repositories.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text2)' }}>No repositories yet.</td></tr>}
+                                        {repositories.map((repo) => (
+                                            <tr key={repo.id}>
+                                                <td style={{ fontWeight: 600, maxWidth: 260 }} className="truncate">
+                                                    <span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => navigate(`/repository/${repo.id}`)}>{repo.title}</span>
+                                                </td>
+                                                <td className="text-sm text-muted">{repo.created_by?.full_name || repo.created_by?.email || '—'}</td>
+                                                <td>{repo.is_public ? <span className="badge badge-green">Public</span> : <span className="badge badge-gray">Private</span>}</td>
+                                                <td className="text-sm text-muted">{repo.file_count ?? 0}</td>
+                                                <td className="text-sm text-muted">{repo.linked_documents_count ?? 0}</td>
+                                                <td className="text-sm text-muted">{new Date(repo.updated_at).toLocaleDateString()}</td>
+                                            </tr>
+                                        ))}
+                                    </tbody>
+                                </table>
+                            )}
+                        </div>
+                    )}
+
+                    {tab === 'academic' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                            <div className="card">
+                                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 14 }}>Departments</h3>
+                                <form onSubmit={addDepartment} style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
+                                    <input className="form-input" value={departmentName} onChange={(e) => setDepartmentName(e.target.value)} placeholder="New department" />
+                                    <button className="btn btn-primary btn-sm" type="submit"><Plus size={14} /> Add</button>
+                                </form>
+                                {academicLoading ? <div className="spinner" /> : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {departments.map((department) => (
+                                            <div key={department.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                                                <div>
+                                                    <strong>{department.name}</strong>
+                                                    <div>{department.is_active ? <span className="badge badge-green">Active</span> : <span className="badge badge-gray">Inactive</span>}</div>
+                                                </div>
+                                                <button className="btn btn-sm btn-ghost" onClick={() => toggleDepartment(department)}>
+                                                    {department.is_active ? 'Deactivate' : 'Activate'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+
+                            <div className="card">
+                                <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 14 }}>Courses</h3>
+                                <form onSubmit={addCourse} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginBottom: 14 }}>
+                                    <input className="form-input" value={courseForm.name} onChange={(e) => setCourseForm((form) => ({ ...form, name: e.target.value }))} placeholder="New course" />
+                                    <select className="form-input" value={courseForm.department} onChange={(e) => setCourseForm((form) => ({ ...form, department: e.target.value }))}>
+                                        <option value="">No department</option>
+                                        {departments.map((department) => <option key={department.id} value={department.id}>{department.name}</option>)}
+                                    </select>
+                                    <button className="btn btn-primary btn-sm" type="submit"><Plus size={14} /> Add</button>
+                                </form>
+                                {academicLoading ? <div className="spinner" /> : (
+                                    <div style={{ display: 'flex', flexDirection: 'column', gap: 8 }}>
+                                        {courses.map((course) => (
+                                            <div key={course.id} style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'center', padding: '10px 0', borderBottom: '1px solid var(--border)' }}>
+                                                <div>
+                                                    <strong>{course.name}</strong>
+                                                    <div style={{ display: 'flex', gap: 6, marginTop: 4 }}>
+                                                        <span className="badge badge-blue">{course.department_name || 'No department'}</span>
+                                                        {course.is_active ? <span className="badge badge-green">Active</span> : <span className="badge badge-gray">Inactive</span>}
+                                                    </div>
+                                                </div>
+                                                <button className="btn btn-sm btn-ghost" onClick={() => toggleCourse(course)}>
+                                                    {course.is_active ? 'Deactivate' : 'Activate'}
+                                                </button>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     )}
                 </div>

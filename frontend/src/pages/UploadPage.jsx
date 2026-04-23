@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
@@ -26,11 +26,29 @@ export default function UploadPage() {
     const [loading, setLoading] = useState(false)
     const [dragging, setDragging] = useState(false)
     const [file, setFile] = useState(null)
+    const [faculty, setFaculty] = useState([])
+    const [departments, setDepartments] = useState([])
+    const [courses, setCourses] = useState([])
 
     const [archiveForm, setArchiveForm] = useState({
         title: '', abstract: '', author: '', department: '',
         course: '', year: new Date().getFullYear(), system_link: '',
+        assigned_faculty: '',
     })
+
+    useEffect(() => {
+        Promise.all([
+            api.get('/auth/faculty/'),
+            api.get('/repository/departments/'),
+            api.get('/repository/courses/'),
+        ]).then(([facultyRes, deptRes, courseRes]) => {
+            setFaculty(facultyRes.data || [])
+            setDepartments(deptRes.data || [])
+            setCourses(courseRes.data || [])
+        }).catch(() => {
+            toast.error('Failed to load upload options.')
+        })
+    }, [])
 
     const chooseFile = (selected) => {
         if (!selected) return
@@ -75,6 +93,9 @@ export default function UploadPage() {
             fd.append('year', archiveForm.year)
             if (archiveForm.system_link) {
                 fd.append('system_link', archiveForm.system_link)
+            }
+            if (archiveForm.assigned_faculty) {
+                fd.append('assigned_faculty', archiveForm.assigned_faculty)
             }
             fd.append('file', file)
 
@@ -149,12 +170,40 @@ export default function UploadPage() {
                             <div className="grid-2">
                                 <div className="form-group">
                                     <label className="form-label">Department</label>
-                                    <input className="form-input" value={archiveForm.department} onChange={(e) => setArchiveForm((f) => ({ ...f, department: e.target.value }))} />
+                                    <select className="form-input" value={archiveForm.department} onChange={(e) => setArchiveForm((f) => ({ ...f, department: e.target.value, course: '' }))}>
+                                        <option value="">Select department</option>
+                                        {departments.map((department) => (
+                                            <option key={department.id} value={department.name}>{department.name}</option>
+                                        ))}
+                                    </select>
                                 </div>
                                 <div className="form-group">
                                     <label className="form-label">Course</label>
-                                    <input className="form-input" value={archiveForm.course} onChange={(e) => setArchiveForm((f) => ({ ...f, course: e.target.value }))} />
+                                    <select className="form-input" value={archiveForm.course} onChange={(e) => setArchiveForm((f) => ({ ...f, course: e.target.value }))}>
+                                        <option value="">Select course</option>
+                                        {courses
+                                            .filter((course) => !archiveForm.department || course.department_name === archiveForm.department)
+                                            .map((course) => (
+                                                <option key={course.id} value={course.name}>{course.name}</option>
+                                            ))}
+                                    </select>
                                 </div>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Assigned Faculty</label>
+                                <select
+                                    className="form-input"
+                                    value={archiveForm.assigned_faculty}
+                                    onChange={(e) => setArchiveForm((f) => ({ ...f, assigned_faculty: e.target.value }))}
+                                    required
+                                >
+                                    <option value="">Select the faculty reviewer</option>
+                                    {faculty.map((member) => (
+                                        <option key={member.id} value={member.id}>
+                                            {member.full_name || `${member.first_name} ${member.last_name}`} ({member.email})
+                                        </option>
+                                    ))}
+                                </select>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">System Link</label>

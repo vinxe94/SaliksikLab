@@ -30,9 +30,18 @@ from .views import (
     ArchiveDocumentDetailView,
     ArchiveDocumentDownloadView,
     ArchiveDocumentPreviewView,
+    ArchiveDocumentReviewView,
+    DepartmentListCreateView,
+    DepartmentDetailView,
+    CourseListCreateView,
+    CourseDetailView,
 )
 
 urlpatterns = [
+    path('departments/', DepartmentListCreateView.as_view(), name='department-list-create'),
+    path('departments/<int:pk>/', DepartmentDetailView.as_view(), name='department-detail'),
+    path('courses/', CourseListCreateView.as_view(), name='course-list-create'),
+    path('courses/<int:pk>/', CourseDetailView.as_view(), name='course-detail'),
     path('repos/', RepositoryListCreateView.as_view(), name='repository-list-create'),
     path('repos/<int:pk>/', RepositoryDetailView.as_view(), name='repository-detail'),
     path('repos/<int:pk>/versions/', RepositoryVersionHistoryView.as_view(), name='repository-versions'),
@@ -52,6 +61,7 @@ urlpatterns = [
     path('repos/<int:pk>/runnable/<int:file_id>/', RepositoryRunnableFilesView.as_view(), name='repository-file-runnable'),
     path('archives/', ArchiveDocumentListCreateView.as_view(), name='archive-list-create'),
     path('archives/<int:pk>/', ArchiveDocumentDetailView.as_view(), name='archive-detail'),
+    path('archives/<int:pk>/review/', ArchiveDocumentReviewView.as_view(), name='archive-review'),
     path('archives/<int:pk>/download/', ArchiveDocumentDownloadView.as_view(), name='archive-download'),
     path('archives/<int:pk>/preview/', ArchiveDocumentPreviewView.as_view(), name='archive-preview'),
     path('', ResearchOutputListCreateView.as_view(), name='output-list-create'),

@@ -81,6 +81,19 @@ class AdminUserDetailView(generics.RetrieveUpdateAPIView):
     permission_classes = [IsAdmin]
 
 
+class FacultyListView(generics.ListAPIView):
+    serializer_class = UserSerializer
+    permission_classes = [permissions.IsAuthenticated]
+    pagination_class = None
+
+    def get_queryset(self):
+        return User.objects.filter(
+            role='faculty',
+            is_active=True,
+            is_account_approved=True,
+        ).order_by('last_name', 'first_name')
+
+
 class UserApprovalView(APIView):
     """Admin toggles is_account_approved for a user."""
     permission_classes = [IsAdmin]

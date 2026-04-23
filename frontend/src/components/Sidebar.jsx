@@ -35,18 +35,17 @@ export default function Sidebar() {
                 <NavLink to="/upload" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                     <Upload size={18} /> {t('nav.upload')}
                 </NavLink>
-                <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <FileText size={18} /> {t('nav.reports')}
-                </NavLink>
-                <NavLink to="/analytics" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <ChartColumn size={18} /> {t('nav.analytics')}
-                </NavLink>
-
                 {user?.role === 'admin' && (
                     <>
                         <div className="nav-section" style={{ marginTop: 12 }}>Admin</div>
                         <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                             <Shield size={18} /> {t('nav.admin')}
+                        </NavLink>
+                        <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                            <FileText size={18} /> {t('nav.reports')}
+                        </NavLink>
+                        <NavLink to="/analytics" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                            <ChartColumn size={18} /> {t('nav.analytics')}
                         </NavLink>
                     </>
                 )}
