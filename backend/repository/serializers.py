@@ -5,7 +5,7 @@ from django.core.exceptions import ValidationError as DjangoValidationError
 from accounts.serializers import UserSerializer
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
-    Repository, RepositoryFile, ArchiveDocument,
+    Repository, RepositoryFile, ArchiveDocument, ArchiveDocumentVersion,
     Department, Course,
 )
 
@@ -219,7 +219,7 @@ class RepositoryDetailSerializer(serializers.ModelSerializer):
         ]
 
     def get_related_documents(self, obj):
-        docs = obj.archive_documents.filter(is_deleted=False).order_by('-uploaded_at')[:10]
+        docs = obj.archive_documents.filter(is_deleted=False)
         request = self.context.get('request')
         if request and request.user.role != 'admin':
             docs = docs.filter(
@@ -227,7 +227,7 @@ class RepositoryDetailSerializer(serializers.ModelSerializer):
                 models.Q(uploaded_by=request.user) |
                 models.Q(assigned_faculty=request.user)
             )
-        return ArchiveDocumentCompactSerializer(docs, many=True).data
+        return ArchiveDocumentCompactSerializer(docs.order_by('-uploaded_at')[:10], many=True).data
 
     def get_status(self, obj):
         return 'public' if obj.is_public else 'private'
@@ -279,6 +279,8 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
     assigned_faculty = UserSerializer(read_only=True)
     file_extension = serializers.SerializerMethodField()
     review_status = serializers.SerializerMethodField()
+    current_version = serializers.SerializerMethodField()
+    version_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ArchiveDocument
@@ -287,7 +289,7 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'system_link', 'original_filename', 'file_size', 'file_extension',
             'assigned_faculty', 'is_approved', 'is_rejected', 'rejection_reason',
-            'revision_comment', 'review_status',
+            'revision_comment', 'review_status', 'current_version', 'version_count',
         ]
 
     def get_file_extension(self, obj):
@@ -304,6 +306,23 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
             return 'rejected'
         return 'pending'
 
+    def get_current_version(self, obj):
+        return obj.current_version
+
+    def get_version_count(self, obj):
+        return obj.version_count
+
+
+class ArchiveDocumentVersionSerializer(serializers.ModelSerializer):
+    uploaded_by = UserSerializer(read_only=True)
+
+    class Meta:
+        model = ArchiveDocumentVersion
+        fields = [
+            'id', 'original_filename', 'file_size', 'version',
+            'change_notes', 'uploaded_by', 'uploaded_at',
+        ]
+
 
 class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
     uploaded_by = UserSerializer(read_only=True)
@@ -312,6 +331,8 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
     reviewed_by = UserSerializer(read_only=True)
     file_url = serializers.SerializerMethodField()
     review_status = serializers.SerializerMethodField()
+    current_version = serializers.SerializerMethodField()
+    version_count = serializers.SerializerMethodField()
 
     class Meta:
         model = ArchiveDocument
@@ -321,6 +342,7 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
             'system_link', 'original_filename', 'file_size', 'file_url',
             'assigned_faculty', 'is_approved', 'is_rejected', 'rejection_reason',
             'revision_comment', 'reviewed_by', 'reviewed_at', 'review_status',
+            'current_version', 'version_count',
         ]
 
     def get_file_url(self, obj):
@@ -336,6 +358,12 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
         if obj.is_rejected:
             return 'rejected'
         return 'pending'
+
+    def get_current_version(self, obj):
+        return obj.current_version
+
+    def get_version_count(self, obj):
+        return obj.version_count
 
 
 class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
@@ -366,13 +394,23 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         file = validated_data.pop('file')
         user = self.context['request'].user
-        return ArchiveDocument.objects.create(
+        doc = ArchiveDocument.objects.create(
             uploaded_by=user,
             file=file,
             original_filename=file.name,
             file_size=file.size,
             **validated_data,
         )
+        ArchiveDocumentVersion.objects.create(
+            archive_document=doc,
+            file=doc.file.name,
+            original_filename=file.name,
+            file_size=doc.file_size,
+            version=1,
+            change_notes='Initial upload',
+            uploaded_by=user,
+        )
+        return doc
 
 
 class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
@@ -395,6 +433,14 @@ class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
         if value and not value.is_active:
             raise serializers.ValidationError('Assigned faculty must be active.')
         return value
+
+
+class ArchiveDocumentRevisionSerializer(serializers.Serializer):
+    file = serializers.FileField()
+    change_notes = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def validate_file(self, value):
+        return validate_pdf_upload(value)
 
 
 class ArchiveDocumentReviewSerializer(serializers.Serializer):

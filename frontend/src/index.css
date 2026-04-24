@@ -1590,6 +1590,59 @@ a:hover {
   gap: 10px;
 }
 
+.versioned-repository-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+.versioned-repository-card {
+  width: 100%;
+  border: 1px solid #dbe5db;
+  background: #fbfdfb;
+  border-radius: 12px;
+  padding: 12px;
+  text-align: left;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  color: var(--text);
+  transition: border-color 0.2s, box-shadow 0.2s, transform 0.2s;
+}
+
+.versioned-repository-card:hover {
+  border-color: #b9cdb9;
+  box-shadow: 0 10px 20px rgba(24, 49, 24, 0.06);
+  transform: translateY(-1px);
+}
+
+.versioned-repository-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.versioned-repository-title {
+  min-width: 0;
+  font-weight: 700;
+  line-height: 1.35;
+}
+
+.empty-state.compact {
+  padding: 22px 14px;
+}
+
+.empty-state.compact h3 {
+  font-size: 0.95rem;
+}
+
+.empty-state.compact p {
+  margin: 6px 0 0;
+}
+
 .archive-card {
   cursor: pointer;
 }

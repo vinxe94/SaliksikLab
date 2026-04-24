@@ -1,14 +1,15 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
-import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus } from 'lucide-react'
+import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload } from 'lucide-react'
 
 const ROLES = ['admin', 'faculty', 'student', 'researcher']
 
 export default function AdminPage() {
     const navigate = useNavigate()
+    const restoreInputRef = useRef(null)
     const [tab, setTab] = useState('outputs')
     const [outputs, setOutputs] = useState([])
     const [repositories, setRepositories] = useState([])
@@ -101,6 +102,25 @@ export default function AdminPage() {
         URL.revokeObjectURL(url); toast.success('Backup downloaded!')
     }
 
+    const restoreBackup = async (selectedFile) => {
+        if (!selectedFile) return
+        if (!confirm('Restore this backup? Existing matching records will be updated.')) {
+            if (restoreInputRef.current) restoreInputRef.current.value = ''
+            return
+        }
+        try {
+            const fd = new FormData()
+            fd.append('backup_file', selectedFile)
+            const { data } = await api.post('/repository/restore/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+            toast.success(`Backup restored: ${Object.values(data.restored || {}).reduce((sum, count) => sum + count, 0)} records processed.`)
+            window.location.reload()
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Restore failed.')
+        } finally {
+            if (restoreInputRef.current) restoreInputRef.current.value = ''
+        }
+    }
+
     const exportCSV = async () => {
         try {
             const token = localStorage.getItem('access_token')
@@ -171,6 +191,14 @@ export default function AdminPage() {
                     <div style={{ display: 'flex', gap: 8 }}>
                         <button className="btn btn-ghost btn-sm" onClick={exportCSV}><FileText size={15} /> Export CSV</button>
                         <button className="btn btn-ghost btn-sm" onClick={backup}><Download size={15} /> Export JSON</button>
+                        <input
+                            ref={restoreInputRef}
+                            type="file"
+                            accept="application/json,.json"
+                            hidden
+                            onChange={(e) => restoreBackup(e.target.files[0])}
+                        />
+                        <button className="btn btn-ghost btn-sm" onClick={() => restoreInputRef.current?.click()}><Upload size={15} /> Restore JSON</button>
                     </div>
                 </div>
 

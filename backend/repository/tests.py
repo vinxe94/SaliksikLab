@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import User
-from repository.models import ArchiveDocument, Course, Department, Repository, RepositoryFile
+from repository.models import ArchiveDocument, ArchiveDocumentVersion, Course, Department, Repository, RepositoryFile
 
 
 def pdf_file(name='sample.pdf'):
@@ -132,6 +132,45 @@ class RoleBasedAccessTests(APITestCase):
         response = self.client.get(reverse('repository-detail', args=[private_repo.id]))
         self.assertEqual(response.status_code, status.HTTP_200_OK)
 
+    def test_public_repository_is_viewable_by_each_non_admin_role(self):
+        public_repo = Repository.objects.create(title='Shared Repo', description='Visible', created_by=self.admin, is_public=True)
+        RepositoryFile.objects.create(
+            repository=public_repo,
+            file=pdf_file('shared-repo.pdf'),
+            original_filename='shared-repo.pdf',
+            version=1,
+            uploaded_by=self.admin,
+        )
+
+        for user in [self.student, self.faculty, self.researcher]:
+            self.client.force_authenticate(user)
+            list_response = self.client.get(reverse('repository-list-create'))
+            self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+            self.assertIn('Shared Repo', [item['title'] for item in list_response.data['results']])
+
+            detail_response = self.client.get(reverse('repository-detail', args=[public_repo.id]))
+            self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
+    def test_approved_archive_is_viewable_by_each_non_admin_role(self):
+        archive = ArchiveDocument.objects.create(
+            title='Public Archive',
+            abstract='Approved paper',
+            file=pdf_file('public-archive.pdf'),
+            original_filename='public-archive.pdf',
+            uploaded_by=self.admin,
+            assigned_faculty=self.faculty,
+            is_approved=True,
+        )
+
+        for user in [self.student, self.faculty, self.researcher]:
+            self.client.force_authenticate(user)
+            list_response = self.client.get(reverse('archive-list-create'))
+            self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+            self.assertIn('Public Archive', [item['title'] for item in list_response.data['results']])
+
+            detail_response = self.client.get(reverse('archive-detail', args=[archive.id]))
+            self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
     def test_only_assigned_faculty_can_review_archive_document(self):
         archive = ArchiveDocument.objects.create(
             title='Assigned Paper',
@@ -180,6 +219,105 @@ class RoleBasedAccessTests(APITestCase):
         )
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('assigned_faculty', response.data)
+
+    def test_archive_revision_creates_new_pdf_version_and_resets_review(self):
+        archive = ArchiveDocument.objects.create(
+            title='Versioned Paper',
+            abstract='Test',
+            file=pdf_file('archive-v1.pdf'),
+            original_filename='archive-v1.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+            is_approved=True,
+        )
+        ArchiveDocumentVersion.objects.create(
+            archive_document=archive,
+            file=archive.file.name,
+            original_filename='archive-v1.pdf',
+            version=1,
+            uploaded_by=self.student,
+        )
+
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            reverse('archive-revise', args=[archive.id]),
+            {
+                'file': pdf_file('archive-v2.pdf'),
+                'change_notes': 'Updated methodology section.',
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data['version'], 2)
+        self.assertEqual(archive.versions.count(), 2)
+
+        archive.refresh_from_db()
+        self.assertEqual(archive.original_filename, 'archive-v2.pdf')
+        self.assertFalse(archive.is_approved)
+        self.assertFalse(archive.is_rejected)
+
+        history = self.client.get(reverse('archive-versions', args=[archive.id]))
+        self.assertEqual(history.status_code, status.HTTP_200_OK)
+        self.assertEqual(history.data['results'][0]['version'], 2)
+
+    def test_archive_version_can_be_downloaded(self):
+        archive = ArchiveDocument.objects.create(
+            title='Downloadable Paper',
+            abstract='Test',
+            file=pdf_file('download-v1.pdf'),
+            original_filename='download-v1.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+        )
+        version = ArchiveDocumentVersion.objects.create(
+            archive_document=archive,
+            file=archive.file.name,
+            original_filename='download-v1.pdf',
+            version=1,
+            uploaded_by=self.student,
+        )
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get(reverse('archive-version-download', args=[archive.id, version.id]))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.get('Content-Disposition'), 'attachment; filename="download-v1.pdf"')
+
+    def test_admin_backup_and_restore_archive_versions(self):
+        archive = ArchiveDocument.objects.create(
+            title='Restorable Paper',
+            abstract='Test',
+            file=pdf_file('restore-v1.pdf'),
+            original_filename='restore-v1.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+            is_approved=True,
+        )
+        ArchiveDocumentVersion.objects.create(
+            archive_document=archive,
+            file=archive.file.name,
+            original_filename='restore-v1.pdf',
+            version=1,
+            uploaded_by=self.student,
+        )
+
+        self.client.force_authenticate(self.admin)
+        backup = self.client.get(reverse('backup'))
+        self.assertEqual(backup.status_code, status.HTTP_200_OK)
+        self.assertEqual(backup.data['schema_version'], 2)
+        self.assertEqual(backup.data['counts']['archives'], 1)
+        self.assertTrue(backup.data['data']['archives'][0]['file']['content_base64'])
+
+        ArchiveDocument.objects.all().delete()
+        self.assertEqual(ArchiveDocument.objects.count(), 0)
+
+        restored = self.client.post(reverse('restore'), backup.data, format='json')
+        self.assertEqual(restored.status_code, status.HTTP_200_OK)
+        self.assertEqual(restored.data['restored']['archives'], 1)
+        self.assertEqual(restored.data['restored']['archive_versions'], 1)
+        self.assertEqual(ArchiveDocument.objects.get(id=archive.id).title, 'Restorable Paper')
+        self.assertEqual(ArchiveDocumentVersion.objects.get(archive_document_id=archive.id).version, 1)
 
     def test_faculty_list_only_returns_active_approved_faculty(self):
         inactive_faculty = User.objects.create_user(

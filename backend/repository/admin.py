@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.utils.html import format_html
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
-    Repository, RepositoryFile, ArchiveDocument,
+    Repository, RepositoryFile, ArchiveDocument, ArchiveDocumentVersion,
     Department, Course,
 )
 
@@ -52,6 +52,13 @@ class RepositoryFileInline(admin.TabularInline):
     can_delete = False
 
 
+class ArchiveDocumentVersionInline(admin.TabularInline):
+    model = ArchiveDocumentVersion
+    extra = 0
+    readonly_fields = ['original_filename', 'file_size', 'version', 'change_notes', 'uploaded_by', 'uploaded_at']
+    can_delete = False
+
+
 @admin.register(Repository)
 class RepositoryAdmin(admin.ModelAdmin):
     list_display = ['title', 'created_by', 'is_public', 'created_at', 'updated_at', 'is_deleted']
@@ -70,6 +77,7 @@ class ArchiveDocumentAdmin(admin.ModelAdmin):
     list_filter = ['is_approved', 'is_rejected', 'is_deleted', 'department', 'year', 'uploaded_at']
     search_fields = ['title', 'abstract', 'author', 'department', 'system_link', 'assigned_faculty__email']
     readonly_fields = ['uploaded_by', 'uploaded_at', 'updated_at', 'original_filename', 'file_size']
+    inlines = [ArchiveDocumentVersionInline]
 
 
 @admin.register(Department)

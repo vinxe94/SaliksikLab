@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import {
-    Search, Filter, Link2, Unlink2, ChevronRight,
+    Search, Filter, Link2, Unlink2, ChevronRight, GitBranch,
 } from 'lucide-react'
 
 function timeAgo(iso) {
@@ -36,6 +36,8 @@ export default function RepositoryPage() {
     const [courseFilter, setCourseFilter] = useState('')
     const [archives, setArchives] = useState([])
     const [archiveCount, setArchiveCount] = useState(0)
+    const [repositories, setRepositories] = useState([])
+    const [repositoryCount, setRepositoryCount] = useState(0)
     const [loading, setLoading] = useState(true)
 
     useEffect(() => {
@@ -47,10 +49,19 @@ export default function RepositoryPage() {
             ...(courseFilter && { course: courseFilter }),
         })
 
-        api.get(`/repository/archives/?${archiveParams}`)
-            .then((archiveRes) => {
+        const repositoryParams = new URLSearchParams({
+            ...(search && { search }),
+        })
+
+        Promise.all([
+            api.get(`/repository/archives/?${archiveParams}`),
+            api.get(`/repository/repos/?${repositoryParams}`),
+        ])
+            .then(([archiveRes, repositoryRes]) => {
                 setArchives(archiveRes.data.results || [])
                 setArchiveCount(archiveRes.data.count || 0)
+                setRepositories(repositoryRes.data.results || repositoryRes.data || [])
+                setRepositoryCount(repositoryRes.data.count || repositoryRes.data?.length || 0)
             })
             .finally(() => setLoading(false))
     }, [search, archiveFilter, departmentFilter, courseFilter])
@@ -82,6 +93,14 @@ export default function RepositoryPage() {
                             <div className="repository-hero-stat">
                                 <span>Archived documents</span>
                                 <strong>{archiveCount}</strong>
+                            </div>
+                            <div className="repository-hero-stat">
+                                <span>Public repositories</span>
+                                <strong>{repositoryCount}</strong>
+                            </div>
+                            <div className="repository-hero-stat">
+                                <span>PDF versions shown</span>
+                                <strong>{archives.reduce((sum, doc) => sum + (doc.version_count || 1), 0)}</strong>
                             </div>
                         </div>
                     </div>
@@ -172,6 +191,8 @@ export default function RepositoryPage() {
                                             <p className="archive-card-copy">{doc.abstract || 'No abstract available for this document.'}</p>
                                             <div className="repository-preview-meta">
                                                 <span className="language-chip"><span className="language-dot" style={{ background: '#6e7781' }} /> {fileKindLabel(doc.original_filename)}</span>
+                                                <span className="feed-meta-item"><GitBranch size={13} /> v{doc.current_version || 1}</span>
+                                                <span className="feed-meta-item">{doc.version_count || 1} version{(doc.version_count || 1) === 1 ? '' : 's'}</span>
                                                 {reviewBadge(doc)}
                                                 {doc.department && <span className="feed-meta-item">{doc.department}</span>}
                                                 {doc.course && <span className="feed-meta-item">{doc.course}</span>}
@@ -196,9 +217,46 @@ export default function RepositoryPage() {
 
                         <aside className="repository-side-column">
                             <div className="trending-panel repository-guidance-panel">
+                                <h3>Public Repositories</h3>
+                                <p>Repository records marked public are visible to every signed-in role.</p>
+                                <div className="versioned-repository-list">
+                                    {loading ? (
+                                        Array.from({ length: 3 }).map((_, i) => (
+                                            <div key={i} className="versioned-repository-card">
+                                                <div className="skeleton-text h-4 w-32" style={{ marginBottom: 10 }} />
+                                                <div className="skeleton-text h-4 w-full" />
+                                            </div>
+                                        ))
+                                    ) : repositories.length === 0 ? (
+                                        <div className="empty-state compact">
+                                            <h3>No public repositories</h3>
+                                            <p>Public repositories will appear here once available.</p>
+                                        </div>
+                                    ) : (
+                                        repositories.map((repo) => (
+                                            <button
+                                                key={repo.id}
+                                                type="button"
+                                                className="versioned-repository-card"
+                                                onClick={() => navigate(`/repository/${repo.id}`)}
+                                            >
+                                                <div className="versioned-repository-head">
+                                                    <span className="versioned-repository-title">{repo.title}</span>
+                                                    <span className="badge badge-gray">v{repo.current_version || 0}</span>
+                                                </div>
+                                                <div className="repository-preview-meta">
+                                                    <span className="feed-meta-item"><GitBranch size={13} /> {repo.file_count ?? 0} file{repo.file_count === 1 ? '' : 's'}</span>
+                                                    <span className="feed-meta-item"><Link2 size={13} /> {repo.linked_documents_count ?? 0} linked</span>
+                                                </div>
+                                            </button>
+                                        ))
+                                    )}
+                                </div>
+                            </div>
+                            <div className="trending-panel repository-guidance-panel">
                                 <h3>How it works</h3>
                                 <p>Uploads are limited to valid PDF files.</p>
-                                <p>Use search and filters to quickly find archived research documents.</p>
+                                <p>Open an archive document to upload a revised PDF and review every paper version.</p>
                             </div>
                         </aside>
                     </div>

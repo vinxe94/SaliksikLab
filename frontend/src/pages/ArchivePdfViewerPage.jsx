@@ -1,11 +1,12 @@
 import { useEffect, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import api from '../api/axios'
 import { ArrowLeft, FileText } from 'lucide-react'
 
 export default function ArchivePdfViewerPage() {
     const { id } = useParams()
     const navigate = useNavigate()
+    const [searchParams] = useSearchParams()
     const [doc, setDoc] = useState(null)
     const [loading, setLoading] = useState(true)
 
@@ -14,12 +15,16 @@ export default function ArchivePdfViewerPage() {
             .then((response) => setDoc(response.data))
             .catch(() => navigate('/repository'))
             .finally(() => setLoading(false))
-    }, [id])
+    }, [id, navigate])
 
     if (loading) return <div className="spinner" style={{ marginTop: 120 }} />
 
     const token = localStorage.getItem('access_token')
-    const previewUrl = `/api/repository/archives/${id}/preview/?token=${encodeURIComponent(token || '')}#toolbar=0&navpanes=0`
+    const versionId = searchParams.get('version')
+    const previewPath = versionId
+        ? `/api/repository/archives/${id}/preview/${versionId}/`
+        : `/api/repository/archives/${id}/preview/`
+    const previewUrl = `${previewPath}?token=${encodeURIComponent(token || '')}#toolbar=0&navpanes=0`
 
     return (
         <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
@@ -30,7 +35,7 @@ export default function ArchivePdfViewerPage() {
                 <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
                     <FileText size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
                     <strong className="truncate" style={{ maxWidth: '52vw' }}>{doc.title}</strong>
-                    <span className="badge badge-blue">View only</span>
+                    <span className="badge badge-blue">{versionId ? 'Version view' : `v${doc.current_version || 1}`}</span>
                 </div>
                 <div style={{ width: 116 }} />
             </div>

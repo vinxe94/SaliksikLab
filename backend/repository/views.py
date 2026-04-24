@@ -1,8 +1,11 @@
 import os
 from .runner import run_repository_file, list_runnable_files, RunnerError
+import base64
+import binascii
 import csv
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
+from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.conf import settings as django_settings
 from django.db.models import Q, Count
@@ -11,12 +14,12 @@ from rest_framework import generics, permissions, status, filters
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.views import APIView
-from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 import json
 
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
-    Repository, RepositoryFile, ArchiveDocument,
+    Repository, RepositoryFile, ArchiveDocument, ArchiveDocumentVersion,
     Department, Course,
 )
 from .serializers import (
@@ -37,6 +40,8 @@ from .serializers import (
     ArchiveDocumentUpdateSerializer,
     ArchiveDocumentCompactSerializer,
     ArchiveDocumentReviewSerializer,
+    ArchiveDocumentRevisionSerializer,
+    ArchiveDocumentVersionSerializer,
     DepartmentSerializer,
     CourseSerializer,
 )
@@ -96,6 +101,51 @@ def user_can_review_archive(user, doc):
         user.role == 'faculty' and
         doc.assigned_faculty == user
     )
+
+
+def user_email(user):
+    return user.email if user else None
+
+
+def find_backup_user(email, fallback_user):
+    if not email:
+        return fallback_user
+    from django.contrib.auth import get_user_model
+    User = get_user_model()
+    return User.objects.filter(email=email).first() or fallback_user
+
+
+def file_backup_payload(file_field, original_filename=''):
+    if not file_field:
+        return None
+    payload = {
+        'path': file_field.name,
+        'name': original_filename or os.path.basename(file_field.name),
+        'content_base64': '',
+    }
+    try:
+        if file_field.name and os.path.exists(file_field.path):
+            with open(file_field.path, 'rb') as source:
+                payload['content_base64'] = base64.b64encode(source.read()).decode('ascii')
+    except (OSError, ValueError):
+        payload['content_base64'] = ''
+    return payload
+
+
+def restore_file_field(instance, field_name, payload):
+    if not payload:
+        return
+    file_field = getattr(instance, field_name)
+    filename = payload.get('name') or os.path.basename(payload.get('path', 'restored-file'))
+    content = payload.get('content_base64') or ''
+    if content:
+        try:
+            file_field.save(filename, ContentFile(base64.b64decode(content)), save=False)
+            return
+        except (binascii.Error, ValueError):
+            pass
+    if payload.get('path'):
+        setattr(instance, field_name, payload['path'])
 
 
 class ResearchOutputListCreateView(generics.ListCreateAPIView):
@@ -483,13 +533,338 @@ class RollbackVersionView(APIView):
 
 
 class BackupView(APIView):
-    """Admin-only JSON export of all research outputs."""
+    """Admin-only self-contained JSON backup of repository data and uploaded files."""
     permission_classes = [IsAdminUser]
 
     def get(self, request):
-        outputs = ResearchOutput.objects.filter(is_deleted=False)
-        data = ResearchOutputDetailSerializer(outputs, many=True).data
-        return Response({'count': len(data), 'outputs': data})
+        departments = Department.objects.all().order_by('id')
+        courses = Course.objects.select_related('department').all().order_by('id')
+        repositories = Repository.objects.select_related('created_by').all().order_by('id')
+        repository_files = RepositoryFile.objects.select_related('repository', 'uploaded_by').all().order_by('id')
+        archives = ArchiveDocument.objects.select_related(
+            'uploaded_by', 'linked_repository', 'assigned_faculty', 'reviewed_by',
+        ).all().order_by('id')
+        archive_versions = ArchiveDocumentVersion.objects.select_related(
+            'archive_document', 'uploaded_by',
+        ).all().order_by('id')
+        outputs = ResearchOutput.objects.select_related('uploaded_by').all().order_by('id')
+        output_files = OutputFile.objects.select_related('research_output', 'uploaded_by').all().order_by('id')
+
+        data = {
+            'schema_version': 2,
+            'generated_at': timezone.now().isoformat(),
+            'counts': {
+                'departments': departments.count(),
+                'courses': courses.count(),
+                'repositories': repositories.count(),
+                'repository_files': repository_files.count(),
+                'archives': archives.count(),
+                'archive_versions': archive_versions.count(),
+                'research_outputs': outputs.count(),
+                'output_files': output_files.count(),
+            },
+            'data': {
+                'departments': [
+                    {
+                        'id': item.id,
+                        'name': item.name,
+                        'is_active': item.is_active,
+                    }
+                    for item in departments
+                ],
+                'courses': [
+                    {
+                        'id': item.id,
+                        'name': item.name,
+                        'department_id': item.department_id,
+                        'department_name': item.department.name if item.department else '',
+                        'is_active': item.is_active,
+                    }
+                    for item in courses
+                ],
+                'repositories': [
+                    {
+                        'id': item.id,
+                        'title': item.title,
+                        'description': item.description,
+                        'created_by_email': user_email(item.created_by),
+                        'is_public': item.is_public,
+                        'is_deleted': item.is_deleted,
+                    }
+                    for item in repositories
+                ],
+                'repository_files': [
+                    {
+                        'id': item.id,
+                        'repository_id': item.repository_id,
+                        'original_filename': item.original_filename,
+                        'file_size': item.file_size,
+                        'version': item.version,
+                        'change_notes': item.change_notes,
+                        'uploaded_by_email': user_email(item.uploaded_by),
+                        'file': file_backup_payload(item.file, item.original_filename),
+                    }
+                    for item in repository_files
+                ],
+                'archives': [
+                    {
+                        'id': item.id,
+                        'title': item.title,
+                        'abstract': item.abstract,
+                        'original_filename': item.original_filename,
+                        'file_size': item.file_size,
+                        'author': item.author,
+                        'department': item.department,
+                        'course': item.course,
+                        'year': item.year,
+                        'uploaded_by_email': user_email(item.uploaded_by),
+                        'linked_repository_id': item.linked_repository_id,
+                        'system_link': item.system_link,
+                        'assigned_faculty_email': user_email(item.assigned_faculty),
+                        'is_approved': item.is_approved,
+                        'is_rejected': item.is_rejected,
+                        'rejection_reason': item.rejection_reason,
+                        'revision_comment': item.revision_comment,
+                        'reviewed_by_email': user_email(item.reviewed_by),
+                        'is_deleted': item.is_deleted,
+                        'file': file_backup_payload(item.file, item.original_filename),
+                    }
+                    for item in archives
+                ],
+                'archive_versions': [
+                    {
+                        'id': item.id,
+                        'archive_document_id': item.archive_document_id,
+                        'original_filename': item.original_filename,
+                        'file_size': item.file_size,
+                        'version': item.version,
+                        'change_notes': item.change_notes,
+                        'uploaded_by_email': user_email(item.uploaded_by),
+                        'file': file_backup_payload(item.file, item.original_filename),
+                    }
+                    for item in archive_versions
+                ],
+                'research_outputs': [
+                    {
+                        'id': item.id,
+                        'title': item.title,
+                        'abstract': item.abstract,
+                        'output_type': item.output_type,
+                        'department': item.department,
+                        'year': item.year,
+                        'keywords': item.keywords,
+                        'author': item.author,
+                        'adviser': item.adviser,
+                        'uploaded_by_email': user_email(item.uploaded_by),
+                        'is_approved': item.is_approved,
+                        'is_rejected': item.is_rejected,
+                        'rejection_reason': item.rejection_reason,
+                        'is_deleted': item.is_deleted,
+                        'course': item.course,
+                        'co_authors': item.co_authors,
+                    }
+                    for item in outputs
+                ],
+                'output_files': [
+                    {
+                        'id': item.id,
+                        'research_output_id': item.research_output_id,
+                        'original_filename': item.original_filename,
+                        'file_size': item.file_size,
+                        'version': item.version,
+                        'change_notes': item.change_notes,
+                        'uploaded_by_email': user_email(item.uploaded_by),
+                        'file': file_backup_payload(item.file, item.original_filename),
+                    }
+                    for item in output_files
+                ],
+            },
+        }
+        return Response(data)
+
+
+class RestoreView(APIView):
+    """Admin-only restore from a JSON backup generated by BackupView."""
+    permission_classes = [IsAdminUser]
+    parser_classes = [JSONParser, MultiPartParser, FormParser]
+
+    def post(self, request):
+        backup_file = request.FILES.get('backup_file')
+        if backup_file:
+            try:
+                payload = json.loads(backup_file.read().decode('utf-8'))
+            except (UnicodeDecodeError, json.JSONDecodeError):
+                return Response({'detail': 'Invalid backup JSON file.'}, status=status.HTTP_400_BAD_REQUEST)
+        else:
+            payload = request.data
+
+        data = payload.get('data', payload)
+        restored = {
+            'departments': 0,
+            'courses': 0,
+            'repositories': 0,
+            'repository_files': 0,
+            'archives': 0,
+            'archive_versions': 0,
+            'research_outputs': 0,
+            'output_files': 0,
+        }
+
+        for item in data.get('departments', []):
+            Department.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'name': item.get('name', ''),
+                    'is_active': item.get('is_active', True),
+                },
+            )
+            restored['departments'] += 1
+
+        for item in data.get('courses', []):
+            department = None
+            if item.get('department_id'):
+                department = Department.objects.filter(id=item.get('department_id')).first()
+            if not department and item.get('department_name'):
+                department = Department.objects.filter(name=item.get('department_name')).first()
+            Course.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'name': item.get('name', ''),
+                    'department': department,
+                    'is_active': item.get('is_active', True),
+                },
+            )
+            restored['courses'] += 1
+
+        for item in data.get('repositories', []):
+            Repository.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'title': item.get('title', ''),
+                    'description': item.get('description', ''),
+                    'created_by': find_backup_user(item.get('created_by_email'), request.user),
+                    'is_public': item.get('is_public', True),
+                    'is_deleted': item.get('is_deleted', False),
+                },
+            )
+            restored['repositories'] += 1
+
+        for item in data.get('repository_files', []):
+            repository = Repository.objects.filter(id=item.get('repository_id')).first()
+            if not repository:
+                continue
+            obj, _ = RepositoryFile.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'repository': repository,
+                    'file': item.get('file', {}).get('path', ''),
+                    'original_filename': item.get('original_filename', ''),
+                    'file_size': item.get('file_size', 0),
+                    'version': item.get('version', 1),
+                    'change_notes': item.get('change_notes', ''),
+                    'uploaded_by': find_backup_user(item.get('uploaded_by_email'), request.user),
+                },
+            )
+            restore_file_field(obj, 'file', item.get('file'))
+            obj.save()
+            restored['repository_files'] += 1
+
+        for item in data.get('archives', []):
+            linked_repository = None
+            if item.get('linked_repository_id'):
+                linked_repository = Repository.objects.filter(id=item.get('linked_repository_id')).first()
+            obj, _ = ArchiveDocument.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'title': item.get('title', ''),
+                    'abstract': item.get('abstract', ''),
+                    'file': item.get('file', {}).get('path', ''),
+                    'original_filename': item.get('original_filename', ''),
+                    'file_size': item.get('file_size', 0),
+                    'author': item.get('author', ''),
+                    'department': item.get('department', ''),
+                    'course': item.get('course', ''),
+                    'year': item.get('year'),
+                    'uploaded_by': find_backup_user(item.get('uploaded_by_email'), request.user),
+                    'linked_repository': linked_repository,
+                    'system_link': item.get('system_link', ''),
+                    'assigned_faculty': find_backup_user(item.get('assigned_faculty_email'), request.user),
+                    'is_approved': item.get('is_approved', False),
+                    'is_rejected': item.get('is_rejected', False),
+                    'rejection_reason': item.get('rejection_reason', ''),
+                    'revision_comment': item.get('revision_comment', ''),
+                    'reviewed_by': find_backup_user(item.get('reviewed_by_email'), request.user) if item.get('reviewed_by_email') else None,
+                    'is_deleted': item.get('is_deleted', False),
+                },
+            )
+            restore_file_field(obj, 'file', item.get('file'))
+            obj.save()
+            restored['archives'] += 1
+
+        for item in data.get('archive_versions', []):
+            archive = ArchiveDocument.objects.filter(id=item.get('archive_document_id')).first()
+            if not archive:
+                continue
+            obj, _ = ArchiveDocumentVersion.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'archive_document': archive,
+                    'file': item.get('file', {}).get('path', ''),
+                    'original_filename': item.get('original_filename', ''),
+                    'file_size': item.get('file_size', 0),
+                    'version': item.get('version', 1),
+                    'change_notes': item.get('change_notes', ''),
+                    'uploaded_by': find_backup_user(item.get('uploaded_by_email'), request.user),
+                },
+            )
+            restore_file_field(obj, 'file', item.get('file'))
+            obj.save()
+            restored['archive_versions'] += 1
+
+        for item in data.get('research_outputs', []):
+            ResearchOutput.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'title': item.get('title', ''),
+                    'abstract': item.get('abstract', ''),
+                    'output_type': item.get('output_type', 'thesis'),
+                    'department': item.get('department', ''),
+                    'year': item.get('year') or timezone.now().year,
+                    'keywords': item.get('keywords', []),
+                    'author': item.get('author', ''),
+                    'adviser': item.get('adviser', ''),
+                    'uploaded_by': find_backup_user(item.get('uploaded_by_email'), request.user),
+                    'is_approved': item.get('is_approved', False),
+                    'is_rejected': item.get('is_rejected', False),
+                    'rejection_reason': item.get('rejection_reason', ''),
+                    'is_deleted': item.get('is_deleted', False),
+                    'course': item.get('course', ''),
+                    'co_authors': item.get('co_authors', []),
+                },
+            )
+            restored['research_outputs'] += 1
+
+        for item in data.get('output_files', []):
+            output = ResearchOutput.objects.filter(id=item.get('research_output_id')).first()
+            if not output:
+                continue
+            obj, _ = OutputFile.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'research_output': output,
+                    'file': item.get('file', {}).get('path', ''),
+                    'original_filename': item.get('original_filename', ''),
+                    'file_size': item.get('file_size', 0),
+                    'version': item.get('version', 1),
+                    'change_notes': item.get('change_notes', ''),
+                    'uploaded_by': find_backup_user(item.get('uploaded_by_email'), request.user),
+                },
+            )
+            restore_file_field(obj, 'file', item.get('file'))
+            obj.save()
+            restored['output_files'] += 1
+
+        return Response({'detail': 'Backup restored.', 'restored': restored}, status=status.HTTP_200_OK)
 
 
 class StatsView(APIView):
@@ -1074,11 +1449,30 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
         return ArchiveDocumentDetailSerializer
 
     def perform_update(self, serializer):
+        uploaded_file = serializer.validated_data.get('file')
         instance = serializer.save()
         if instance.file and not instance.original_filename:
             instance.original_filename = instance.file.name
         if instance.file and hasattr(instance.file, 'size'):
             instance.file_size = instance.file.size
+        if uploaded_file:
+            latest = instance.versions.order_by('-version').first()
+            ArchiveDocumentVersion.objects.create(
+                archive_document=instance,
+                file=instance.file.name,
+                original_filename=uploaded_file.name,
+                file_size=instance.file_size,
+                version=(latest.version + 1) if latest else 1,
+                change_notes='Updated document file',
+                uploaded_by=self.request.user,
+            )
+            instance.original_filename = uploaded_file.name
+            instance.is_approved = False
+            instance.is_rejected = False
+            instance.rejection_reason = ''
+            instance.revision_comment = ''
+            instance.reviewed_by = None
+            instance.reviewed_at = None
         instance.save()
 
     def destroy(self, request, *args, **kwargs):
@@ -1091,11 +1485,81 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
 class ArchiveDocumentDownloadView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
-    def get(self, request, pk):
-        get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+    def get(self, request, pk, version_id=None):
+        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if not user_can_access_archive(request.user, doc):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+
+        version = None
+        if version_id:
+            version = get_object_or_404(ArchiveDocumentVersion, pk=version_id, archive_document=doc)
+        file_field = version.file if version else doc.file
+        original_filename = version.original_filename if version else doc.original_filename
+
+        if not os.path.exists(file_field.path):
+            raise Http404('File not found on server.')
+
+        return FileResponse(
+            open(file_field.path, 'rb'),
+            as_attachment=True,
+            filename=original_filename,
+        )
+
+
+class ArchiveDocumentVersionHistoryView(generics.ListAPIView):
+    serializer_class = ArchiveDocumentVersionSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        doc = get_object_or_404(ArchiveDocument, pk=self.kwargs['pk'], is_deleted=False)
+        if not user_can_access_archive(self.request.user, doc):
+            return ArchiveDocumentVersion.objects.none()
+        return ArchiveDocumentVersion.objects.filter(archive_document=doc)
+
+
+class ArchiveDocumentReviseView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+    permission_classes = [permissions.IsAuthenticated, IsArchiveOwnerOrAdmin]
+
+    def post(self, request, pk):
+        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        self.check_object_permissions(request, doc)
+
+        serializer = ArchiveDocumentRevisionSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        latest = doc.versions.order_by('-version').first()
+        new_version = (latest.version + 1) if latest else 1
+        uploaded_file = serializer.validated_data['file']
+
+        version = ArchiveDocumentVersion.objects.create(
+            archive_document=doc,
+            file=uploaded_file,
+            original_filename=uploaded_file.name,
+            file_size=uploaded_file.size,
+            version=new_version,
+            change_notes=serializer.validated_data.get('change_notes', ''),
+            uploaded_by=request.user,
+        )
+
+        doc.file = version.file.name
+        doc.original_filename = version.original_filename
+        doc.file_size = version.file_size
+        doc.is_approved = False
+        doc.is_rejected = False
+        doc.rejection_reason = ''
+        doc.revision_comment = ''
+        doc.reviewed_by = None
+        doc.reviewed_at = None
+        doc.save(update_fields=[
+            'file', 'original_filename', 'file_size',
+            'is_approved', 'is_rejected', 'rejection_reason', 'revision_comment',
+            'reviewed_by', 'reviewed_at', 'updated_at',
+        ])
+
         return Response(
-            {'detail': 'Archive PDFs are view-only and cannot be downloaded.'},
-            status=status.HTTP_403_FORBIDDEN,
+            ArchiveDocumentVersionSerializer(version, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
         )
 
 
@@ -1107,19 +1571,24 @@ class ArchiveDocumentPreviewView(APIView):
     def _get_user(self, request):
         return PreviewFileView()._get_user(request)
 
-    def get(self, request, pk):
+    def get(self, request, pk, version_id=None):
         user = self._get_user(request)
         if not user:
             return Response({'detail': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
         doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
         if not user_can_access_archive(user, doc):
             return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
-        if not os.path.exists(doc.file.path):
+        version = None
+        if version_id:
+            version = get_object_or_404(ArchiveDocumentVersion, pk=version_id, archive_document=doc)
+        file_field = version.file if version else doc.file
+        original_filename = version.original_filename if version else doc.original_filename
+        if not os.path.exists(file_field.path):
             raise Http404('File not found on server.')
-        ext = doc.original_filename.rsplit('.', 1)[-1].lower() if '.' in doc.original_filename else ''
+        ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
         content_type = self.CONTENT_TYPES.get(ext, 'application/octet-stream')
-        response = FileResponse(open(doc.file.path, 'rb'), content_type=content_type)
-        response['Content-Disposition'] = f'inline; filename="{doc.original_filename}"'
+        response = FileResponse(open(file_field.path, 'rb'), content_type=content_type)
+        response['Content-Disposition'] = f'inline; filename="{original_filename}"'
         response['X-Frame-Options'] = 'SAMEORIGIN'
         return response
 

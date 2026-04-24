@@ -20,6 +20,11 @@ def archive_upload_to(instance, filename):
     return f'archives/{archive_id}/{filename}'
 
 
+def archive_version_upload_to(instance, filename):
+    archive_id = instance.archive_document_id or 'new'
+    return f'archives/{archive_id}/v{instance.version}/{filename}'
+
+
 class ResearchOutput(models.Model):
     TYPE_CHOICES = [
         ('thesis', 'Thesis Manuscript'),
@@ -276,4 +281,44 @@ class ArchiveDocument(models.Model):
             self.file_size = self.file.size
         if self.file and not self.original_filename:
             self.original_filename = self.file.name
+        super().save(*args, **kwargs)
+
+    @property
+    def current_version(self):
+        latest = self.versions.order_by('-version').first()
+        return latest.version if latest else 1
+
+    @property
+    def version_count(self):
+        return self.versions.count()
+
+
+class ArchiveDocumentVersion(models.Model):
+    archive_document = models.ForeignKey(
+        ArchiveDocument,
+        on_delete=models.CASCADE,
+        related_name='versions',
+    )
+    file = models.FileField(upload_to=archive_version_upload_to)
+    original_filename = models.CharField(max_length=255)
+    file_size = models.PositiveBigIntegerField(default=0)
+    version = models.PositiveIntegerField(default=1)
+    change_notes = models.TextField(blank=True)
+    uploaded_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        related_name='archive_document_version_uploads',
+    )
+    uploaded_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-version']
+
+    def __str__(self):
+        return f'{self.archive_document.title} v{self.version}'
+
+    def save(self, *args, **kwargs):
+        if self.file and hasattr(self.file, 'size'):
+            self.file_size = self.file.size
         super().save(*args, **kwargs)
