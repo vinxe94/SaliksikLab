@@ -171,6 +171,51 @@ class RoleBasedAccessTests(APITestCase):
             detail_response = self.client.get(reverse('archive-detail', args=[archive.id]))
             self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
 
+    def test_private_approved_archive_is_hidden_from_other_roles(self):
+        archive = ArchiveDocument.objects.create(
+            title='Private Archive',
+            abstract='Approved private paper',
+            file=pdf_file('private-archive.pdf'),
+            original_filename='private-archive.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+            is_public=False,
+            is_approved=True,
+        )
+
+        self.client.force_authenticate(self.researcher)
+        list_response = self.client.get(reverse('archive-list-create'))
+        self.assertEqual(list_response.status_code, status.HTTP_200_OK)
+        self.assertNotIn('Private Archive', [item['title'] for item in list_response.data['results']])
+        detail_response = self.client.get(reverse('archive-detail', args=[archive.id]))
+        self.assertEqual(detail_response.status_code, status.HTTP_404_NOT_FOUND)
+
+        for user in [self.student, self.faculty, self.admin]:
+            self.client.force_authenticate(user)
+            detail_response = self.client.get(reverse('archive-detail', args=[archive.id]))
+            self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
+    def test_archive_upload_accepts_private_visibility(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            reverse('archive-list-create'),
+            {
+                'title': 'Private Upload',
+                'abstract': 'Test',
+                'author': 'Student User',
+                'department': 'CS',
+                'course': 'BSCS',
+                'year': 2026,
+                'assigned_faculty': self.faculty.id,
+                'is_public': 'false',
+                'file': pdf_file('private-upload.pdf'),
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertFalse(ArchiveDocument.objects.get(id=response.data['id']).is_public)
+
     def test_only_assigned_faculty_can_review_archive_document(self):
         archive = ArchiveDocument.objects.create(
             title='Assigned Paper',

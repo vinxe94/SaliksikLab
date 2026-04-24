@@ -88,7 +88,7 @@ def user_can_access_archive(user, doc):
     return (
         user.is_authenticated and (
             user.role == 'admin' or
-            doc.is_approved or
+            (doc.is_public and doc.is_approved) or
             doc.uploaded_by == user or
             doc.assigned_faculty == user
         )
@@ -621,6 +621,7 @@ class BackupView(APIView):
                         'linked_repository_id': item.linked_repository_id,
                         'system_link': item.system_link,
                         'assigned_faculty_email': user_email(item.assigned_faculty),
+                        'is_public': item.is_public,
                         'is_approved': item.is_approved,
                         'is_rejected': item.is_rejected,
                         'rejection_reason': item.rejection_reason,
@@ -789,6 +790,7 @@ class RestoreView(APIView):
                     'linked_repository': linked_repository,
                     'system_link': item.get('system_link', ''),
                     'assigned_faculty': find_backup_user(item.get('assigned_faculty_email'), request.user),
+                    'is_public': item.get('is_public', True),
                     'is_approved': item.get('is_approved', False),
                     'is_rejected': item.get('is_rejected', False),
                     'rejection_reason': item.get('rejection_reason', ''),
@@ -1238,7 +1240,7 @@ class RepositoryRelatedDocumentsView(generics.ListAPIView):
         ).select_related('linked_repository')
         if self.request.user.role != 'admin':
             qs = qs.filter(
-                Q(is_approved=True) |
+                Q(is_public=True, is_approved=True) |
                 Q(uploaded_by=self.request.user) |
                 Q(assigned_faculty=self.request.user)
             )
@@ -1398,7 +1400,7 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
         )
         user = self.request.user
         if user.role != 'admin':
-            qs = qs.filter(Q(is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            qs = qs.filter(Q(is_public=True, is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -1440,7 +1442,7 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
         user = self.request.user
         if user.role != 'admin':
-            qs = qs.filter(Q(is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            qs = qs.filter(Q(is_public=True, is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
         return qs
 
     def get_serializer_class(self):

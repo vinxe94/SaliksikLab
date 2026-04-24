@@ -180,6 +180,7 @@ export default function ArchiveDetailPage() {
                                     <span className="badge badge-gray"><FileText size={11} style={{ marginRight: 4 }} /> Archive Document</span>
                                     <span className="badge badge-blue">v{latestVersion?.version || doc.current_version || 1}</span>
                                     <span className="badge badge-gray">{versions.length || doc.version_count || 1} version{(versions.length || doc.version_count || 1) === 1 ? '' : 's'}</span>
+                                    <span className={`badge ${doc.is_public ? 'badge-green' : 'badge-gray'}`}>{doc.is_public ? 'Public' : 'Private'}</span>
                                     {statusBadge()}
                                     {doc.system_link && <span className="badge badge-blue">System linked</span>}
                                 </div>
@@ -277,6 +278,7 @@ export default function ArchiveDetailPage() {
                                     <div><span>Uploaded</span><strong>{new Date(doc.uploaded_at).toLocaleDateString()}</strong></div>
                                     <div><span>Uploaded by</span><strong>{doc.uploaded_by?.full_name || doc.uploaded_by?.email || '—'}</strong></div>
                                     <div><span>Assigned faculty</span><strong>{doc.assigned_faculty?.full_name || doc.assigned_faculty?.email || '—'}</strong></div>
+                                    <div><span>Visibility</span><strong>{doc.is_public ? 'Public' : 'Private'}</strong></div>
                                     <div><span>Review status</span><strong>{doc.review_status || 'pending'}</strong></div>
                                     <div><span>System link</span><strong>{doc.system_link || 'None'}</strong></div>
                                 </div>

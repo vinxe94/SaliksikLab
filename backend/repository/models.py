@@ -254,6 +254,7 @@ class ArchiveDocument(models.Model):
         related_name='assigned_archive_documents',
         limit_choices_to={'role': 'faculty'},
     )
+    is_public = models.BooleanField(default=True)
     is_approved = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)
     rejection_reason = models.TextField(blank=True)

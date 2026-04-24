@@ -193,6 +193,7 @@ export default function RepositoryPage() {
                                                 <span className="language-chip"><span className="language-dot" style={{ background: '#6e7781' }} /> {fileKindLabel(doc.original_filename)}</span>
                                                 <span className="feed-meta-item"><GitBranch size={13} /> v{doc.current_version || 1}</span>
                                                 <span className="feed-meta-item">{doc.version_count || 1} version{(doc.version_count || 1) === 1 ? '' : 's'}</span>
+                                                <span className={`badge ${doc.is_public ? 'badge-green' : 'badge-gray'}`}>{doc.is_public ? 'Public' : 'Private'}</span>
                                                 {reviewBadge(doc)}
                                                 {doc.department && <span className="feed-meta-item">{doc.department}</span>}
                                                 {doc.course && <span className="feed-meta-item">{doc.course}</span>}

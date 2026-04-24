@@ -223,7 +223,7 @@ class RepositoryDetailSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user.role != 'admin':
             docs = docs.filter(
-                models.Q(is_approved=True) |
+                models.Q(is_public=True, is_approved=True) |
                 models.Q(uploaded_by=request.user) |
                 models.Q(assigned_faculty=request.user)
             )
@@ -288,7 +288,7 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
             'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'system_link', 'original_filename', 'file_size', 'file_extension',
-            'assigned_faculty', 'is_approved', 'is_rejected', 'rejection_reason',
+            'assigned_faculty', 'is_public', 'is_approved', 'is_rejected', 'rejection_reason',
             'revision_comment', 'review_status', 'current_version', 'version_count',
         ]
 
@@ -340,7 +340,7 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
             'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'system_link', 'original_filename', 'file_size', 'file_url',
-            'assigned_faculty', 'is_approved', 'is_rejected', 'rejection_reason',
+            'assigned_faculty', 'is_public', 'is_approved', 'is_rejected', 'rejection_reason',
             'revision_comment', 'reviewed_by', 'reviewed_at', 'review_status',
             'current_version', 'version_count',
         ]
@@ -371,7 +371,7 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
         model = ArchiveDocument
         fields = [
             'id', 'title', 'abstract', 'file', 'author',
-            'department', 'course', 'year', 'system_link', 'assigned_faculty',
+            'department', 'course', 'year', 'system_link', 'assigned_faculty', 'is_public',
         ]
         read_only_fields = ['id']
         extra_kwargs = {
@@ -418,7 +418,7 @@ class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
         model = ArchiveDocument
         fields = [
             'title', 'abstract', 'file', 'author',
-            'department', 'course', 'year', 'system_link', 'assigned_faculty',
+            'department', 'course', 'year', 'system_link', 'assigned_faculty', 'is_public',
         ]
 
     def validate_file(self, value):

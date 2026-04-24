@@ -33,7 +33,7 @@ export default function UploadPage() {
     const [archiveForm, setArchiveForm] = useState({
         title: '', abstract: '', author: '', department: '',
         course: '', year: new Date().getFullYear(), system_link: '',
-        assigned_faculty: '',
+        assigned_faculty: '', is_public: true,
     })
 
     useEffect(() => {
@@ -97,6 +97,7 @@ export default function UploadPage() {
             if (archiveForm.assigned_faculty) {
                 fd.append('assigned_faculty', archiveForm.assigned_faculty)
             }
+            fd.append('is_public', archiveForm.is_public ? 'true' : 'false')
             fd.append('file', file)
 
             const { data } = await api.post('/repository/archives/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
@@ -204,6 +205,28 @@ export default function UploadPage() {
                                         </option>
                                     ))}
                                 </select>
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Visibility</label>
+                                <div className="filters repository-filters">
+                                    <button
+                                        type="button"
+                                        className={`btn btn-sm ${archiveForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
+                                        onClick={() => setArchiveForm((f) => ({ ...f, is_public: true }))}
+                                    >
+                                        Public
+                                    </button>
+                                    <button
+                                        type="button"
+                                        className={`btn btn-sm ${!archiveForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
+                                        onClick={() => setArchiveForm((f) => ({ ...f, is_public: false }))}
+                                    >
+                                        Private
+                                    </button>
+                                </div>
+                                <span className="dashboard-stat-meta">
+                                    Public papers become visible to all roles after approval. Private papers stay limited to you, admins, and the assigned faculty.
+                                </span>
                             </div>
                             <div className="form-group">
                                 <label className="form-label">System Link</label>
