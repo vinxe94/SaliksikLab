@@ -223,7 +223,7 @@ class RepositoryDetailSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if request and request.user.role != 'admin':
             docs = docs.filter(
-                models.Q(is_public=True, is_approved=True) |
+                models.Q(is_public=True) |
                 models.Q(uploaded_by=request.user) |
                 models.Q(assigned_faculty=request.user)
             )

@@ -6,15 +6,15 @@ import api from '../api/axios'
 import { useAuth } from '../contexts/AuthContext'
 import {
     Mail, Building, Shield, MapPin, CalendarDays, BookOpen,
-    GitBranch, FileText, Clock3, Star, Pencil, X, Camera
+    FileText, Clock3, Star, Pencil, X, Camera
 } from 'lucide-react'
 
 const roleColors = { admin: 'badge-red', faculty: 'badge-blue', student: 'badge-green', researcher: 'badge-yellow' }
 
 const languagePalette = {
     thesis: { label: 'Research', color: '#1B5E20' },
-    software: { label: 'Software', color: '#3572A5' },
-    sourcecode: { label: 'Code', color: '#f1e05a' },
+    software: { label: 'PDF', color: '#6e7781' },
+    sourcecode: { label: 'PDF', color: '#6e7781' },
     documentation: { label: 'Docs', color: '#6e7781' },
     other: { label: 'General', color: '#8b949e' },
 }
@@ -42,8 +42,8 @@ export default function ProfilePage() {
     const navigate = useNavigate()
     const [form, setForm] = useState({ first_name: '', last_name: '', department: '' })
     const [saving, setSaving] = useState(false)
-    const [loadingRepos, setLoadingRepos] = useState(true)
-    const [myRepos, setMyRepos] = useState([])
+    const [loadingOutputs, setLoadingOutputs] = useState(true)
+    const [myOutputs, setMyOutputs] = useState([])
     const [editing, setEditing] = useState(false)
     const [avatarFile, setAvatarFile] = useState(null)
     const [avatarPreview, setAvatarPreview] = useState('')
@@ -67,11 +67,11 @@ export default function ProfilePage() {
     }, [avatarPreview])
 
     useEffect(() => {
-        setLoadingRepos(true)
+        setLoadingOutputs(true)
         api.get('/repository/?mine=true&page_size=12')
-            .then((response) => setMyRepos(response.data.results || []))
-            .catch(() => setMyRepos([]))
-            .finally(() => setLoadingRepos(false))
+            .then((response) => setMyOutputs(response.data.results || []))
+            .catch(() => setMyOutputs([]))
+            .finally(() => setLoadingOutputs(false))
     }, [])
 
     const handle = (e) => setForm((current) => ({ ...current, [e.target.name]: e.target.value }))
@@ -139,19 +139,19 @@ export default function ProfilePage() {
     }
 
     const stats = useMemo(() => {
-        const approved = myRepos.filter((repo) => repo.is_approved).length
-        const pending = myRepos.filter((repo) => !repo.is_approved && !repo.is_rejected).length
-        const files = myRepos.reduce((sum, repo) => sum + (repo.file_count || 0), 0)
+        const approved = myOutputs.filter((output) => output.is_approved).length
+        const pending = myOutputs.filter((output) => !output.is_approved && !output.is_rejected).length
+        const files = myOutputs.reduce((sum, output) => sum + (output.file_count || 0), 0)
         return [
-            { label: 'Repositories', value: myRepos.length, icon: BookOpen },
+            { label: 'Research PDFs', value: myOutputs.length, icon: BookOpen },
             { label: 'Approved', value: approved, icon: Shield },
             { label: 'Pending', value: pending, icon: Clock3 },
-            { label: 'Files', value: files, icon: FileText },
+            { label: 'PDF files', value: files, icon: FileText },
         ]
-    }, [myRepos])
+    }, [myOutputs])
 
-    const recentActivity = useMemo(() => myRepos.slice(0, 5), [myRepos])
-    const pinnedRepos = useMemo(() => [...myRepos].sort((a, b) => (b.current_version || 0) - (a.current_version || 0)).slice(0, 6), [myRepos])
+    const recentActivity = useMemo(() => myOutputs.slice(0, 5), [myOutputs])
+    const pinnedOutputs = useMemo(() => [...myOutputs].sort((a, b) => (b.current_version || 0) - (a.current_version || 0)).slice(0, 6), [myOutputs])
 
     return (
         <div className="layout">
@@ -178,7 +178,7 @@ export default function ProfilePage() {
                                 <h1>{user?.first_name} {user?.last_name}</h1>
                                 <div className="profile-handle">@{user?.email?.split('@')[0]}</div>
                                 <p className="profile-bio-copy">
-                                    SaliksikLab contributor focused on academic outputs, repository stewardship, and research collaboration.
+                                    SaliksikLab contributor focused on academic PDFs, review, and research collaboration.
                                 </p>
                             </div>
                             <div className="profile-badges">
@@ -254,7 +254,7 @@ export default function ProfilePage() {
                                 <div>
                                     <span className="dashboard-kicker">Overview</span>
                                     <h3>GitHub-style academic profile adapted for SaliksikLab.</h3>
-                                    <p>Track research outputs, recent activity, and repository presence in one place.</p>
+                                    <p>Track research PDFs and recent activity in one place.</p>
                                 </div>
                                 <div className="profile-stat-grid">
                                     {stats.map(({ label, value, icon: Icon }) => (
@@ -268,16 +268,16 @@ export default function ProfilePage() {
 
                             <div className="profile-tabs-bar">
                                 <div className="profile-tab active"><BookOpen size={15} /> Overview</div>
-                                <div className="profile-tab"><GitBranch size={15} /> Repositories <span>{myRepos.length}</span></div>
+                                <div className="profile-tab"><FileText size={15} /> PDFs <span>{myOutputs.length}</span></div>
                                 <div className="profile-tab"><Clock3 size={15} /> Activity</div>
                             </div>
 
                             <div className="profile-section-card">
                                 <div className="profile-section-head">
-                                    <h3>Pinned repositories</h3>
-                                    <button type="button" className="see-more-link" onClick={() => navigate('/repository')}>View repository feed</button>
+                                    <h3>Pinned PDFs</h3>
+                                    <button type="button" className="see-more-link" onClick={() => navigate('/repository')}>View PDF archive</button>
                                 </div>
-                                {loadingRepos ? (
+                                {loadingOutputs ? (
                                     <div className="profile-pinned-grid">
                                         {Array.from({ length: 4 }).map((_, index) => (
                                             <div key={index} className="profile-pinned-card">
@@ -287,18 +287,18 @@ export default function ProfilePage() {
                                             </div>
                                         ))}
                                     </div>
-                                ) : pinnedRepos.length === 0 ? (
+                                ) : pinnedOutputs.length === 0 ? (
                                     <div className="empty-state" style={{ padding: '40px 20px' }}>
                                         <BookOpen style={{ width: 48, height: 48, opacity: 0.2, margin: '0 auto 12px' }} />
-                                        <h3>No repositories yet</h3>
-                                        <p style={{ marginTop: 6 }}>Upload a research output to start building your profile.</p>
+                                        <h3>No PDFs yet</h3>
+                                        <p style={{ marginTop: 6 }}>Upload a research PDF to start building your profile.</p>
                                     </div>
                                 ) : (
                                     <div className="profile-pinned-grid">
-                                        {pinnedRepos.map((repo) => {
+                                        {pinnedOutputs.map((repo) => {
                                             const lang = languagePalette[repo.output_type] || languagePalette.other
                                             return (
-                                                <button key={repo.id} type="button" className="profile-pinned-card" onClick={() => navigate(`/repository/${repo.id}`)}>
+                                                <button key={repo.id} type="button" className="profile-pinned-card" onClick={() => navigate('/repository')}>
                                                     <div className="profile-pinned-title">{repo.title}</div>
                                                     <p>{repo.department}{repo.course ? ` • ${repo.course}` : ''}</p>
                                                     <div className="profile-pinned-meta">
@@ -320,7 +320,7 @@ export default function ProfilePage() {
                                     <div className="profile-section-head">
                                         <h3>Recent activity</h3>
                                     </div>
-                                    {loadingRepos ? (
+                                    {loadingOutputs ? (
                                         <div className="repo-list">
                                             {Array.from({ length: 4 }).map((_, index) => (
                                                 <div key={index} className="profile-activity-item">
@@ -330,11 +330,11 @@ export default function ProfilePage() {
                                             ))}
                                         </div>
                                     ) : recentActivity.length === 0 ? (
-                                        <p className="profile-empty-copy">No recent repository activity yet.</p>
+                                        <p className="profile-empty-copy">No recent PDF activity yet.</p>
                                     ) : (
                                         <div className="repo-list">
                                             {recentActivity.map((repo) => (
-                                                <button key={repo.id} type="button" className="profile-activity-item" onClick={() => navigate(`/repository/${repo.id}`)}>
+                                                <button key={repo.id} type="button" className="profile-activity-item" onClick={() => navigate('/repository')}>
                                                     <div className="profile-activity-copy">
                                                         <strong>Created {repo.title}</strong>
                                                         <span>{timeAgo(repo.created_at)} • {outputLabel(repo.file_count || 0, 'file')}</span>
@@ -356,7 +356,7 @@ export default function ProfilePage() {
                                         <div><span>Academic role</span><strong style={{ textTransform: 'capitalize' }}>{user?.role}</strong></div>
                                         <div><span>Department</span><strong>{user?.department || 'Not set'}</strong></div>
                                         <div><span>Account status</span><strong>{user?.is_active ? 'Active' : 'Inactive'}</strong></div>
-                                        <div><span>Repository presence</span><strong>{outputLabel(myRepos.length, 'output')}</strong></div>
+                                        <div><span>PDF submissions</span><strong>{outputLabel(myOutputs.length, 'output')}</strong></div>
                                     </div>
                                 </div>
                             </div>

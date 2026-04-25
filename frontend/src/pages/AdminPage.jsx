@@ -12,12 +12,10 @@ export default function AdminPage() {
     const restoreInputRef = useRef(null)
     const [tab, setTab] = useState('outputs')
     const [outputs, setOutputs] = useState([])
-    const [repositories, setRepositories] = useState([])
     const [users, setUsers] = useState([])
     const [departments, setDepartments] = useState([])
     const [courses, setCourses] = useState([])
     const [loadingO, setLoadingO] = useState(true)
-    const [loadingR, setLoadingR] = useState(true)
     const [loadingU, setLoadingU] = useState(true)
     const [academicLoading, setAcademicLoading] = useState(true)
     const [departmentName, setDepartmentName] = useState('')
@@ -32,10 +30,6 @@ export default function AdminPage() {
             .then(r => setOutputs(r.data.results || []))
             .catch(() => toast.error('Failed to load outputs.'))
             .finally(() => setLoadingO(false))
-        api.get('/repository/repos/?page_size=100')
-            .then(r => setRepositories(r.data.results || []))
-            .catch(() => toast.error('Failed to load repositories.'))
-            .finally(() => setLoadingR(false))
         api.get('/auth/admin/users/')
             .then(r => setUsers(r.data))
             .catch(() => toast.error('Failed to load users.'))
@@ -218,7 +212,7 @@ export default function AdminPage() {
 
                     {/* Tabs */}
                     <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-                        {[['outputs', 'Research Outputs'], ['repositories', 'Repositories'], ['users', 'User Management'], ['academic', 'Departments & Courses']].map(([key, label]) => (
+                        {[['outputs', 'Research PDFs'], ['users', 'User Management'], ['academic', 'Departments & Courses']].map(([key, label]) => (
                             <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', color: tab === key ? 'var(--accent)' : 'var(--text2)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', marginBottom: -1 }}>
                                 {label}
                             </button>
@@ -234,7 +228,7 @@ export default function AdminPage() {
                                         {outputs.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text2)' }}>No outputs yet.</td></tr>}
                                         {outputs.map(o => (
                                             <tr key={o.id}>
-                                                <td style={{ fontWeight: 600, maxWidth: 260 }} className="truncate"><span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => navigate(`/repository/${o.id}`)}>{o.title}</span></td>
+                                                <td style={{ fontWeight: 600, maxWidth: 260 }} className="truncate"><span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => navigate('/repository')}>{o.title}</span></td>
                                                 <td className="text-sm text-muted">{o.author}</td>
                                                 <td><span className="badge badge-blue text-xs">{o.output_type}</span></td>
                                                 <td className="text-sm text-muted">{o.year}</td>
@@ -311,31 +305,6 @@ export default function AdminPage() {
                                                     </button>
                                                 </td>
                                                 <td className="text-sm text-muted">{new Date(u.date_joined).toLocaleDateString()}</td>
-                                            </tr>
-                                        ))}
-                                    </tbody>
-                                </table>
-                            )}
-                        </div>
-                    )}
-
-                    {tab === 'repositories' && (
-                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
-                            {loadingR ? <div className="spinner" /> : (
-                                <table className="table">
-                                    <thead><tr><th>Title</th><th>Owner</th><th>Status</th><th>Files</th><th>Linked Docs</th><th>Updated</th></tr></thead>
-                                    <tbody>
-                                        {repositories.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text2)' }}>No repositories yet.</td></tr>}
-                                        {repositories.map((repo) => (
-                                            <tr key={repo.id}>
-                                                <td style={{ fontWeight: 600, maxWidth: 260 }} className="truncate">
-                                                    <span style={{ cursor: 'pointer', color: 'var(--accent)' }} onClick={() => navigate(`/repository/${repo.id}`)}>{repo.title}</span>
-                                                </td>
-                                                <td className="text-sm text-muted">{repo.created_by?.full_name || repo.created_by?.email || '—'}</td>
-                                                <td>{repo.is_public ? <span className="badge badge-green">Public</span> : <span className="badge badge-gray">Private</span>}</td>
-                                                <td className="text-sm text-muted">{repo.file_count ?? 0}</td>
-                                                <td className="text-sm text-muted">{repo.linked_documents_count ?? 0}</td>
-                                                <td className="text-sm text-muted">{new Date(repo.updated_at).toLocaleDateString()}</td>
                                             </tr>
                                         ))}
                                     </tbody>

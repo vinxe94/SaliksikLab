@@ -7,7 +7,6 @@ import RegisterPage from './pages/RegisterPage'
 import DashboardPage from './pages/DashboardPage'
 import RepositoryPage from './pages/RepositoryPage'
 import UploadPage from './pages/UploadPage'
-import DetailPage from './pages/DetailPage'
 import ArchiveDetailPage from './pages/ArchiveDetailPage'
 import ArchivePdfViewerPage from './pages/ArchivePdfViewerPage'
 import AdminPage from './pages/AdminPage'
@@ -64,7 +63,7 @@ export default function App() {
             <Route path="/reset-password" element={<GuestRoute><ResetPasswordPage /></GuestRoute>} />
             <Route path="/dashboard" element={<PrivateRoute><DashboardPage /></PrivateRoute>} />
             <Route path="/repository" element={<PrivateRoute><RepositoryPage /></PrivateRoute>} />
-            <Route path="/repository/:id" element={<PrivateRoute><DetailPage /></PrivateRoute>} />
+            <Route path="/repository/:id" element={<PrivateRoute><Navigate to="/repository" replace /></PrivateRoute>} />
             <Route path="/archives/:id" element={<PrivateRoute><ArchiveDetailPage /></PrivateRoute>} />
             <Route path="/archives/:id/view" element={<PrivateRoute><ArchivePdfViewerPage /></PrivateRoute>} />
             <Route path="/upload" element={<PrivateRoute><UploadPage /></PrivateRoute>} />

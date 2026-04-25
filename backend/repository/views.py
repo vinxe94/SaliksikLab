@@ -88,7 +88,7 @@ def user_can_access_archive(user, doc):
     return (
         user.is_authenticated and (
             user.role == 'admin' or
-            (doc.is_public and doc.is_approved) or
+            doc.is_public or
             doc.uploaded_by == user or
             doc.assigned_faculty == user
         )
@@ -1240,7 +1240,7 @@ class RepositoryRelatedDocumentsView(generics.ListAPIView):
         ).select_related('linked_repository')
         if self.request.user.role != 'admin':
             qs = qs.filter(
-                Q(is_public=True, is_approved=True) |
+                Q(is_public=True) |
                 Q(uploaded_by=self.request.user) |
                 Q(assigned_faculty=self.request.user)
             )
@@ -1400,7 +1400,7 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
         )
         user = self.request.user
         if user.role != 'admin':
-            qs = qs.filter(Q(is_public=True, is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            qs = qs.filter(Q(is_public=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -1442,7 +1442,7 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
         )
         user = self.request.user
         if user.role != 'admin':
-            qs = qs.filter(Q(is_public=True, is_approved=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            qs = qs.filter(Q(is_public=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
         return qs
 
     def get_serializer_class(self):

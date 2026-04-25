@@ -10,8 +10,8 @@ import { Pie, Bar } from 'react-chartjs-2'
 // Register Chart.js components
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
 
-const TYPE_LABELS = { thesis: 'Thesis', software: 'Software', sourcecode: 'Source Code', documentation: 'Docs', other: 'Other' }
-const typeColor = { thesis: 'badge-blue', software: 'badge-green', sourcecode: 'badge-yellow', documentation: 'badge-gray', other: 'badge-gray' }
+const TYPE_LABELS = { thesis: 'Thesis', software: 'Research PDF', sourcecode: 'Research PDF', documentation: 'Docs', other: 'Other' }
+const typeColor = { thesis: 'badge-blue', software: 'badge-gray', sourcecode: 'badge-gray', documentation: 'badge-gray', other: 'badge-gray' }
 
 // Enhanced chart color palette with better contrast and vibrancy
 const chartColors = {
@@ -368,7 +368,7 @@ export default function DashboardPage() {
                                     <tr><td colSpan={5} style={{ textAlign: 'center', color: 'var(--text2)', padding: 32 }}>No submissions yet.</td></tr>
                                 )}
                                 {recent.map(item => (
-                                    <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => navigate(`/repository/${item.id}`)}>
+                                    <tr key={item.id} style={{ cursor: 'pointer' }} onClick={() => navigate('/repository')}>
                                         <td style={{ fontWeight: 600, maxWidth: 280 }} className="truncate">{item.title}</td>
                                         <td><span className={`badge ${typeColor[item.output_type]}`}>{TYPE_LABELS[item.output_type]}</span></td>
                                         <td className="text-muted text-sm">{item.author}</td>

@@ -28,10 +28,8 @@ def archive_version_upload_to(instance, filename):
 class ResearchOutput(models.Model):
     TYPE_CHOICES = [
         ('thesis', 'Thesis Manuscript'),
-        ('software', 'Software Project'),
-        ('sourcecode', 'Source Code'),
-        ('documentation', 'Documentation'),
-        ('other', 'Other'),
+        ('documentation', 'Research Documentation'),
+        ('other', 'Research PDF'),
     ]
 
     title = models.CharField(max_length=500)
