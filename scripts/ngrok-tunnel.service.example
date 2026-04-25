@@ -1,0 +1,16 @@
+[Unit]
+Description=SaliksikLab ngrok tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vince
+WorkingDirectory=/home/vince/Desktop/SaliksikLab
+Environment=NGROK_TUNNEL_ENV=/home/vince/Desktop/SaliksikLab/scripts/ngrok-tunnel.env
+ExecStart=/home/vince/Desktop/SaliksikLab/scripts/ngrok-tunnel.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

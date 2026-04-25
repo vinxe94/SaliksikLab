@@ -1,0 +1,18 @@
+[Unit]
+Description=SaliksikLab SSH reverse tunnel
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=vince
+WorkingDirectory=/home/vince/Desktop/SaliksikLab
+Environment=REVERSE_TUNNEL_ENV=/home/vince/Desktop/SaliksikLab/scripts/reverse-tunnel.env
+Environment=USE_AUTOSSH=true
+Environment=AUTOSSH_GATETIME=0
+ExecStart=/home/vince/Desktop/SaliksikLab/scripts/reverse-tunnel.sh
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
