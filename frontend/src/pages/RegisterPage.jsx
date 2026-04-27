@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import api from '../api/axios'
 import 'react'
 
 const ROLES = ['student', 'faculty', 'researcher']
@@ -9,8 +10,17 @@ export default function RegisterPage() {
     const { register } = useAuth()
     const navigate = useNavigate()
     const [form, setForm] = useState({ email: '', first_name: '', last_name: '', role: 'student', department: '', password: '', password2: '' })
+    const [departments, setDepartments] = useState([])
+    const [departmentsLoading, setDepartmentsLoading] = useState(true)
     const [errors, setErrors] = useState({})
     const [loading, setLoading] = useState(false)
+
+    useEffect(() => {
+        api.get('/repository/departments/')
+            .then((response) => setDepartments(response.data || []))
+            .catch(() => setDepartments([]))
+            .finally(() => setDepartmentsLoading(false))
+    }, [])
 
     const handle = e => setForm(f => ({ ...f, [e.target.name]: e.target.value }))
 
@@ -65,7 +75,23 @@ export default function RegisterPage() {
                                 {ROLES.map(r => <option key={r} value={r} style={{ textTransform: 'capitalize' }}>{r.charAt(0).toUpperCase() + r.slice(1)}</option>)}
                             </select>
                         </div>
-                        {field('department', 'Department', 'text', 'College of Engineering')}
+                        <div className="form-group">
+                            <label className="form-label">Department</label>
+                            <select
+                                className="form-select"
+                                name="department"
+                                value={form.department}
+                                onChange={handle}
+                                required
+                                disabled={departmentsLoading}
+                            >
+                                <option value="">{departmentsLoading ? 'Loading departments...' : 'Select department'}</option>
+                                {departments.map((department) => (
+                                    <option key={department.id} value={department.name}>{department.name}</option>
+                                ))}
+                            </select>
+                            {errors.department && <span className="form-error">{errors.department[0]}</span>}
+                        </div>
                     </div>
                     {field('password', 'Password', 'password', '••••••••')}
                     {field('password2', 'Confirm Password', 'password', '••••••••')}

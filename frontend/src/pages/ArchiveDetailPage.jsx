@@ -6,12 +6,6 @@ import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import { ArrowLeft, Link2, FileText, Eye, CheckCircle, MessageSquare, XCircle, RefreshCw, Download, Pencil } from 'lucide-react'
 
-const PDF_ONLY_MESSAGE = 'Only PDF files are allowed.'
-
-function isPdf(file) {
-    return file?.name?.toLowerCase().endsWith('.pdf')
-}
-
 function uploadErrorMessage(err) {
     const data = err.response?.data
     if (data?.file?.[0]) return data.file[0]
@@ -130,22 +124,13 @@ export default function ArchiveDetailPage() {
 
     const chooseRevisionFile = (selected) => {
         if (!selected) return
-        if (!isPdf(selected)) {
-            setRevFile(null)
-            toast.error(PDF_ONLY_MESSAGE)
-            return
-        }
         setRevFile(selected)
     }
 
     const submitRevision = async (e) => {
         e.preventDefault()
         if (!revFile) {
-            toast.error('Select a revised PDF.')
-            return
-        }
-        if (!isPdf(revFile)) {
-            toast.error(PDF_ONLY_MESSAGE)
+            toast.error('Select a revised file.')
             return
         }
         setRevLoading(true)
@@ -222,7 +207,7 @@ export default function ArchiveDetailPage() {
                             </button>
                         )}
                         <button className="btn btn-primary btn-sm" onClick={() => navigate(`/archives/${id}/view`)}>
-                            <Eye size={14} /> View PDF
+                            <Eye size={14} /> View File
                         </button>
                         {canRevise && (
                             <button className="btn btn-ghost btn-sm" onClick={() => setShowRevForm((value) => !value)}>
@@ -232,7 +217,7 @@ export default function ArchiveDetailPage() {
                     </div>
                 </div>
                 <div className="page-body">
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }}>
+                    <div className="archive-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="card">
                                 <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
@@ -267,12 +252,12 @@ export default function ArchiveDetailPage() {
 
                             {showRevForm && (
                                 <div className="card">
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Upload Revised PDF</h3>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Upload Revised File</h3>
                                     <form onSubmit={submitRevision} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                                         <div className="form-group">
                                             <label className="form-label">Revised Paper</label>
-                                            <input type="file" accept=".pdf" className="form-input" onChange={(e) => chooseRevisionFile(e.target.files[0])} />
-                                            <span className="dashboard-stat-meta">PDF files only. Uploading a revision resets the paper to pending review.</span>
+                                            <input type="file" className="form-input" onChange={(e) => chooseRevisionFile(e.target.files[0])} />
+                                            <span className="dashboard-stat-meta">Uploading a revision resets the paper to pending review.</span>
                                         </div>
                                         <div className="form-group">
                                             <label className="form-label">Change Notes</label>
@@ -296,13 +281,13 @@ export default function ArchiveDetailPage() {
 
                             <div className="card" style={{ textAlign: 'center', padding: 32 }}>
                                 <FileText size={38} style={{ opacity: 0.45, marginBottom: 12 }} />
-                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8 }}>PDF is ready to view</h3>
+                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8 }}>File is ready to view</h3>
                                 <p style={{ color: 'var(--text2)', fontSize: '0.9rem', marginBottom: 16 }}>
-                                    Open or download the current PDF version.
+                                    Open or download the current file version.
                                 </p>
                                 <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
                                     <button className="btn btn-primary" onClick={() => navigate(`/archives/${id}/view`)}>
-                                        <Eye size={16} /> View PDF
+                                        <Eye size={16} /> View File
                                     </button>
                                     <button className="btn btn-ghost" onClick={() => downloadVersion()}>
                                         <Download size={16} /> Download Current

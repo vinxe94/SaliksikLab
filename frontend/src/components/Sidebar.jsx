@@ -17,68 +17,77 @@ export default function Sidebar() {
     }
 
     return (
-        <aside className="sidebar">
-            <div className="sidebar-logo">
-                <img src="/logo.png" alt="Research Repository" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+        <>
+            <header className="mobile-brand-header">
+                <img src="/logo.png" alt="SaliksikLab logo" />
                 <span>SaliksikLab</span>
-            </div>
-
-            <div style={{ flex: 1, overflowY: 'auto' }}>
-                <div className="nav-section">{t('nav.dashboard')?.includes('Dashboard') ? 'Navigation' : 'Nabigasyon'}</div>
-
-                <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <LayoutDashboard size={18} /> {t('nav.dashboard')}
-                </NavLink>
-                <NavLink to="/repository" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <BookOpen size={18} /> {t('nav.repository')}
-                </NavLink>
-                <NavLink to="/upload" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    <Upload size={18} /> {t('nav.upload')}
-                </NavLink>
-                {user?.role === 'admin' && (
-                    <>
-                        <div className="nav-section" style={{ marginTop: 12 }}>Admin</div>
-                        <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                            <Shield size={18} /> {t('nav.admin')}
-                        </NavLink>
-                        <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                            <FileText size={18} /> {t('nav.reports')}
-                        </NavLink>
-                        <NavLink to="/analytics" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                            <ChartColumn size={18} /> {t('nav.analytics')}
-                        </NavLink>
-                    </>
-                )}
-            </div>
-
-            <div style={{ borderTop: '1px solid var(--border)', padding: '12px 8px 0' }}>
-                {/* Language switcher */}
-                <div style={{ padding: '4px 12px 10px' }}>
-                    <LanguageSwitcher />
+            </header>
+            <aside className="sidebar">
+                <div className="sidebar-logo">
+                    <img src="/logo.png" alt="Research Repository" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                    <span>SaliksikLab</span>
                 </div>
-                <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                    {user?.avatar_url ? (
-                        <img
-                            src={user.avatar_url}
-                            alt={`${user?.first_name || 'User'} avatar`}
-                            className="sidebar-user-avatar"
-                        />
-                    ) : (
-                        <User size={18} />
+
+                <div style={{ flex: 1, overflowY: 'auto' }}>
+                    <div className="nav-section">{t('nav.dashboard')?.includes('Dashboard') ? 'Navigation' : 'Nabigasyon'}</div>
+
+                    <NavLink to="/dashboard" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <LayoutDashboard size={18} /> {t('nav.dashboard')}
+                    </NavLink>
+                    <NavLink to="/repository" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <BookOpen size={18} /> {t('nav.repository')}
+                    </NavLink>
+                    <NavLink to="/upload" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        <Upload size={18} /> {t('nav.upload')}
+                    </NavLink>
+                    {user?.role === 'admin' && (
+                        <>
+                            <div className="nav-section" style={{ marginTop: 12 }}>Admin</div>
+                            <NavLink to="/admin" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                                <Shield size={18} /> {t('nav.admin')}
+                            </NavLink>
+                            <NavLink to="/reports" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                                <FileText size={18} /> {t('nav.reports')}
+                            </NavLink>
+                            <NavLink to="/analytics" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                                <ChartColumn size={18} /> {t('nav.analytics')}
+                            </NavLink>
+                        </>
                     )}
-                    <span style={{ flex: 1 }}>
-                        <div style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.85rem' }}>
-                            {user?.first_name} {user?.last_name}
-                        </div>
-                        <div style={{ fontSize: '0.73rem', color: 'var(--text2)', textTransform: 'capitalize' }}>
-                            {user?.role}
-                        </div>
-                    </span>
-                </NavLink>
-                <button onClick={handleLogout} className="nav-item" style={{ width: '100%', background: 'none', border: 'none', color: 'var(--danger)', marginTop: 4 }}>
-                    <LogOut size={18} /> {t('nav.logout')}
-                </button>
-            </div>
-        </aside>
+                </div>
+
+                <div style={{ borderTop: '1px solid var(--border)', padding: '12px 8px 0' }}>
+                    {/* Language switcher */}
+                    <div style={{ padding: '4px 12px 10px' }}>
+                        <LanguageSwitcher />
+                    </div>
+                    <NavLink to="/profile" className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                        {user?.avatar_url ? (
+                            <img
+                                src={user.avatar_url}
+                                alt={`${user?.first_name || 'User'} avatar`}
+                                className="sidebar-user-avatar"
+                            />
+                        ) : (
+                            <User size={18} />
+                        )}
+                        <span className="sidebar-user-label" style={{ flex: 1 }}>
+                            <div className="sidebar-user-fullname" style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.85rem' }}>
+                                {user?.first_name} {user?.last_name}
+                            </div>
+                            <div className="sidebar-user-firstname" style={{ fontWeight: 600, color: 'var(--text)', fontSize: '0.85rem' }}>
+                                {user?.first_name}
+                            </div>
+                            <div style={{ fontSize: '0.73rem', color: 'var(--text2)', textTransform: 'capitalize' }}>
+                                {user?.role}
+                            </div>
+                        </span>
+                    </NavLink>
+                    <button onClick={handleLogout} className="nav-item" style={{ width: '100%', background: 'none', border: 'none', color: 'var(--danger)', marginTop: 4 }}>
+                        <LogOut size={18} /> {t('nav.logout')}
+                    </button>
+                </div>
+            </aside>
+        </>
     )
 }

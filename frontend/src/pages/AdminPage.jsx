@@ -211,7 +211,7 @@ export default function AdminPage() {
                     </div>
 
                     {/* Tabs */}
-                    <div style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
+                    <div className="tabs-scroll" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
                         {[['outputs', 'Research PDFs'], ['users', 'User Management'], ['academic', 'Departments & Courses']].map(([key, label]) => (
                             <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', color: tab === key ? 'var(--accent)' : 'var(--text2)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', marginBottom: -1 }}>
                                 {label}
@@ -220,7 +220,7 @@ export default function AdminPage() {
                     </div>
 
                     {tab === 'outputs' && (
-                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                        <div className="table-scroll-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
                             {loadingO ? <div className="spinner" /> : (
                                 <table className="table">
                                     <thead><tr><th>Title</th><th>Author</th><th>Type</th><th>Year</th><th>Status</th><th>Actions</th></tr></thead>
@@ -274,7 +274,7 @@ export default function AdminPage() {
                     )}
 
                     {tab === 'users' && (
-                        <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                        <div className="table-scroll-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
                             {loadingU ? <div className="spinner" /> : (
                                 <table className="table">
                                     <thead><tr><th>Name</th><th>Email</th><th>Department</th><th>Role</th><th>Account</th><th>Status</th><th>Joined</th></tr></thead>
@@ -314,7 +314,7 @@ export default function AdminPage() {
                     )}
 
                     {tab === 'academic' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
+                        <div className="admin-academic-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 18 }}>
                             <div className="card">
                                 <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 14 }}>Departments</h3>
                                 <form onSubmit={addDepartment} style={{ display: 'flex', gap: 8, marginBottom: 14 }}>
@@ -340,7 +340,7 @@ export default function AdminPage() {
 
                             <div className="card">
                                 <h3 style={{ fontSize: '0.95rem', fontWeight: 700, marginBottom: 14 }}>Courses</h3>
-                                <form onSubmit={addCourse} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginBottom: 14 }}>
+                                <form className="admin-course-form" onSubmit={addCourse} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: 8, marginBottom: 14 }}>
                                     <input className="form-input" value={courseForm.name} onChange={(e) => setCourseForm((form) => ({ ...form, name: e.target.value }))} placeholder="New course" />
                                     <select className="form-input" value={courseForm.department} onChange={(e) => setCourseForm((form) => ({ ...form, department: e.target.value }))}>
                                         <option value="">No department</option>

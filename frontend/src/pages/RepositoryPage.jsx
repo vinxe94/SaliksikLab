@@ -61,9 +61,9 @@ export default function RepositoryPage() {
             <div className="main-content">
                 <div className="page-header">
                     <div>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Research PDF Repository</h2>
+                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Research Repository</h2>
                         <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-                            Browse archived research PDFs in one place.
+                            Browse archived research documents in one place.
                         </p>
                     </div>
                     <button className={`btn btn-sm ${showFilters ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowFilters((v) => !v)}>
@@ -74,9 +74,9 @@ export default function RepositoryPage() {
                 <div className="page-body repository-feed-page">
                     <div className="repository-hero">
                         <div>
-                            <span className="dashboard-kicker">PDF Archive</span>
+                            <span className="dashboard-kicker">Research Archive</span>
                             <h3>Browse finalized research documents.</h3>
-                            <p>Uploads accept PDF files only, keeping archived documents consistent and easy to review.</p>
+                            <p>Review finalized documents, packages, and supporting archive files in one place.</p>
                         </div>
                         <div className="repository-hero-stats">
                             <div className="repository-hero-stat">
@@ -84,11 +84,11 @@ export default function RepositoryPage() {
                                 <strong>{archiveCount}</strong>
                             </div>
                             <div className="repository-hero-stat">
-                                <span>PDF only</span>
-                                <strong>1</strong>
+                                <span>File types</span>
+                                <strong>{new Set(archives.map((doc) => fileKindLabel(doc.original_filename))).size || 0}</strong>
                             </div>
                             <div className="repository-hero-stat">
-                                <span>PDF versions</span>
+                                <span>File versions</span>
                                 <strong>{archives.reduce((sum, doc) => sum + (doc.version_count || 1), 0)}</strong>
                             </div>
                         </div>
@@ -152,7 +152,7 @@ export default function RepositoryPage() {
                         )}
                     </div>
 
-                    <div className="repository-feed-layout">
+                    <div className="repository-feed-layout" style={{ gridTemplateColumns: '1fr' }}>
                         <section className="repository-feed-column">
                             {loading ? (
                                 <div className="repo-list">
@@ -204,14 +204,6 @@ export default function RepositoryPage() {
                                 </div>
                             )}
                         </section>
-
-                        <aside className="repository-side-column">
-                            <div className="trending-panel repository-guidance-panel">
-                                <h3>PDF Archive Rules</h3>
-                                <p>Each archive upload accepts one valid PDF file only.</p>
-                                <p>Source-code archives, repository folders, and runnable projects are not accepted here.</p>
-                            </div>
-                        </aside>
                     </div>
                 </div>
             </div>

@@ -25,6 +25,12 @@ def validate_pdf_upload(value):
     return value
 
 
+def validate_archive_upload(value):
+    if value.size > 104857600:
+        raise serializers.ValidationError('File size cannot exceed 100 MB.')
+    return value
+
+
 def validate_system_link(value):
     if not value:
         return value
@@ -379,7 +385,7 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
         }
 
     def validate_file(self, value):
-        return validate_pdf_upload(value)
+        return validate_archive_upload(value)
 
     def validate_system_link(self, value):
         return validate_system_link(value)
@@ -422,7 +428,7 @@ class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
         ]
 
     def validate_file(self, value):
-        return validate_pdf_upload(value)
+        return validate_archive_upload(value)
 
     def validate_system_link(self, value):
         return validate_system_link(value)
@@ -440,7 +446,7 @@ class ArchiveDocumentRevisionSerializer(serializers.Serializer):
     change_notes = serializers.CharField(required=False, allow_blank=True, default='')
 
     def validate_file(self, value):
-        return validate_pdf_upload(value)
+        return validate_archive_upload(value)
 
 
 class ArchiveDocumentReviewSerializer(serializers.Serializer):

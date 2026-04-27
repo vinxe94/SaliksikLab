@@ -251,8 +251,8 @@ export default function CodePlaygroundPage() {
                 <div className="page-body" style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 20 }}>
 
                     {/* Language selector + run button */}
-                    <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-                        <div style={{ display: 'flex', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
+                    <div className="code-toolbar" style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
+                        <div className="code-language-tabs" style={{ display: 'flex', background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 10, overflow: 'hidden' }}>
                             {Object.entries(LANG_CONFIG).map(([lang, cfg]) => (
                                 (() => {
                                     const Icon = cfg.icon
@@ -280,7 +280,7 @@ export default function CodePlaygroundPage() {
                             ))}
                         </div>
 
-                        <div style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
+                        <div className="code-action-row" style={{ marginLeft: 'auto', display: 'flex', gap: 8 }}>
                             <button
                                 className="btn btn-ghost btn-sm"
                                 id="load-sample-btn"
@@ -324,7 +324,7 @@ export default function CodePlaygroundPage() {
                     </div>
 
                     {/* Editor + Output split pane */}
-                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1, minHeight: 480 }}>
+                    <div className="code-workspace-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, flex: 1, minHeight: 480 }}>
 
                         {/* ── Code Editor ─────────────────────────────────────── */}
                         <div style={{

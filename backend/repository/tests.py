@@ -15,6 +15,10 @@ def pdf_file(name='sample.pdf'):
     return SimpleUploadedFile(name, b'%PDF-1.4\n%Test PDF\n', content_type='application/pdf')
 
 
+def text_file(name='notes.txt'):
+    return SimpleUploadedFile(name, b'Research notes', content_type='text/plain')
+
+
 TEST_MEDIA_ROOT = tempfile.mkdtemp()
 
 
@@ -71,6 +75,17 @@ class RoleBasedAccessTests(APITestCase):
         response = self.client.post(reverse('department-list-create'), {'name': 'Engineering'}, format='json')
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertEqual(Department.objects.count(), 1)
+
+    def test_anonymous_user_can_list_active_departments(self):
+        Department.objects.create(name='Active Department')
+        Department.objects.create(name='Inactive Department', is_active=False)
+
+        response = self.client.get(reverse('department-list-create'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        names = [item['name'] for item in response.data]
+        self.assertIn('Active Department', names)
+        self.assertNotIn('Inactive Department', names)
 
     def test_only_admin_can_create_course(self):
         department = Department.objects.create(name='Computer Studies')
@@ -216,6 +231,27 @@ class RoleBasedAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_201_CREATED)
         self.assertFalse(ArchiveDocument.objects.get(id=response.data['id']).is_public)
 
+    def test_archive_upload_accepts_non_pdf_file(self):
+        self.client.force_authenticate(self.student)
+        response = self.client.post(
+            reverse('archive-list-create'),
+            {
+                'title': 'Supporting Notes',
+                'abstract': 'Test',
+                'author': 'Student User',
+                'department': 'CS',
+                'course': 'BSCS',
+                'year': 2026,
+                'assigned_faculty': self.faculty.id,
+                'file': text_file('supporting-notes.txt'),
+            },
+            format='multipart',
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        archive = ArchiveDocument.objects.get(id=response.data['id'])
+        self.assertEqual(archive.original_filename, 'supporting-notes.txt')
+
     def test_only_assigned_faculty_can_review_archive_document(self):
         archive = ArchiveDocument.objects.create(
             title='Assigned Paper',
@@ -265,7 +301,7 @@ class RoleBasedAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn('assigned_faculty', response.data)
 
-    def test_archive_revision_creates_new_pdf_version_and_resets_review(self):
+    def test_archive_revision_creates_new_file_version_and_resets_review(self):
         archive = ArchiveDocument.objects.create(
             title='Versioned Paper',
             abstract='Test',
@@ -287,7 +323,7 @@ class RoleBasedAccessTests(APITestCase):
         response = self.client.post(
             reverse('archive-revise', args=[archive.id]),
             {
-                'file': pdf_file('archive-v2.pdf'),
+                'file': text_file('archive-v2.txt'),
                 'change_notes': 'Updated methodology section.',
             },
             format='multipart',
@@ -298,7 +334,7 @@ class RoleBasedAccessTests(APITestCase):
         self.assertEqual(archive.versions.count(), 2)
 
         archive.refresh_from_db()
-        self.assertEqual(archive.original_filename, 'archive-v2.pdf')
+        self.assertEqual(archive.original_filename, 'archive-v2.txt')
         self.assertFalse(archive.is_approved)
         self.assertFalse(archive.is_rejected)
 

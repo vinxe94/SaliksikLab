@@ -94,7 +94,7 @@ function Modal({ title, onClose, children }) {
 // ── Tab bar ───────────────────────────────────────────────────────────────────
 function TabBar({ tabs, active, onChange }) {
     return (
-        <div style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
+        <div className="tabs-scroll" style={{ display: 'flex', borderBottom: '1px solid var(--border)', marginBottom: 24 }}>
             {tabs.map(tab => (
                 <button
                     key={tab.id}
@@ -780,7 +780,7 @@ function NotificationsPanel({ onClose }) {
     }
 
     return (
-        <div style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 380, background: 'var(--bg2)', borderLeft: '1px solid var(--border)', zIndex: 999, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)' }}>
+        <div className="notifications-panel" style={{ position: 'fixed', top: 0, right: 0, bottom: 0, width: 380, background: 'var(--bg2)', borderLeft: '1px solid var(--border)', zIndex: 999, display: 'flex', flexDirection: 'column', boxShadow: '-4px 0 24px rgba(0,0,0,0.12)' }}>
             <div style={{ padding: '20px 20px 14px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                 <h3 style={{ fontSize: '1rem' }}>🔔 Notifications</h3>
                 <div style={{ display: 'flex', gap: 8 }}>

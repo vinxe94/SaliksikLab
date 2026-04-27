@@ -1642,12 +1642,13 @@ class DepartmentListCreateView(generics.ListCreateAPIView):
 
     def get_permissions(self):
         if self.request.method in permissions.SAFE_METHODS:
-            return [permissions.IsAuthenticated()]
+            return [permissions.AllowAny()]
         return [IsAdminUser()]
 
     def get_queryset(self):
         qs = Department.objects.all()
-        if self.request.user.role != 'admin':
+        user = self.request.user
+        if not user.is_authenticated or user.role != 'admin':
             qs = qs.filter(is_active=True)
         return qs
 

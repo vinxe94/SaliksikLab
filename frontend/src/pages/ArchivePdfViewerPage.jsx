@@ -37,10 +37,10 @@ export default function ArchivePdfViewerPage() {
                     <strong className="truncate" style={{ maxWidth: '52vw' }}>{doc.title}</strong>
                     <span className="badge badge-blue">{versionId ? 'Version view' : `v${doc.current_version || 1}`}</span>
                 </div>
-                <div style={{ width: 116 }} />
+                <div className="pdf-viewer-spacer" style={{ width: 116 }} />
             </div>
             <iframe
-                title={`${doc.title} PDF viewer`}
+                title={`${doc.title} file preview`}
                 src={previewUrl}
                 style={{ flex: 1, width: '100%', border: 0, background: 'var(--bg2)' }}
             />

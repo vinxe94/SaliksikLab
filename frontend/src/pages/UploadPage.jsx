@@ -5,13 +5,6 @@ import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import { UploadCloud, Link2 } from 'lucide-react'
 
-const ALLOWED_EXT = '.pdf'
-const PDF_ONLY_MESSAGE = 'Only PDF files are allowed.'
-
-function isPdf(file) {
-    return file?.name?.toLowerCase().endsWith('.pdf')
-}
-
 function uploadErrorMessage(err) {
     const data = err.response?.data
     if (data?.file?.[0]) return data.file[0]
@@ -52,12 +45,6 @@ export default function UploadPage() {
 
     const chooseFile = (selected) => {
         if (!selected) return
-        if (!isPdf(selected)) {
-            setFile(null)
-            if (fileRef.current) fileRef.current.value = ''
-            toast.error(PDF_ONLY_MESSAGE)
-            return
-        }
         setFile(selected)
     }
 
@@ -72,10 +59,6 @@ export default function UploadPage() {
         e.preventDefault()
         if (!file) {
             toast.error('Please select a file to upload.')
-            return
-        }
-        if (!isPdf(file)) {
-            toast.error(PDF_ONLY_MESSAGE)
             return
         }
         if (archiveForm.system_link && !/^https?:\/\//i.test(archiveForm.system_link)) {
@@ -118,12 +101,12 @@ export default function UploadPage() {
                     <div>
                         <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Upload Archive</h2>
                         <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-                            Upload finalized research documents as PDF files only.
+                            Upload finalized research documents for review.
                         </p>
                     </div>
                 </div>
                 <div className="page-body">
-                    <form onSubmit={submit} style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 20 }}>
+                    <form className="upload-form" onSubmit={submit} style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 20 }}>
                         <div
                             className={`dropzone ${dragging ? 'active' : ''}`}
                             onDragOver={(e) => { e.preventDefault(); setDragging(true) }}
@@ -131,7 +114,7 @@ export default function UploadPage() {
                             onDrop={onDrop}
                             onClick={() => fileRef.current.click()}
                         >
-                            <input ref={fileRef} type="file" accept={ALLOWED_EXT} hidden onChange={(e) => chooseFile(e.target.files[0])} />
+                            <input ref={fileRef} type="file" hidden onChange={(e) => chooseFile(e.target.files[0])} />
                             <UploadCloud size={40} style={{ margin: '0 auto 12px', display: 'block', opacity: 0.5 }} />
                             {file ? (
                                 <>
@@ -142,7 +125,7 @@ export default function UploadPage() {
                                 <>
                                     <p>Drag & drop your file here, or <span style={{ color: 'var(--accent)' }}>browse</span></p>
                                     <p style={{ fontSize: '0.8rem', marginTop: 4 }}>
-                                        PDF files only. Other file types will be rejected.
+                                        Upload a document, package, or supporting archive up to 100 MB.
                                     </p>
                                 </>
                             )}
