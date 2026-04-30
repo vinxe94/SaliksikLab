@@ -1,0 +1,58 @@
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: thesis_repo
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d thesis_repo"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      SECRET_KEY: django-insecure-change-me-in-production
+      DEBUG: "True"
+      ALLOWED_HOSTS: localhost,127.0.0.1,backend,0.0.0.0,.ngrok-free.dev,.trycloudflare.com
+      CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
+      CORS_ALLOWED_ORIGIN_REGEXES: ^https://.*\.ngrok-free\.dev$,^https://.*\.trycloudflare\.com$
+      CSRF_TRUSTED_ORIGINS: https://*.ngrok-free.dev,https://*.trycloudflare.com
+      FRONTEND_URL: http://localhost:3000
+      DB_NAME: thesis_repo
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      DB_HOST: db
+      DB_PORT: "5432"
+      HF_TRANSLATION_CACHE_DIR: /app/hf_models
+      HF_TRANSLATION_LOCAL_FILES_ONLY: "true"
+    volumes:
+      - backend_media:/app/media
+      - backend_static:/app/staticfiles
+      - backend_hf_models:/app/hf_models
+    ports:
+      - "8080:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+
+volumes:
+  postgres_data:
+  backend_media:
+  backend_static:
+  backend_hf_models:

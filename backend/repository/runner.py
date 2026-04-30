@@ -1,9 +1,8 @@
 """
 runner.py — Repository Code Runner
 
-Detects the primary runnable entry point from an uploaded file (single source
-file or ZIP archive), extracts the code, determines the language, and delegates
-execution to the existing code_execution.executor sandbox.
+Detects runnable files from an uploaded file or archive. Direct execution is
+disabled.
 
 Supported strategies (in priority order per archive):
   1. main.py / app.py / solution.py / index.py    → Python
@@ -17,10 +16,6 @@ Supported strategies (in priority order per archive):
 import os
 import zipfile
 import tarfile
-import tempfile
-import shutil
-
-from code_execution.executor import execute_code
 
 # ── Language detection ──────────────────────────────────────────────────────
 
@@ -95,104 +90,8 @@ class RunnerError(Exception):
 def run_repository_file(file_path: str, original_filename: str,
                          stdin_input: str = '',
                          entry_override: str = '') -> dict:
-    """
-    Run an uploaded repository file/archive through the sandbox.
-
-    Args:
-        file_path:         Absolute path to the uploaded file on disk.
-        original_filename: Original filename (used for type detection).
-        stdin_input:       Optional stdin to feed to the program.
-        entry_override:    If set (e.g. "src/main.py"), force this archive
-                           member as the entry point.
-
-    Returns:
-        A dict with keys: language, status, stdout, stderr, exit_code,
-        execution_time_ms, timed_out, entry_file.
-    """
-    ext = _ext(original_filename)
-
-    # ── Case 1: Single source file ──────────────────────────────────────────
-    if ext not in ('zip', 'tar', 'gz', 'rar', 'bz2', 'xz', '7z', 'tgz'):
-        lang = _detect_from_extension(original_filename)
-        if not lang:
-            raise RunnerError(
-                f'Cannot run this file type ({ext or "unknown"}). '
-                f'Supported: .py, .java, .cpp'
-            )
-        with open(file_path, 'r', errors='replace') as f:
-            source_code = f.read()
-
-        result = execute_code(lang, source_code, stdin_input)
-        result['entry_file'] = original_filename
-        result['language'] = lang
-        return result
-
-    # ── Case 2: ZIP archive ─────────────────────────────────────────────────
-    if zipfile.is_zipfile(file_path):
-        with zipfile.ZipFile(file_path, 'r') as zf:
-            names = zf.namelist()
-
-            if entry_override:
-                member = entry_override.strip('/')
-                # Verify it exists
-                matches = [n for n in names if n.strip('/') == member]
-                if not matches:
-                    raise RunnerError(f'Entry file "{entry_override}" not found in archive.')
-                member = matches[0]
-                lang_from_ext = _detect_from_extension(os.path.basename(member))
-                lang = lang_from_ext or 'python'
-            else:
-                member, lang = _find_entry_in_namelist(names)
-                if not member:
-                    raise RunnerError(
-                        'No runnable entry point found in the archive. '
-                        'Expected one of: main.py, Main.java, main.cpp, '
-                        'or any .py/.java/.cpp file.'
-                    )
-
-            source_code = zf.read(member).decode('utf-8', errors='replace')
-
-        result = execute_code(lang, source_code, stdin_input)
-        result['entry_file'] = member
-        result['language'] = lang
-        return result
-
-    # ── Case 3: TAR archive ─────────────────────────────────────────────────
-    try:
-        with tarfile.open(file_path, 'r:*') as tf:
-            names = [m.name for m in tf.getmembers() if not m.isdir()]
-
-            if entry_override:
-                member = entry_override.strip('/')
-                matches = [n for n in names if n.strip('/') == member]
-                if not matches:
-                    raise RunnerError(f'Entry file "{entry_override}" not found in archive.')
-                member = matches[0]
-                lang = _detect_from_extension(os.path.basename(member)) or 'python'
-            else:
-                member, lang = _find_entry_in_namelist(names)
-                if not member:
-                    raise RunnerError(
-                        'No runnable entry point found in the archive. '
-                        'Expected one of: main.py, Main.java, main.cpp, '
-                        'or any .py/.java/.cpp file.'
-                    )
-
-            f = tf.extractfile(member)
-            source_code = f.read().decode('utf-8', errors='replace')
-
-        result = execute_code(lang, source_code, stdin_input)
-        result['entry_file'] = member
-        result['language'] = lang
-        return result
-
-    except tarfile.TarError:
-        pass
-
-    raise RunnerError(
-        f'Unsupported archive format "{original_filename}". '
-        f'Supported archives: .zip, .tar, .tar.gz, .tgz'
-    )
+    """Direct code execution is disabled."""
+    raise RunnerError('Code execution has been disabled.')
 
 
 def list_runnable_files(file_path: str, original_filename: str) -> list[dict]:

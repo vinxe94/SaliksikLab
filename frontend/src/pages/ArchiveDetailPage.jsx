@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
-import { ArrowLeft, Link2, FileText, Eye, CheckCircle, MessageSquare, XCircle, RefreshCw, Download, Pencil } from 'lucide-react'
+import { ArrowLeft, Link2, FileText, Eye, CheckCircle, MessageSquare, XCircle, RefreshCw, Pencil } from 'lucide-react'
 
 function uploadErrorMessage(err) {
     const data = err.response?.data
@@ -67,27 +67,6 @@ export default function ArchiveDetailPage() {
     const canRevise = user?.role === 'admin' || user?.id === doc?.uploaded_by?.id
     const canEditArchive = canRevise
     const latestVersion = versions[0]
-
-    const downloadVersion = (versionId) => {
-        const url = versionId
-            ? `/api/repository/archives/${id}/download/${versionId}/`
-            : `/api/repository/archives/${id}/download/`
-        const token = localStorage.getItem('access_token')
-        fetch(url, { headers: { Authorization: `Bearer ${token}` } })
-            .then((response) => {
-                if (!response.ok) throw new Error('Download failed.')
-                return response.blob()
-            })
-            .then((blob) => {
-                const href = URL.createObjectURL(blob)
-                const a = document.createElement('a')
-                a.href = href
-                a.download = ''
-                a.click()
-                URL.revokeObjectURL(href)
-            })
-            .catch(() => toast.error('Download failed.'))
-    }
 
     const statusBadge = () => {
         if (doc.is_approved) return <span className="badge badge-green">Approved</span>
@@ -194,24 +173,107 @@ export default function ArchiveDetailPage() {
 
     if (loading) return <div className="layout"><Sidebar /><div className="main-content"><div className="spinner" /></div></div>
 
+    const documentInfoCard = (
+        <div className="card">
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+                <h3 style={{ fontSize: '0.95rem' }}>Document Info</h3>
+                {canEditArchive && (
+                    <button type="button" className="btn btn-ghost btn-sm" onClick={showEditForm ? () => setShowEditForm(false) : openEditForm}>
+                        <Pencil size={14} /> {showEditForm ? 'Cancel' : 'Edit'}
+                    </button>
+                )}
+            </div>
+            {showEditForm ? (
+                <form onSubmit={submitArchiveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div className="form-group">
+                        <label className="form-label">Assigned Faculty</label>
+                        <select
+                            className="form-input"
+                            value={editForm.assigned_faculty}
+                            onChange={(e) => setEditForm((current) => ({ ...current, assigned_faculty: e.target.value }))}
+                            required
+                        >
+                            <option value="">Select faculty reviewer</option>
+                            {faculty.map((member) => (
+                                <option key={member.id} value={member.id}>
+                                    {member.full_name || `${member.first_name} ${member.last_name}`} ({member.email})
+                                </option>
+                            ))}
+                        </select>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">Visibility</label>
+                        <div className="filters repository-filters">
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${editForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => setEditForm((current) => ({ ...current, is_public: true }))}
+                            >
+                                Public
+                            </button>
+                            <button
+                                type="button"
+                                className={`btn btn-sm ${!editForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
+                                onClick={() => setEditForm((current) => ({ ...current, is_public: false }))}
+                            >
+                                Private
+                            </button>
+                        </div>
+                        <span className="dashboard-stat-meta">
+                            Public archives are visible in the repository. Private archives are limited to the uploader, admins, and assigned faculty.
+                        </span>
+                    </div>
+                    <div className="form-group">
+                        <label className="form-label">System Link</label>
+                        <input
+                            className="form-input"
+                            type="url"
+                            placeholder="https://example.com/system"
+                            value={editForm.system_link}
+                            onChange={(e) => setEditForm((current) => ({ ...current, system_link: e.target.value }))}
+                        />
+                        <span className="dashboard-stat-meta">Optional. Use a link that starts with http:// or https://.</span>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10 }}>
+                        <button type="submit" className="btn btn-primary btn-sm" disabled={editLoading}>
+                            {editLoading ? 'Saving...' : 'Save Settings'}
+                        </button>
+                        <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowEditForm(false)} disabled={editLoading}>Cancel</button>
+                    </div>
+                </form>
+            ) : (
+                <div className="profile-summary-list">
+                    <div><span>Filename</span><strong>{doc.original_filename}</strong></div>
+                    <div><span>Current version</span><strong>v{latestVersion?.version || doc.current_version || 1}</strong></div>
+                    <div><span>Uploaded</span><strong>{new Date(doc.uploaded_at).toLocaleDateString()}</strong></div>
+                    <div><span>Uploaded by</span><strong>{doc.uploaded_by?.full_name || doc.uploaded_by?.email || '—'}</strong></div>
+                    <div><span>Assigned faculty</span><strong>{doc.assigned_faculty?.full_name || doc.assigned_faculty?.email || '—'}</strong></div>
+                    <div><span>Visibility</span><strong>{doc.is_public ? 'Public' : 'Private'}</strong></div>
+                    <div><span>Review status</span><strong>{doc.review_status || 'pending'}</strong></div>
+                    <div><span>System link</span><strong>{doc.system_link || 'None'}</strong></div>
+                </div>
+            )}
+        </div>
+    )
+
     return (
         <div className="layout">
             <Sidebar />
             <div className="main-content">
-                <div className="page-header">
-                    <button className="btn btn-ghost btn-sm" onClick={() => navigate(-1)}><ArrowLeft size={14} /> Back</button>
-                    <div style={{ display: 'flex', gap: 8 }}>
+                <div className="page-header archive-detail-header">
+                    <button className="btn btn-ghost btn-sm" onClick={() => navigate('/repository')}><ArrowLeft size={14} /> Back</button>
+                    <div className="archive-header-actions">
                         {doc.system_link && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => window.open(doc.system_link, '_blank', 'noopener,noreferrer')}>
-                                <Link2 size={14} /> Open System Link
+                            <button className="btn btn-ghost archive-header-action" onClick={() => window.open(doc.system_link, '_blank', 'noopener,noreferrer')}>
+                                <Link2 size={18} /> Open System Link
                             </button>
                         )}
-                        <button className="btn btn-primary btn-sm" onClick={() => navigate(`/archives/${id}/view`)}>
-                            <Eye size={14} /> View File
+                        <button className="btn btn-primary archive-header-action" onClick={() => navigate(`/archives/${id}/view`)}>
+                            <Eye size={18} /> View File
                         </button>
                         {canRevise && (
-                            <button className="btn btn-ghost btn-sm" onClick={() => setShowRevForm((value) => !value)}>
-                                <RefreshCw size={14} /> Upload New Version
+                            <button className="btn btn-ghost archive-header-action" onClick={() => setShowRevForm((value) => !value)}>
+                                <RefreshCw size={18} /> Upload New Version
                             </button>
                         )}
                     </div>
@@ -229,7 +291,22 @@ export default function ArchiveDetailPage() {
                                     {doc.system_link && <span className="badge badge-blue">System linked</span>}
                                 </div>
                                 <h1 style={{ fontSize: '1.45rem', fontWeight: 800, marginBottom: 12 }}>{doc.title}</h1>
-                                <p style={{ color: 'var(--text2)', lineHeight: 1.7, marginBottom: 18 }}>{doc.abstract || 'No abstract provided.'}</p>
+                                <div className="journal-abstract" style={{ marginBottom: 18 }}>
+                                    <span>ABSTRACT</span>
+                                    <p>{doc.abstract || 'No abstract provided.'}</p>
+                                </div>
+                                <div className="journal-keywords-section" style={{ margin: '18px 0' }}>
+                                    <span className="journal-section-label">KEYWORDS</span>
+                                    {doc.keywords?.length > 0 ? (
+                                        <div className="journal-keywords">
+                                            {doc.keywords.map((keyword, index) => (
+                                                <span key={`${keyword}-${index}`} className="journal-keyword">{keyword}</span>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="journal-empty-note">No keywords listed.</p>
+                                    )}
+                                </div>
                                 <div className="grid-2">
                                     <div>
                                         <div className="form-label">Author</div>
@@ -249,6 +326,8 @@ export default function ArchiveDetailPage() {
                                     </div>
                                 </div>
                             </div>
+
+                            {documentInfoCard}
 
                             {showRevForm && (
                                 <div className="card">
@@ -279,22 +358,6 @@ export default function ArchiveDetailPage() {
                                 </div>
                             )}
 
-                            <div className="card" style={{ textAlign: 'center', padding: 32 }}>
-                                <FileText size={38} style={{ opacity: 0.45, marginBottom: 12 }} />
-                                <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 8 }}>File is ready to view</h3>
-                                <p style={{ color: 'var(--text2)', fontSize: '0.9rem', marginBottom: 16 }}>
-                                    Open or download the current file version.
-                                </p>
-                                <div style={{ display: 'flex', justifyContent: 'center', gap: 10, flexWrap: 'wrap' }}>
-                                    <button className="btn btn-primary" onClick={() => navigate(`/archives/${id}/view`)}>
-                                        <Eye size={16} /> View File
-                                    </button>
-                                    <button className="btn btn-ghost" onClick={() => downloadVersion()}>
-                                        <Download size={16} /> Download Current
-                                    </button>
-                                </div>
-                            </div>
-
                             {canReview && (
                                 <div className="card">
                                     <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Faculty Review</h3>
@@ -314,86 +377,6 @@ export default function ArchiveDetailPage() {
                         </div>
 
                         <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="card">
-                                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
-                                    <h3 style={{ fontSize: '0.95rem' }}>Document Info</h3>
-                                    {canEditArchive && (
-                                        <button type="button" className="btn btn-ghost btn-sm" onClick={showEditForm ? () => setShowEditForm(false) : openEditForm}>
-                                            <Pencil size={14} /> {showEditForm ? 'Cancel' : 'Edit'}
-                                        </button>
-                                    )}
-                                </div>
-                                {showEditForm ? (
-                                    <form onSubmit={submitArchiveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                        <div className="form-group">
-                                            <label className="form-label">Assigned Faculty</label>
-                                            <select
-                                                className="form-input"
-                                                value={editForm.assigned_faculty}
-                                                onChange={(e) => setEditForm((current) => ({ ...current, assigned_faculty: e.target.value }))}
-                                                required
-                                            >
-                                                <option value="">Select faculty reviewer</option>
-                                                {faculty.map((member) => (
-                                                    <option key={member.id} value={member.id}>
-                                                        {member.full_name || `${member.first_name} ${member.last_name}`} ({member.email})
-                                                    </option>
-                                                ))}
-                                            </select>
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="form-label">Visibility</label>
-                                            <div className="filters repository-filters">
-                                                <button
-                                                    type="button"
-                                                    className={`btn btn-sm ${editForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
-                                                    onClick={() => setEditForm((current) => ({ ...current, is_public: true }))}
-                                                >
-                                                    Public
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className={`btn btn-sm ${!editForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
-                                                    onClick={() => setEditForm((current) => ({ ...current, is_public: false }))}
-                                                >
-                                                    Private
-                                                </button>
-                                            </div>
-                                            <span className="dashboard-stat-meta">
-                                                Public archives are visible in the repository. Private archives are limited to the uploader, admins, and assigned faculty.
-                                            </span>
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="form-label">System Link</label>
-                                            <input
-                                                className="form-input"
-                                                type="url"
-                                                placeholder="https://example.com/system"
-                                                value={editForm.system_link}
-                                                onChange={(e) => setEditForm((current) => ({ ...current, system_link: e.target.value }))}
-                                            />
-                                            <span className="dashboard-stat-meta">Optional. Use a link that starts with http:// or https://.</span>
-                                        </div>
-                                        <div style={{ display: 'flex', gap: 10 }}>
-                                            <button type="submit" className="btn btn-primary btn-sm" disabled={editLoading}>
-                                                {editLoading ? 'Saving...' : 'Save Settings'}
-                                            </button>
-                                            <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowEditForm(false)} disabled={editLoading}>Cancel</button>
-                                        </div>
-                                    </form>
-                                ) : (
-                                <div className="profile-summary-list">
-                                    <div><span>Filename</span><strong>{doc.original_filename}</strong></div>
-                                    <div><span>Current version</span><strong>v{latestVersion?.version || doc.current_version || 1}</strong></div>
-                                    <div><span>Uploaded</span><strong>{new Date(doc.uploaded_at).toLocaleDateString()}</strong></div>
-                                    <div><span>Uploaded by</span><strong>{doc.uploaded_by?.full_name || doc.uploaded_by?.email || '—'}</strong></div>
-                                    <div><span>Assigned faculty</span><strong>{doc.assigned_faculty?.full_name || doc.assigned_faculty?.email || '—'}</strong></div>
-                                    <div><span>Visibility</span><strong>{doc.is_public ? 'Public' : 'Private'}</strong></div>
-                                    <div><span>Review status</span><strong>{doc.review_status || 'pending'}</strong></div>
-                                    <div><span>System link</span><strong>{doc.system_link || 'None'}</strong></div>
-                                </div>
-                                )}
-                            </div>
                             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 700 }}>Version History</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 12 }}>
@@ -408,20 +391,13 @@ export default function ArchiveDetailPage() {
                                             <div style={{ fontSize: '0.78rem', color: 'var(--text2)', marginTop: 8 }}>
                                                 {new Date(version.uploaded_at).toLocaleDateString()} by {version.uploaded_by?.full_name || version.uploaded_by?.email || '—'}
                                             </div>
-                                            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 10 }}>
+                                            <div className="archive-file-actions version-file-actions">
                                                 <button
                                                     type="button"
-                                                    className="btn btn-ghost btn-sm"
+                                                    className="btn btn-ghost btn-sm archive-file-action"
                                                     onClick={() => navigate(`/archives/${id}/view?version=${version.id}`)}
                                                 >
-                                                    <Eye size={14} /> View
-                                                </button>
-                                                <button
-                                                    type="button"
-                                                    className="btn btn-ghost btn-sm"
-                                                    onClick={() => downloadVersion(version.id)}
-                                                >
-                                                    <Download size={14} /> Download
+                                                    <Eye size={13} /> View
                                                 </button>
                                             </div>
                                         </div>
@@ -440,15 +416,6 @@ export default function ArchiveDetailPage() {
                                             By {doc.reviewed_by.full_name || doc.reviewed_by.email}
                                         </p>
                                     )}
-                                </div>
-                            )}
-                            {doc.system_link && (
-                                <div className="card">
-                                    <h3 style={{ fontSize: '0.95rem', marginBottom: 10 }}>System Link</h3>
-                                    <button type="button" className="profile-pinned-card" onClick={() => window.open(doc.system_link, '_blank', 'noopener,noreferrer')}>
-                                        <div className="profile-pinned-title">{doc.system_link}</div>
-                                        <p>Open the linked system in a new tab.</p>
-                                    </button>
                                 </div>
                             )}
                         </div>

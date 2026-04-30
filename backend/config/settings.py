@@ -10,11 +10,36 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-key')
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    ".ngrok-free.dev",
+def csv_env(name, default=''):
+    return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
+
+def append_unique(values, required):
+    return list(dict.fromkeys([*values, *required]))
+
+TUNNEL_ALLOWED_HOSTS = [
+    '.ngrok-free.dev',
+    '.trycloudflare.com',
 ]
+
+TUNNEL_TRUSTED_ORIGINS = [
+    'https://*.ngrok-free.dev',
+    'https://*.trycloudflare.com',
+]
+
+TUNNEL_CORS_REGEXES = [
+    r'^https://.*\.ngrok-free\.dev$',
+    r'^https://.*\.trycloudflare\.com$',
+]
+
+ALLOWED_HOSTS = append_unique(
+    csv_env('ALLOWED_HOSTS', 'localhost,127.0.0.1'),
+    TUNNEL_ALLOWED_HOSTS,
+)
+
+CSRF_TRUSTED_ORIGINS = append_unique(
+    csv_env('CSRF_TRUSTED_ORIGINS'),
+    TUNNEL_TRUSTED_ORIGINS,
+)
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -29,13 +54,13 @@ INSTALLED_APPS = [
     # Local
     'accounts',
     'repository',
-    'code_execution',
     'collaboration',
 ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -75,7 +100,6 @@ if RUNNING_TESTS:
     MIGRATION_MODULES = {
         'accounts': None,
         'repository': None,
-        'code_execution': None,
         'collaboration': None,
     }
 else:
@@ -106,6 +130,7 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -117,6 +142,10 @@ CORS_ALLOWED_ORIGINS = os.getenv(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173'
 ).split(',')
+CORS_ALLOWED_ORIGIN_REGEXES = append_unique(
+    csv_env('CORS_ALLOWED_ORIGIN_REGEXES'),
+    TUNNEL_CORS_REGEXES,
+)
 CORS_ALLOW_CREDENTIALS = True
 
 # DRF
@@ -157,19 +186,3 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Research Repository <noreply@repository.local>')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
-
-# ── Code Execution Sandbox ─────────────────────────────────────────────────────
-CODE_EXEC_TIMEOUT_SECONDS = int(os.getenv('CODE_EXEC_TIMEOUT', '10'))
-CODE_EXEC_MAX_OUTPUT_KB   = int(os.getenv('CODE_EXEC_MAX_OUTPUT_KB', '64'))
-CODE_EXEC_MAX_MEMORY_MB   = int(os.getenv('CODE_EXEC_MAX_MEMORY_MB', '128'))
-
-# ── Translation / ML Inference ────────────────────────────────────────────────
-TRANSLATION_PROVIDER = os.getenv('TRANSLATION_PROVIDER', 'huggingface')
-TRANSLATION_FALLBACK_PROVIDER = os.getenv('TRANSLATION_FALLBACK_PROVIDER', 'google')
-HF_TRANSLATION_DEVICE = os.getenv('HF_TRANSLATION_DEVICE', 'cpu')
-HF_TRANSLATION_CACHE_DIR = os.getenv('HF_TRANSLATION_CACHE_DIR', str(BASE_DIR / 'hf_models'))
-HF_TRANSLATION_CHUNK_SIZE = int(os.getenv('HF_TRANSLATION_CHUNK_SIZE', '1400'))
-HF_TRANSLATION_MODELS = {
-    'en:fil': os.getenv('HF_TRANSLATION_MODEL_EN_FIL', 'Helsinki-NLP/opus-mt-en-tl'),
-    'fil:en': os.getenv('HF_TRANSLATION_MODEL_FIL_EN', 'Helsinki-NLP/opus-mt-tl-en'),
-}

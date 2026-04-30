@@ -230,6 +230,7 @@ class ArchiveDocument(models.Model):
     department = models.CharField(max_length=200, blank=True)
     course = models.CharField(max_length=200, blank=True)
     year = models.PositiveIntegerField(null=True, blank=True)
+    keywords = models.JSONField(default=list, blank=True)
     uploaded_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,

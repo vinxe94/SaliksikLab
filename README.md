@@ -11,6 +11,7 @@ A web-based platform for managing, submitting, and reviewing academic research o
 - [Project Structure](#project-structure)
 - [Prerequisites](#prerequisites)
 - [Installation & Setup](#installation--setup)
+  - [Docker Setup](#docker-setup)
   - [1. Clone the Repository](#1-clone-the-repository)
   - [2. Backend Setup (Django)](#2-backend-setup-django)
   - [3. Frontend Setup (React)](#3-frontend-setup-react)
@@ -23,10 +24,6 @@ A web-based platform for managing, submitting, and reviewing academic research o
   - [Version History Panel](#version-history-panel)
   - [Submitting a Revision](#submitting-a-revision)
   - [Admin Rollback](#admin-rollback)
-- [Code Lab](#code-lab)
-  - [Supported Languages](#supported-languages)
-  - [Code Lab Flow](#code-lab-flow)
-  - [Run History](#run-history)
 - [Collaboration Hub](#collaboration-hub)
   - [Key Concepts](#key-concepts)
   - [Roles & Permissions](#roles--permissions)
@@ -55,9 +52,7 @@ A web-based platform for managing, submitting, and reviewing academic research o
 - 📊 Dashboard with analytics (by type, department, year)
 - 📧 Email notifications for approvals, rejections, and revisions
 - 🗂️ CSV export and JSON backup (admin only)
-- 💻 **Code Lab** — in-browser IDE supporting Python, Java, and C++ with sandboxed execution
 - 🤝 **Collaboration Hub** — Git/GitHub-style project spaces with Issues, Merge Requests, Commits, and in-app Notifications
-- 🤖 **AI Translation for Abstracts** — Hugging Face-powered English/Filipino translation with database caching and fallback support
 
 ---
 
@@ -90,7 +85,6 @@ SaliksikLab/
 │   │   ├── serializers.py    # DRF serializers
 │   │   ├── views.py          # All API views
 │   │   └── urls.py           # Repository endpoint routes
-│   ├── code_execution/       # In-browser code runner (sandbox)
 │   │   ├── models.py         # ExecutionLog (run history)
 │   │   ├── views.py          # /execute/, /history/ endpoints
 │   │   └── urls.py
@@ -121,7 +115,6 @@ SaliksikLab/
     │       ├── UploadPage.jsx
     │       ├── AdminPage.jsx
     │       ├── ProfilePage.jsx
-    │       ├── CodePlaygroundPage.jsx  ← Code Lab (in-browser IDE)
     │       └── CollaborationPage.jsx   ← Collaboration Hub
     ├── package.json
     └── vite.config.js
@@ -141,6 +134,42 @@ Make sure the following are installed on youar machine:
 ---
 
 ## Installation & Setup
+
+### Docker Setup
+
+You can run the frontend, backend, and PostgreSQL together with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Services:
+
+| Service  | URL / Port                 |
+|----------|----------------------------|
+| Frontend | `http://localhost:3000`    |
+| Backend  | `http://localhost:8080`    |
+| Database | `localhost:5432`           |
+
+The backend container automatically waits for PostgreSQL, applies migrations, and collects static files before starting Gunicorn. Uploaded media files, collected static files, PostgreSQL data, and Hugging Face model cache data are stored in Docker volumes.
+
+To create an admin user inside the backend container:
+
+```bash
+docker compose exec backend python manage.py createsuperuser
+```
+
+To stop the containers:
+
+```bash
+docker compose down
+```
+
+To stop the containers and remove Docker volumes:
+
+```bash
+docker compose down -v
+```
 
 ### 1. Clone the Repository
 
@@ -213,10 +242,12 @@ Create a `.env` file inside the `backend/` folder with the following:
 # Django
 SECRET_KEY=your-secret-key-here
 DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
+ALLOWED_HOSTS=localhost,127.0.0.1,.ngrok-free.dev,.trycloudflare.com
 
 # CORS (must match frontend URL)
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
+CORS_ALLOWED_ORIGIN_REGEXES=^https://.*\.ngrok-free\.dev$,^https://.*\.trycloudflare\.com$
+CSRF_TRUSTED_ORIGINS=https://*.ngrok-free.dev,https://*.trycloudflare.com
 
 # PostgreSQL
 DB_NAME=thesis_repo
@@ -236,29 +267,9 @@ DEFAULT_FROM_EMAIL=Research Repository <noreply@repository.local>
 
 # Frontend URL (used in password reset links)
 FRONTEND_URL=http://localhost:5173
-
-# AI Translation
-TRANSLATION_PROVIDER=huggingface
-TRANSLATION_FALLBACK_PROVIDER=google
-HF_TRANSLATION_DEVICE=cpu
-HF_TRANSLATION_CACHE_DIR=./hf_models
-HF_TRANSLATION_CHUNK_SIZE=1400
-HF_TRANSLATION_MODEL_EN_FIL=Helsinki-NLP/opus-mt-en-tl
-HF_TRANSLATION_MODEL_FIL_EN=Helsinki-NLP/opus-mt-tl-en
 ```
 
 > **Note:** For Gmail, generate an [App Password](https://support.google.com/accounts/answer/185833) if 2FA is enabled.
-
-### AI Translation Setup
-
-The repository abstract translator can now use local Hugging Face translation models.
-
-Recommended pretrained models:
-
-- `Helsinki-NLP/opus-mt-en-tl` for English to Tagalog
-- `Helsinki-NLP/opus-mt-tl-en` for Tagalog to English
-
-Install the backend dependencies, then the first translation request will download and cache the selected models into `backend/hf_models` unless you override `HF_TRANSLATION_CACHE_DIR`.
 
 ---
 
@@ -289,7 +300,7 @@ Open your browser and go to **http://localhost:5173**.
 
 | Role         | Permissions                                                                              |
 |--------------|------------------------------------------------------------------------------------------|
-| `student`    | Upload outputs, revise own submissions, browse approved outputs, use Code Lab, collaborate |
+| `student`    | Upload outputs, revise own submissions, browse approved outputs, collaborate |
 | `researcher` | Same as student — intended for active research staff                                     |
 | `faculty`    | Same as student — can act as advisers on submissions                                     |
 | `admin`      | All of the above + approve/reject, rollback versions, export data, manage all users      |
@@ -495,66 +506,6 @@ The system sends email notifications for the following events:
 | Password reset request  | Requesting user  |
 
 In **development**, emails are printed to the Django console by default (`EMAIL_BACKEND=django.core.mail.backends.console.EmailBackend`). To send real emails, configure SMTP settings in your `.env` file.
-
----
-
-## Code Lab
-
-Code Lab is a fully in-browser IDE that lets students, researchers, and faculty write and run code without any local setup. It is accessible to all authenticated users at `/code-lab`.
-
-### Supported Languages
-
-| Language  | Runtime      | Sample Program        |
-|-----------|--------------|-----------------------|
-| Python 3  | CPython      | Fibonacci sequence    |
-| Java      | OpenJDK 17   | Simple calculator     |
-| C++ 17    | g++          | Bubble sort           |
-
-### Code Lab Flow
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  1. Select language (Python / Java / C++)                        │
-│  2. Write or load a sample program in the editor                 │
-│  3. (Optional) Provide stdin input for programs that read input  │
-│  4. Press ▶ Run  or  Ctrl + Enter                                │
-│         ↓                                                        │
-│  Backend: POST /api/code/execute/                                │
-│    • Spawns a sandboxed subprocess with resource limits:         │
-│        – CPU timeout: 10 seconds                                 │
-│        – Max output: 64 KB                                       │
-│        – Max memory: 128 MB                                      │
-│         ↓                                                        │
-│  Response includes:                                              │
-│    • stdout  — program output                                    │
-│    • stderr  — compiler / runtime errors                         │
-│    • exit_code — 0 = success, non-zero = error                   │
-│    • execution_time_ms — wall-clock runtime in milliseconds      │
-│    • status — "success" | "error" | "timeout"                    │
-│         ↓                                                        │
-│  Results displayed in tabbed Output Panel:                       │
-│    📤 Output tab  — stdout + execution metadata                  │
-│    ⚠️ Errors tab  — stderr (highlighted in red)                  │
-│    🗂 History tab — past runs for this session                    │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-### Run History
-
-Every execution is saved to the database (`ExecutionLog`). The **History** tab shows all past runs with:
-- Language icon and name
-- Truncated source code preview
-- Execution time and exit code
-- Success / Error / Timeout status badge
-
-Run history is user-scoped — each user only sees their own past runs.
-
-### Code Lab API
-
-| Method | Endpoint           | Description                            |
-|--------|--------------------|----------------------------------------|
-| POST   | `/code/execute/`   | Run code in a sandboxed subprocess     |
-| GET    | `/code/history/`   | Retrieve the current user's run history |
 
 ---
 
@@ -870,9 +821,9 @@ SaliksikLab implements a **four-tier role-based access control** system to ensur
 | Role | Description | Permissions |
 |------|-------------|-------------|
 | **Admin** | System administrators | Full access: approve/reject outputs, manage users, export data, rollback versions, manage all projects |
-| **Faculty** | Faculty members | Upload, revise own outputs, browse approved outputs, use Code Lab, create/join collaboration projects |
+| **Faculty** | Faculty members | Upload, revise own outputs, browse approved outputs, create/join collaboration projects |
 | **Researcher** | Research staff | Same as Faculty — intended for non-teaching research personnel |
-| **Student** | Students | Upload, revise own outputs, browse approved outputs, use Code Lab, create/join collaboration projects |
+| **Student** | Students | Upload, revise own outputs, browse approved outputs, create/join collaboration projects |
 
 #### Permission Matrix
 
@@ -891,7 +842,6 @@ SaliksikLab implements a **four-tier role-based access control** system to ensur
 │ Rollback versions        │    ❌   │     ❌     │    ❌    │     ✅     │
 │ Export data (CSV/JSON)   │    ❌   │     ❌     │    ❌    │     ✅     │
 │ Manage users             │    ❌   │     ❌     │    ❌    │     ✅     │
-│ Use Code Lab             │    ✅   │     ✅     │    ✅    │     ✅     │
 │ Create collaboration     │    ✅   │     ✅     │    ✅    │     ✅     │
 │ Manage all projects      │    ❌   │     ❌     │    ❌    │     ✅     │
 │ View pending outputs     │    ❌   │     ❌     │    ❌    │     ✅     │
@@ -1128,64 +1078,6 @@ SECURE_HSTS_PRELOAD = True
 
 ---
 
-### 5. Code Execution Security
-
-The Code Lab feature executes user-submitted code in a **sandboxed environment** with strict resource limits.
-
-**Security Measures:**
-
-| Measure | Description |
-|---------|-------------|
-| **Process isolation** | Each execution runs in a separate subprocess |
-| **CPU timeout** | 10-second maximum execution time |
-| **Memory limit** | 128 MB maximum memory usage |
-| **Output limit** | 64 KB maximum output capture |
-| **No network access** | Subprocesses cannot make network calls |
-| **Isolated filesystem** | Temporary directory, no access to system files |
-| **No shell access** | Commands executed directly, not via shell |
-| **Resource limits** | `resource.setrlimit()` enforces OS-level limits |
-
-**Sandbox Implementation:**
-
-```python
-import subprocess
-import resource
-import tempfile
-
-class SandboxedExecutor:
-    TIMEOUT = 10  # seconds
-    MAX_MEMORY = 128 * 1024 * 1024  # 128 MB
-    MAX_OUTPUT = 64 * 1024  # 64 KB
-    
-    def execute(self, language, source_code, stdin=''):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Write code to temp file
-            # Compile if needed (Java, C++)
-            # Run with resource limits
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=temp_dir,
-            )
-            
-            # Set memory limit
-            resource.setrlimit(resource.RLIMIT_AS, (self.MAX_MEMORY, self.MAX_MEMORY))
-            
-            stdout, stderr = process.communicate(
-                input=stdin.encode(),
-                timeout=self.TIMEOUT,
-            )
-            
-            return {
-                'stdout': stdout[:self.MAX_OUTPUT],
-                'stderr': stderr[:self.MAX_OUTPUT],
-                'exit_code': process.returncode,
-            }
-```
-
----
 
 ### 6. Data Integrity
 
@@ -1432,9 +1324,9 @@ SaliksikLab implements a **four-tier role-based access control** system to ensur
 | Role | Description | Permissions |
 |------|-------------|-------------|
 | **Admin** | System administrators | Full access: approve/reject outputs, manage users, export data, rollback versions, manage all projects |
-| **Faculty** | Faculty members | Upload, revise own outputs, browse approved outputs, use Code Lab, create/join collaboration projects |
+| **Faculty** | Faculty members | Upload, revise own outputs, browse approved outputs, create/join collaboration projects |
 | **Researcher** | Research staff | Same as Faculty — intended for non-teaching research personnel |
-| **Student** | Students | Upload, revise own outputs, browse approved outputs, use Code Lab, create/join collaboration projects |
+| **Student** | Students | Upload, revise own outputs, browse approved outputs, create/join collaboration projects |
 
 #### Permission Matrix
 
@@ -1453,7 +1345,6 @@ SaliksikLab implements a **four-tier role-based access control** system to ensur
 │ Rollback versions        │    ❌   │     ❌     │    ❌    │     ✅     │
 │ Export data (CSV/JSON)   │    ❌   │     ❌     │    ❌    │     ✅     │
 │ Manage users             │    ❌   │     ❌     │    ❌    │     ✅     │
-│ Use Code Lab             │    ✅   │     ✅     │    ✅    │     ✅     │
 │ Create collaboration     │    ✅   │     ✅     │    ✅    │     ✅     │
 │ Manage all projects      │    ❌   │     ❌     │    ❌    │     ✅     │
 │ View pending outputs     │    ❌   │     ❌     │    ❌    │     ✅     │
@@ -1690,64 +1581,6 @@ SECURE_HSTS_PRELOAD = True
 
 ---
 
-### 5. Code Execution Security
-
-The Code Lab feature executes user-submitted code in a **sandboxed environment** with strict resource limits.
-
-**Security Measures:**
-
-| Measure | Description |
-|---------|-------------|
-| **Process isolation** | Each execution runs in a separate subprocess |
-| **CPU timeout** | 10-second maximum execution time |
-| **Memory limit** | 128 MB maximum memory usage |
-| **Output limit** | 64 KB maximum output capture |
-| **No network access** | Subprocesses cannot make network calls |
-| **Isolated filesystem** | Temporary directory, no access to system files |
-| **No shell access** | Commands executed directly, not via shell |
-| **Resource limits** | `resource.setrlimit()` enforces OS-level limits |
-
-**Sandbox Implementation:**
-
-```python
-import subprocess
-import resource
-import tempfile
-
-class SandboxedExecutor:
-    TIMEOUT = 10  # seconds
-    MAX_MEMORY = 128 * 1024 * 1024  # 128 MB
-    MAX_OUTPUT = 64 * 1024  # 64 KB
-    
-    def execute(self, language, source_code, stdin=''):
-        with tempfile.TemporaryDirectory() as temp_dir:
-            # Write code to temp file
-            # Compile if needed (Java, C++)
-            # Run with resource limits
-            process = subprocess.Popen(
-                command,
-                stdin=subprocess.PIPE,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-                cwd=temp_dir,
-            )
-            
-            # Set memory limit
-            resource.setrlimit(resource.RLIMIT_AS, (self.MAX_MEMORY, self.MAX_MEMORY))
-            
-            stdout, stderr = process.communicate(
-                input=stdin.encode(),
-                timeout=self.TIMEOUT,
-            )
-            
-            return {
-                'stdout': stdout[:self.MAX_OUTPUT],
-                'stderr': stderr[:self.MAX_OUTPUT],
-                'exit_code': process.returncode,
-            }
-```
-
----
 
 ### 6. Data Integrity
 
@@ -1910,7 +1743,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
 │  │   Module 4   │  │   Module 5   │  │      Module 6        │   │
-│  │ Collaboration│  │   Code Lab   │  │   File Management    │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
@@ -2086,47 +1918,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 
 ---
 
-### Module 5: Code Lab (In-Browser IDE)
-
-**Location:** `backend/code_execution/`, `frontend/src/pages/CodePlaygroundPage.jsx`
-
-**Purpose:** Sandboxed code execution environment for learning and testing without local setup.
-
-**Sub-Components:**
-
-| Component | Type | Description |
-|-----------|------|-------------|
-| **Code Editor** | Frontend | Syntax-highlighted editor with line numbers |
-| **Language Selector** | Frontend | Choose between Python, Java, C++ |
-| **Input Panel** | Frontend | Provide stdin input for programs |
-| **Execution Engine** | Backend | Sandboxed subprocess execution |
-| **Output Display** | Frontend | Tabbed output (stdout, stderr, metadata) |
-| **Run History** | Backend + Frontend | Track all executions with results |
-| **Sample Programs** | Frontend | Pre-loaded examples for each language |
-
-**Key Features:**
-- Support for Python 3, Java 17, C++17
-- Sandboxed execution with resource limits
-- Execution time tracking
-- Memory usage monitoring
-- Error highlighting
-- Run history with timestamps
-- Copy/download code functionality
-
-**Resource Limits:**
-- CPU timeout: 10 seconds
-- Memory limit: 128 MB
-- Output limit: 64 KB
-- No network access
-
-**API Endpoints:**
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/code/execute/` | Execute code |
-| GET | `/api/code/history/` | Get execution history |
-
----
 
 ### Module 6: File Management System
 
@@ -2287,28 +2078,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 
 ---
 
-### Module 10: Translation Service (Future Enhancement)
-
-**Location:** `backend/code_execution/models.py` (TranslationCache)
-
-**Purpose:** Translate research abstracts to multiple languages for broader accessibility.
-
-**Sub-Components:**
-
-| Component | Type | Description |
-|-----------|------|-------------|
-| **Translation API Integration** | Backend | Connect to translation service (Google, DeepL) |
-| **Translation Cache** | Backend | Cache translated text to reduce API calls |
-| **Language Selector** | Frontend | Choose display language for abstracts |
-| **Auto-Translation** | Backend | Translate on upload (optional) |
-
-**Key Features:**
-- Cache translated content to minimize costs
-- Support for Filipino, English, and other languages
-- User-triggered translation
-- Quality indicators for machine translation
-
----
 
 ### Module 11: Search & Discovery Engine
 
@@ -2370,7 +2139,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 graph TD
     A[Auth Module] -->|User identity| B[Repository Module]
     A -->|User identity| C[Collaboration Module]
-    A -->|User identity| D[Code Lab Module]
     
     B -->|File versions| E[File Management Module]
     B -->|Download events| E
@@ -2430,8 +2198,6 @@ backend/
 │   ├── urls.py               # Collaboration routes
 │   └── services.py           # Collaboration business logic
 │
-├── code_execution/           # Module 5, 10
-│   ├── models.py             # CodeSubmission, TranslationCache
 │   ├── serializers.py        # Code execution serializers
 │   ├── views.py              # Execution endpoints
 │   ├── urls.py               # Code routes
@@ -2459,7 +2225,6 @@ frontend/src/
 │   ├── UploadPage.jsx        # Module 2
 │   ├── AdminPage.jsx         # Module 8
 │   ├── ProfilePage.jsx       # Module 1
-│   ├── CodePlaygroundPage.jsx # Module 5
 │   └── CollaborationPage.jsx # Module 4
 │
 ├── components/               # Shared components
@@ -2493,12 +2258,10 @@ frontend/src/
 | Repository | React, React Router | Django REST Framework | `repository_researchoutput`, `repository_outputfile` |
 | Version Control | React, VersionHistoryPanel | Django ORM | `repository_outputfile` |
 | Collaboration | React, Tab Navigation | Django REST Framework | `collaboration_collabproject`, `collaboration_projectmember`, `collaboration_issue`, `collaboration_mergerequest`, `collaboration_commit`, `collaboration_notification` |
-| Code Lab | React, Textarea Editor | Subprocess, Resource Limits | `code_execution_codesubmission` |
 | File Management | React, File Previewer | Django FileResponse | `repository_outputfile`, `repository_downloadlog` |
 | Analytics | React, CSS Charts | Django Aggregation | All repository tables |
 | Admin | React, Django Admin | Django Admin | All tables |
 | Notifications | React, Notification Bell | Django Signals | `collaboration_notification` |
-| Translation | React, LanguageContext | Translation API (future) | `code_execution_translationcache` |
 
 ---
 
@@ -2524,7 +2287,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
 │  │   Module 4   │  │   Module 5   │  │      Module 6        │   │
-│  │ Collaboration│  │   Code Lab   │  │   File Management    │   │
 │  └──────────────┘  └──────────────┘  └──────────────────────┘   │
 │                                                                  │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────────────┐   │
@@ -2700,47 +2462,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 
 ---
 
-### Module 5: Code Lab (In-Browser IDE)
-
-**Location:** `backend/code_execution/`, `frontend/src/pages/CodePlaygroundPage.jsx`
-
-**Purpose:** Sandboxed code execution environment for learning and testing without local setup.
-
-**Sub-Components:**
-
-| Component | Type | Description |
-|-----------|------|-------------|
-| **Code Editor** | Frontend | Syntax-highlighted editor with line numbers |
-| **Language Selector** | Frontend | Choose between Python, Java, C++ |
-| **Input Panel** | Frontend | Provide stdin input for programs |
-| **Execution Engine** | Backend | Sandboxed subprocess execution |
-| **Output Display** | Frontend | Tabbed output (stdout, stderr, metadata) |
-| **Run History** | Backend + Frontend | Track all executions with results |
-| **Sample Programs** | Frontend | Pre-loaded examples for each language |
-
-**Key Features:**
-- Support for Python 3, Java 17, C++17
-- Sandboxed execution with resource limits
-- Execution time tracking
-- Memory usage monitoring
-- Error highlighting
-- Run history with timestamps
-- Copy/download code functionality
-
-**Resource Limits:**
-- CPU timeout: 10 seconds
-- Memory limit: 128 MB
-- Output limit: 64 KB
-- No network access
-
-**API Endpoints:**
-
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/api/code/execute/` | Execute code |
-| GET | `/api/code/history/` | Get execution history |
-
----
 
 ### Module 6: File Management System
 
@@ -2901,28 +2622,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 
 ---
 
-### Module 10: Translation Service (Future Enhancement)
-
-**Location:** `backend/code_execution/models.py` (TranslationCache)
-
-**Purpose:** Translate research abstracts to multiple languages for broader accessibility.
-
-**Sub-Components:**
-
-| Component | Type | Description |
-|-----------|------|-------------|
-| **Translation API Integration** | Backend | Connect to translation service (Google, DeepL) |
-| **Translation Cache** | Backend | Cache translated text to reduce API calls |
-| **Language Selector** | Frontend | Choose display language for abstracts |
-| **Auto-Translation** | Backend | Translate on upload (optional) |
-
-**Key Features:**
-- Cache translated content to minimize costs
-- Support for Filipino, English, and other languages
-- User-triggered translation
-- Quality indicators for machine translation
-
----
 
 ### Module 11: Search & Discovery Engine
 
@@ -2984,7 +2683,6 @@ SaliksikLab is composed of multiple integrated modules that work together to pro
 graph TD
     A[Auth Module] -->|User identity| B[Repository Module]
     A -->|User identity| C[Collaboration Module]
-    A -->|User identity| D[Code Lab Module]
     
     B -->|File versions| E[File Management Module]
     B -->|Download events| E
@@ -3044,8 +2742,6 @@ backend/
 │   ├── urls.py               # Collaboration routes
 │   └── services.py           # Collaboration business logic
 │
-├── code_execution/           # Module 5, 10
-│   ├── models.py             # CodeSubmission, TranslationCache
 │   ├── serializers.py        # Code execution serializers
 │   ├── views.py              # Execution endpoints
 │   ├── urls.py               # Code routes
@@ -3073,7 +2769,6 @@ frontend/src/
 │   ├── UploadPage.jsx        # Module 2
 │   ├── AdminPage.jsx         # Module 8
 │   ├── ProfilePage.jsx       # Module 1
-│   ├── CodePlaygroundPage.jsx # Module 5
 │   └── CollaborationPage.jsx # Module 4
 │
 ├── components/               # Shared components
@@ -3107,12 +2802,10 @@ frontend/src/
 | Repository | React, React Router | Django REST Framework | `repository_researchoutput`, `repository_outputfile` |
 | Version Control | React, VersionHistoryPanel | Django ORM | `repository_outputfile` |
 | Collaboration | React, Tab Navigation | Django REST Framework | `collaboration_collabproject`, `collaboration_projectmember`, `collaboration_issue`, `collaboration_mergerequest`, `collaboration_commit`, `collaboration_notification` |
-| Code Lab | React, Textarea Editor | Subprocess, Resource Limits | `code_execution_codesubmission` |
 | File Management | React, File Previewer | Django FileResponse | `repository_outputfile`, `repository_downloadlog` |
 | Analytics | React, CSS Charts | Django Aggregation | All repository tables |
 | Admin | React, Django Admin | Django Admin | All tables |
 | Notifications | React, Notification Bell | Django Signals | `collaboration_notification` |
-| Translation | React, LanguageContext | Translation API (future) | `code_execution_translationcache` |
 
 ---
 
@@ -3223,7 +2916,6 @@ The server-side application is built with **Django** and **Django REST Framework
 - `collaboration_mergerequest` - Merge requests
 - `collaboration_commit` - Commit history
 - `collaboration_notification` - In-app notifications
-- `code_execution_codesubmission` - Code execution history
 
 ---
 

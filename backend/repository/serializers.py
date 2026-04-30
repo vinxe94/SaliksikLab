@@ -44,6 +44,16 @@ def validate_system_link(value):
     return value
 
 
+def normalize_keywords(value):
+    if not value:
+        return []
+    if isinstance(value, str):
+        parts = value.split(',')
+    else:
+        parts = value
+    return [str(item).strip() for item in parts if str(item).strip()]
+
+
 class OutputFileSerializer(serializers.ModelSerializer):
     file_url = serializers.SerializerMethodField()
     uploaded_by_name = serializers.SerializerMethodField()
@@ -206,7 +216,7 @@ class ArchiveDocumentCompactSerializer(serializers.ModelSerializer):
         model = ArchiveDocument
         fields = [
             'id', 'title', 'abstract', 'author', 'department',
-            'course', 'year', 'uploaded_at', 'linked_repository',
+            'course', 'year', 'keywords', 'uploaded_at', 'linked_repository',
             'linked_repository_title', 'system_link', 'original_filename',
         ]
 
@@ -291,7 +301,7 @@ class ArchiveDocumentListSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArchiveDocument
         fields = [
-            'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
+            'id', 'title', 'abstract', 'author', 'department', 'course', 'year', 'keywords',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'system_link', 'original_filename', 'file_size', 'file_extension',
             'assigned_faculty', 'is_public', 'is_approved', 'is_rejected', 'rejection_reason',
@@ -343,7 +353,7 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
     class Meta:
         model = ArchiveDocument
         fields = [
-            'id', 'title', 'abstract', 'author', 'department', 'course', 'year',
+            'id', 'title', 'abstract', 'author', 'department', 'course', 'year', 'keywords',
             'uploaded_by', 'uploaded_at', 'updated_at', 'linked_repository',
             'system_link', 'original_filename', 'file_size', 'file_url',
             'assigned_faculty', 'is_public', 'is_approved', 'is_rejected', 'rejection_reason',
@@ -373,11 +383,17 @@ class ArchiveDocumentDetailSerializer(serializers.ModelSerializer):
 
 
 class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
+    keywords = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+        default=list,
+    )
+
     class Meta:
         model = ArchiveDocument
         fields = [
             'id', 'title', 'abstract', 'file', 'author',
-            'department', 'course', 'year', 'system_link', 'assigned_faculty', 'is_public',
+            'department', 'course', 'year', 'keywords', 'system_link', 'assigned_faculty', 'is_public',
         ]
         read_only_fields = ['id']
         extra_kwargs = {
@@ -396,6 +412,9 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
         if value and not value.is_active:
             raise serializers.ValidationError('Assigned faculty must be active.')
         return value
+
+    def validate_keywords(self, value):
+        return normalize_keywords(value)
 
     def create(self, validated_data):
         file = validated_data.pop('file')
@@ -420,11 +439,16 @@ class ArchiveDocumentCreateSerializer(serializers.ModelSerializer):
 
 
 class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
+    keywords = serializers.ListField(
+        child=serializers.CharField(max_length=100),
+        required=False,
+    )
+
     class Meta:
         model = ArchiveDocument
         fields = [
             'title', 'abstract', 'file', 'author',
-            'department', 'course', 'year', 'system_link', 'assigned_faculty', 'is_public',
+            'department', 'course', 'year', 'keywords', 'system_link', 'assigned_faculty', 'is_public',
         ]
 
     def validate_file(self, value):
@@ -439,6 +463,9 @@ class ArchiveDocumentUpdateSerializer(serializers.ModelSerializer):
         if value and not value.is_active:
             raise serializers.ValidationError('Assigned faculty must be active.')
         return value
+
+    def validate_keywords(self, value):
+        return normalize_keywords(value)
 
 
 class ArchiveDocumentRevisionSerializer(serializers.Serializer):

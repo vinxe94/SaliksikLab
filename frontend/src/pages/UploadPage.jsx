@@ -25,7 +25,7 @@ export default function UploadPage() {
 
     const [archiveForm, setArchiveForm] = useState({
         title: '', abstract: '', author: '', department: '',
-        course: '', year: new Date().getFullYear(), system_link: '',
+        course: '', year: new Date().getFullYear(), keywords: '', system_link: '',
         assigned_faculty: '', is_public: true,
     })
 
@@ -74,6 +74,11 @@ export default function UploadPage() {
             fd.append('department', archiveForm.department)
             fd.append('course', archiveForm.course)
             fd.append('year', archiveForm.year)
+            archiveForm.keywords
+                .split(',')
+                .map((keyword) => keyword.trim())
+                .filter(Boolean)
+                .forEach((keyword) => fd.append('keywords', keyword))
             if (archiveForm.system_link) {
                 fd.append('system_link', archiveForm.system_link)
             }
@@ -140,6 +145,16 @@ export default function UploadPage() {
                             <div className="form-group">
                                 <label className="form-label">Abstract</label>
                                 <textarea className="form-textarea" rows={4} value={archiveForm.abstract} onChange={(e) => setArchiveForm((f) => ({ ...f, abstract: e.target.value }))} placeholder="Optional abstract or summary." />
+                            </div>
+                            <div className="form-group">
+                                <label className="form-label">Keywords</label>
+                                <input
+                                    className="form-input"
+                                    value={archiveForm.keywords}
+                                    onChange={(e) => setArchiveForm((f) => ({ ...f, keywords: e.target.value }))}
+                                    placeholder="machine learning, learning analytics, capstone"
+                                />
+                                <span className="dashboard-stat-meta">Separate keywords with commas.</span>
                             </div>
                             <div className="grid-2">
                                 <div className="form-group">

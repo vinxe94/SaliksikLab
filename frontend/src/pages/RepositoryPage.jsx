@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import {
-    Search, Filter, Link2, Unlink2, ChevronRight, FileText,
+    Search, Filter, Link2, Unlink2, ChevronRight, FileText, BookOpen,
 } from 'lucide-react'
 
 function timeAgo(iso) {
@@ -27,6 +27,12 @@ function reviewBadge(doc) {
     return <span className="badge badge-yellow">Pending</span>
 }
 
+function byline(doc) {
+    const author = doc.author || doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'Unknown author'
+    const year = doc.year || 'n.d.'
+    return `${author} (${year})`
+}
+
 export default function RepositoryPage() {
     const navigate = useNavigate()
     const [search, setSearch] = useState('')
@@ -34,9 +40,32 @@ export default function RepositoryPage() {
     const [archiveFilter, setArchiveFilter] = useState('')
     const [departmentFilter, setDepartmentFilter] = useState('')
     const [courseFilter, setCourseFilter] = useState('')
+    const [departments, setDepartments] = useState([])
+    const [courses, setCourses] = useState([])
     const [archives, setArchives] = useState([])
     const [archiveCount, setArchiveCount] = useState(0)
     const [loading, setLoading] = useState(true)
+
+    useEffect(() => {
+        let alive = true
+
+        Promise.all([
+            api.get('/repository/departments/'),
+            api.get('/repository/courses/'),
+        ]).then(([departmentRes, courseRes]) => {
+            if (!alive) return
+            setDepartments(departmentRes.data || [])
+            setCourses(courseRes.data || [])
+        }).catch(() => {
+            if (!alive) return
+            setDepartments([])
+            setCourses([])
+        })
+
+        return () => {
+            alive = false
+        }
+    }, [])
 
     useEffect(() => {
         setLoading(true)
@@ -54,6 +83,10 @@ export default function RepositoryPage() {
             })
             .finally(() => setLoading(false))
     }, [search, archiveFilter, departmentFilter, courseFilter])
+
+    const filteredCourses = courses.filter((course) => (
+        !departmentFilter || course.department_name === departmentFilter
+    ))
 
     return (
         <div className="layout">
@@ -83,14 +116,6 @@ export default function RepositoryPage() {
                                 <span>Archived documents</span>
                                 <strong>{archiveCount}</strong>
                             </div>
-                            <div className="repository-hero-stat">
-                                <span>File types</span>
-                                <strong>{new Set(archives.map((doc) => fileKindLabel(doc.original_filename))).size || 0}</strong>
-                            </div>
-                            <div className="repository-hero-stat">
-                                <span>File versions</span>
-                                <strong>{archives.reduce((sum, doc) => sum + (doc.version_count || 1), 0)}</strong>
-                            </div>
                         </div>
                     </div>
 
@@ -118,21 +143,36 @@ export default function RepositoryPage() {
                                 <div className="grid-2" style={{ marginTop: 12 }}>
                                     <div className="form-group">
                                         <label className="form-label">Department</label>
-                                        <input
+                                        <select
                                             className="form-input"
-                                            placeholder="Filter by department"
                                             value={departmentFilter}
-                                            onChange={(e) => setDepartmentFilter(e.target.value)}
-                                        />
+                                            onChange={(e) => {
+                                                setDepartmentFilter(e.target.value)
+                                                setCourseFilter('')
+                                            }}
+                                        >
+                                            <option value="">All departments</option>
+                                            {departments.map((department) => (
+                                                <option key={department.id} value={department.name}>
+                                                    {department.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                     <div className="form-group">
                                         <label className="form-label">Course</label>
-                                        <input
+                                        <select
                                             className="form-input"
-                                            placeholder="Filter by course"
                                             value={courseFilter}
                                             onChange={(e) => setCourseFilter(e.target.value)}
-                                        />
+                                        >
+                                            <option value="">All courses</option>
+                                            {filteredCourses.map((course) => (
+                                                <option key={course.id} value={course.name}>
+                                                    {course.name}
+                                                </option>
+                                            ))}
+                                        </select>
                                     </div>
                                 </div>
                                 {(departmentFilter || courseFilter || archiveFilter) && (
@@ -167,24 +207,33 @@ export default function RepositoryPage() {
                             ) : (
                                 <div className="repo-list">
                                     {archives.map((doc) => (
-                                        <article key={doc.id} className="activity-card archive-card" onClick={() => navigate(`/archives/${doc.id}`)}>
-                                            <div className="archive-card-head">
-                                                <div className="archive-file-icon">{fileKindLabel(doc.original_filename)}</div>
-                                                <div style={{ flex: 1 }}>
-                                                    <div className="repository-link" style={{ display: 'inline-block' }}>{doc.title}</div>
+                                        <article key={doc.id} className="activity-card archive-card journal-card">
+                                            <div className="journal-card-kicker">
+                                                <span><BookOpen size={14} /> Archive Journal</span>
+                                                <span>{doc.department || 'General Research'}</span>
+                                            </div>
+                                            <div className="archive-card-head journal-card-head">
+                                                <div className="archive-file-icon journal-file-icon">{fileKindLabel(doc.original_filename)}</div>
+                                                <div className="journal-title-block">
+                                                    <button
+                                                        type="button"
+                                                        className="repository-link journal-title"
+                                                        onClick={() => navigate(`/archives/${doc.id}`)}
+                                                    >
+                                                        {doc.title}
+                                                    </button>
+                                                    <div className="journal-byline">{byline(doc)}</div>
                                                     <div className="activity-header-meta">
-                                                        Uploaded {timeAgo(doc.uploaded_at)} by {doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'Researcher'}
+                                                        Published in archives {timeAgo(doc.uploaded_at)} by {doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'Researcher'}
                                                     </div>
                                                 </div>
                                             </div>
-                                            <p className="archive-card-copy">{doc.abstract || 'No abstract available for this document.'}</p>
                                             <div className="repository-preview-meta">
                                                 <span className="language-chip"><span className="language-dot" style={{ background: '#6e7781' }} /> {fileKindLabel(doc.original_filename)}</span>
                                                 <span className="feed-meta-item"><FileText size={13} /> v{doc.current_version || 1}</span>
                                                 <span className="feed-meta-item">{doc.version_count || 1} version{(doc.version_count || 1) === 1 ? '' : 's'}</span>
                                                 <span className={`badge ${doc.is_public ? 'badge-green' : 'badge-gray'}`}>{doc.is_public ? 'Public' : 'Private'}</span>
                                                 {reviewBadge(doc)}
-                                                {doc.department && <span className="feed-meta-item">{doc.department}</span>}
                                                 {doc.course && <span className="feed-meta-item">{doc.course}</span>}
                                                 {doc.system_link ? (
                                                     <button

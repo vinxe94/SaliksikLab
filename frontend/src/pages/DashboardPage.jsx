@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import { BookOpen, Upload, Clock, CheckCircle, AlertCircle, XCircle, Activity, ArrowRight, FileText, RefreshCw, Eye, Link2 } from 'lucide-react'
 import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Pie } from 'react-chartjs-2'
+import { Doughnut } from 'react-chartjs-2'
 
 ChartJS.register(ArcElement, Tooltip, Legend)
 
@@ -148,6 +148,13 @@ export default function DashboardPage() {
     const reviewPieOptions = {
         responsive: true,
         maintainAspectRatio: false,
+        cutout: '68%',
+        animation: {
+            animateRotate: true,
+            animateScale: true,
+            duration: 900,
+            easing: 'easeOutQuart',
+        },
         plugins: {
             legend: {
                 position: 'bottom',
@@ -295,8 +302,8 @@ export default function DashboardPage() {
                                          </div>
                                          <strong className="dashboard-panel-total">{totalReviewed}</strong>
                                      </div>
-                                     <div className="dashboard-chart dashboard-chart-pie">
-                                         <Pie
+                                     <div className="dashboard-chart dashboard-chart-pie dashboard-chart-reveal">
+                                         <Doughnut
                                              data={{
                                                  labels: statusSeries.map((item) => item.label),
                                                  datasets: [{

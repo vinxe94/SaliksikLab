@@ -617,6 +617,7 @@ class BackupView(APIView):
                         'department': item.department,
                         'course': item.course,
                         'year': item.year,
+                        'keywords': item.keywords,
                         'uploaded_by_email': user_email(item.uploaded_by),
                         'linked_repository_id': item.linked_repository_id,
                         'system_link': item.system_link,
@@ -786,6 +787,7 @@ class RestoreView(APIView):
                     'department': item.get('department', ''),
                     'course': item.get('course', ''),
                     'year': item.get('year'),
+                    'keywords': item.get('keywords', []),
                     'uploaded_by': find_backup_user(item.get('uploaded_by_email'), request.user),
                     'linked_repository': linked_repository,
                     'system_link': item.get('system_link', ''),
@@ -887,6 +889,7 @@ class StatsView(APIView):
 
         by_type = list(qs.values('output_type').annotate(count=Count('id')).order_by('-count'))
         by_dept = list(qs.filter(is_approved=True).values('department').annotate(count=Count('id')).order_by('-count')[:8])
+        by_course = list(qs.filter(is_approved=True).values('course').annotate(count=Count('id')).order_by('-count')[:8])
         by_year = list(qs.filter(is_approved=True).values('year').annotate(count=Count('id')).order_by('year'))
 
         return Response({
@@ -897,6 +900,7 @@ class StatsView(APIView):
             'my_uploads': my_uploads,
             'by_type': by_type,
             'by_dept': by_dept,
+            'by_course': by_course,
             'by_year': by_year,
         })
 
@@ -1408,7 +1412,8 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
                 Q(abstract__icontains=search) |
                 Q(author__icontains=search) |
                 Q(department__icontains=search) |
-                Q(course__icontains=search)
+                Q(course__icontains=search) |
+                Q(keywords__icontains=search)
             )
         department = self.request.query_params.get('department', '').strip()
         if department:
