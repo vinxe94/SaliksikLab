@@ -7,7 +7,7 @@ SaliksikLab is a research repository management system for submitting, reviewing
 SaliksikLab currently provides:
 
 - JWT authentication, registration, profile editing, and password reset.
-- Role-based access for admin, faculty, student, and researcher users.
+- Role-based access for admin, faculty, and student users.
 - Account approval and user management for admins.
 - PDF-focused archive submission with metadata, keywords, public/private visibility, assigned faculty, and optional system links.
 - Review workflows for pending, approved, rejected, and revision-requested archive documents.

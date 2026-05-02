@@ -165,7 +165,7 @@ Core entities:
 Rules:
 
 - Email is the username field.
-- Users have one of four roles: admin, faculty, student, researcher.
+- Users have one of three roles: admin, faculty, student.
 - Admins can approve accounts and change user status/roles.
 - Successful logins create `LoginEvent` records for engagement analytics.
 

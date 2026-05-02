@@ -6,6 +6,9 @@ export default defineConfig({
   server: {
     host: true,
     port: 5173,
+    allowedHosts: [
+      'andreas-citizenship-lifetime-gear.trycloudflare.com',
+    ],
     proxy: {
       '/api': {
         target: 'http://localhost:8080',

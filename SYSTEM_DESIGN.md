@@ -9,7 +9,7 @@ Removed features are not part of the current system design: collaboration, ngrok
 ## Goals
 
 - Provide a reliable repository for academic research PDFs.
-- Enforce role-based access for admins, faculty, students, and researchers.
+- Enforce role-based access for admins, faculty, and students.
 - Preserve revision history for archive documents.
 - Support review workflows with approval, rejection, and revision feedback.
 - Provide useful admin analytics, including repository status and student engagement.
@@ -161,7 +161,6 @@ erDiagram
 | Admin | Manage users, approve accounts, review archives, manage departments/courses, export/backup/restore, view analytics |
 | Faculty | Browse archives, upload, review assigned private/archive items where permitted |
 | Student | Upload archives, revise own submissions, browse visible approved archive content |
-| Researcher | Upload archives, revise own submissions, browse visible approved archive content |
 
 Repository APIs filter data by role. Non-admin users see approved public content and their own submissions; admin users can see and manage broader repository state.
 

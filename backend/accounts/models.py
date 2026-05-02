@@ -30,7 +30,6 @@ class User(AbstractBaseUser, PermissionsMixin):
         ('admin', 'Admin'),
         ('faculty', 'Faculty'),
         ('student', 'Student'),
-        ('researcher', 'Researcher'),
     ]
 
     email = models.EmailField(unique=True)

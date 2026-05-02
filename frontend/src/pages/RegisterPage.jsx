@@ -4,7 +4,7 @@ import { useAuth } from '../contexts/AuthContext'
 import api from '../api/axios'
 import 'react'
 
-const ROLES = ['student', 'faculty', 'researcher']
+const ROLES = ['student', 'faculty']
 
 export default function RegisterPage() {
     const { register } = useAuth()

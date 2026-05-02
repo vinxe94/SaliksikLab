@@ -104,7 +104,7 @@ export default function RepositoryPage() {
                     </button>
                 </div>
 
-                <div className="page-body repository-feed-page">
+                <div className="page-body repository-feed-page repository-archives-page">
                     <div className="repository-hero">
                         <div>
                             <span className="dashboard-kicker">Research Archive</span>
@@ -119,7 +119,7 @@ export default function RepositoryPage() {
                         </div>
                     </div>
 
-                    <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                    <div className="repository-archives-controls">
                         <div className="search-bar">
                             <Search size={16} className="search-icon" />
                             <input
@@ -192,10 +192,10 @@ export default function RepositoryPage() {
                         )}
                     </div>
 
-                    <div className="repository-feed-layout" style={{ gridTemplateColumns: '1fr' }}>
+                    <div className="repository-feed-layout repository-archives-layout">
                         <section className="repository-feed-column">
                             {loading ? (
-                                <div className="repo-list">
+                                <div className="repo-list repository-archives-list">
                                     {Array.from({ length: 4 }).map((_, i) => (
                                         <div key={i} className="activity-card">
                                             <div className="skeleton-text h-4 w-32" style={{ marginBottom: 10 }} />
@@ -205,9 +205,9 @@ export default function RepositoryPage() {
                                     ))}
                                 </div>
                             ) : (
-                                <div className="repo-list">
+                                <div className="repo-list repository-archives-list">
                                     {archives.map((doc) => (
-                                        <article key={doc.id} className="activity-card archive-card journal-card">
+                                        <article key={doc.id} className="activity-card archive-card journal-card repository-archive-card">
                                             <div className="journal-card-kicker">
                                                 <span><BookOpen size={14} /> Archive Journal</span>
                                                 <span>{doc.department || 'General Research'}</span>
@@ -224,7 +224,7 @@ export default function RepositoryPage() {
                                                     </button>
                                                     <div className="journal-byline">{byline(doc)}</div>
                                                     <div className="activity-header-meta">
-                                                        Published in archives {timeAgo(doc.uploaded_at)} by {doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'Researcher'}
+                                                        Published in archives {timeAgo(doc.uploaded_at)} by {doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'User'}
                                                     </div>
                                                 </div>
                                             </div>

@@ -174,8 +174,8 @@ export default function ArchiveDetailPage() {
     if (loading) return <div className="layout"><Sidebar /><div className="main-content"><div className="spinner" /></div></div>
 
     const documentInfoCard = (
-        <div className="card">
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
+        <div className="card archive-document-info-card">
+            <div className="archive-document-info-head" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 10, marginBottom: 12 }}>
                 <h3 style={{ fontSize: '0.95rem' }}>Document Info</h3>
                 {canEditArchive && (
                     <button type="button" className="btn btn-ghost btn-sm" onClick={showEditForm ? () => setShowEditForm(false) : openEditForm}>
@@ -184,7 +184,7 @@ export default function ArchiveDetailPage() {
                 )}
             </div>
             {showEditForm ? (
-                <form onSubmit={submitArchiveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                <form className="archive-document-info-form" onSubmit={submitArchiveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
                     <div className="form-group">
                         <label className="form-label">Assigned Faculty</label>
                         <select
@@ -234,7 +234,7 @@ export default function ArchiveDetailPage() {
                         />
                         <span className="dashboard-stat-meta">Optional. Use a link that starts with http:// or https://.</span>
                     </div>
-                    <div style={{ display: 'flex', gap: 10 }}>
+                    <div className="archive-document-info-actions" style={{ display: 'flex', gap: 10 }}>
                         <button type="submit" className="btn btn-primary btn-sm" disabled={editLoading}>
                             {editLoading ? 'Saving...' : 'Save Settings'}
                         </button>
@@ -242,7 +242,7 @@ export default function ArchiveDetailPage() {
                     </div>
                 </form>
             ) : (
-                <div className="profile-summary-list">
+                <div className="profile-summary-list archive-document-info-list">
                     <div><span>Filename</span><strong>{doc.original_filename}</strong></div>
                     <div><span>Current version</span><strong>v{latestVersion?.version || doc.current_version || 1}</strong></div>
                     <div><span>Uploaded</span><strong>{new Date(doc.uploaded_at).toLocaleDateString()}</strong></div>
@@ -280,9 +280,9 @@ export default function ArchiveDetailPage() {
                 </div>
                 <div className="page-body">
                     <div className="archive-detail-grid" style={{ display: 'grid', gridTemplateColumns: '1fr 320px', gap: 24 }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="card">
-                                <div style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
+                        <div className="archive-detail-main-column" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                            <div className="card archive-title-card">
+                                <div className="archive-title-badges" style={{ display: 'flex', gap: 8, marginBottom: 12 }}>
                                     <span className="badge badge-gray"><FileText size={11} style={{ marginRight: 4 }} /> Archive Document</span>
                                     <span className="badge badge-blue">v{latestVersion?.version || doc.current_version || 1}</span>
                                     <span className="badge badge-gray">{versions.length || doc.version_count || 1} version{(versions.length || doc.version_count || 1) === 1 ? '' : 's'}</span>
@@ -290,12 +290,12 @@ export default function ArchiveDetailPage() {
                                     {statusBadge()}
                                     {doc.system_link && <span className="badge badge-blue">System linked</span>}
                                 </div>
-                                <h1 style={{ fontSize: '1.45rem', fontWeight: 800, marginBottom: 12 }}>{doc.title}</h1>
-                                <div className="journal-abstract" style={{ marginBottom: 18 }}>
+                                <h1 className="archive-detail-title" style={{ fontSize: '1.45rem', fontWeight: 800, marginBottom: 12 }}>{doc.title}</h1>
+                                <div className="journal-abstract archive-detail-abstract" style={{ marginBottom: 18 }}>
                                     <span>ABSTRACT</span>
                                     <p>{doc.abstract || 'No abstract provided.'}</p>
                                 </div>
-                                <div className="journal-keywords-section" style={{ margin: '18px 0' }}>
+                                <div className="journal-keywords-section archive-detail-keywords" style={{ margin: '18px 0' }}>
                                     <span className="journal-section-label">KEYWORDS</span>
                                     {doc.keywords?.length > 0 ? (
                                         <div className="journal-keywords">
@@ -307,7 +307,7 @@ export default function ArchiveDetailPage() {
                                         <p className="journal-empty-note">No keywords listed.</p>
                                     )}
                                 </div>
-                                <div className="grid-2">
+                                <div className="grid-2 archive-detail-meta-grid">
                                     <div>
                                         <div className="form-label">Author</div>
                                         <div>{doc.author || '—'}</div>
@@ -376,7 +376,7 @@ export default function ArchiveDetailPage() {
                             )}
                         </div>
 
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+                        <div className="archive-detail-side-column" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
                             <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
                                 <div style={{ padding: '12px 16px', borderBottom: '1px solid var(--border)', fontWeight: 700 }}>Version History</div>
                                 <div style={{ display: 'flex', flexDirection: 'column', gap: 0, padding: 12 }}>

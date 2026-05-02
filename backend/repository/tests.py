@@ -58,12 +58,12 @@ class RoleBasedAccessTests(APITestCase):
             last_name='User',
             role='student',
         )
-        self.researcher = User.objects.create_user(
-            email='researcher@example.com',
+        self.other_student = User.objects.create_user(
+            email='student2@example.com',
             password='Password123!',
-            first_name='Researcher',
+            first_name='Other',
             last_name='User',
-            role='researcher',
+            role='student',
         )
 
     def test_only_admin_can_create_department(self):
@@ -90,7 +90,7 @@ class RoleBasedAccessTests(APITestCase):
     def test_only_admin_can_create_course(self):
         department = Department.objects.create(name='Computer Studies')
 
-        self.client.force_authenticate(self.researcher)
+        self.client.force_authenticate(self.other_student)
         response = self.client.post(
             reverse('course-list-create'),
             {'name': 'BSCS', 'department': department.id},
@@ -157,7 +157,7 @@ class RoleBasedAccessTests(APITestCase):
             uploaded_by=self.admin,
         )
 
-        for user in [self.student, self.faculty, self.researcher]:
+        for user in [self.student, self.faculty]:
             self.client.force_authenticate(user)
             list_response = self.client.get(reverse('repository-list-create'))
             self.assertEqual(list_response.status_code, status.HTTP_200_OK)
@@ -177,7 +177,7 @@ class RoleBasedAccessTests(APITestCase):
             is_approved=True,
         )
 
-        for user in [self.student, self.faculty, self.researcher]:
+        for user in [self.student, self.faculty]:
             self.client.force_authenticate(user)
             list_response = self.client.get(reverse('archive-list-create'))
             self.assertEqual(list_response.status_code, status.HTTP_200_OK)
@@ -198,7 +198,7 @@ class RoleBasedAccessTests(APITestCase):
             is_approved=True,
         )
 
-        self.client.force_authenticate(self.researcher)
+        self.client.force_authenticate(self.other_student)
         list_response = self.client.get(reverse('archive-list-create'))
         self.assertEqual(list_response.status_code, status.HTTP_200_OK)
         self.assertNotIn('Private Archive', [item['title'] for item in list_response.data['results']])
@@ -286,7 +286,7 @@ class RoleBasedAccessTests(APITestCase):
             abstract='Visible in repository but not personal feed',
             file=pdf_file('other-public.pdf'),
             original_filename='other-public.pdf',
-            uploaded_by=self.researcher,
+            uploaded_by=self.other_student,
             assigned_faculty=self.other_faculty,
             is_public=True,
             is_approved=True,
@@ -315,7 +315,7 @@ class RoleBasedAccessTests(APITestCase):
             abstract='Public but unrelated',
             file=pdf_file('unassigned-public.pdf'),
             original_filename='unassigned-public.pdf',
-            uploaded_by=self.researcher,
+            uploaded_by=self.other_student,
             assigned_faculty=self.other_faculty,
             is_public=True,
             is_approved=True,
@@ -339,11 +339,11 @@ class RoleBasedAccessTests(APITestCase):
             assigned_faculty=self.faculty,
         )
         ArchiveDocument.objects.create(
-            title='Researcher Activity',
-            abstract='Researcher upload',
-            file=pdf_file('researcher-activity.pdf'),
-            original_filename='researcher-activity.pdf',
-            uploaded_by=self.researcher,
+            title='Other Student Activity',
+            abstract='Other student upload',
+            file=pdf_file('other-student-activity.pdf'),
+            original_filename='other-student-activity.pdf',
+            uploaded_by=self.other_student,
             assigned_faculty=self.other_faculty,
         )
 
@@ -353,7 +353,7 @@ class RoleBasedAccessTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         titles = [item['title'] for item in response.data['results']]
         self.assertIn('Student Activity', titles)
-        self.assertIn('Researcher Activity', titles)
+        self.assertIn('Other Student Activity', titles)
 
     def test_archive_upload_accepts_private_visibility(self):
         self.client.force_authenticate(self.student)

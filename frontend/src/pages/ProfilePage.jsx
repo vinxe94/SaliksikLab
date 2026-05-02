@@ -9,7 +9,7 @@ import {
     FileText, Clock3, Star, Pencil, X, Camera
 } from 'lucide-react'
 
-const roleColors = { admin: 'badge-red', faculty: 'badge-blue', student: 'badge-green', researcher: 'badge-yellow' }
+const roleColors = { admin: 'badge-red', faculty: 'badge-blue', student: 'badge-green' }
 
 const languagePalette = {
     thesis: { label: 'Research', color: '#1B5E20' },
@@ -253,7 +253,7 @@ export default function ProfilePage() {
                             <div className="profile-overview-card">
                                 <div>
                                     <span className="dashboard-kicker">Overview</span>
-                                    <h3>GitHub-style academic profile adapted for SaliksikLab.</h3>
+                                    <h3>Academic profile overview for SaliksikLab.</h3>
                                     <p>Track research PDFs and recent activity in one place.</p>
                                 </div>
                                 <div className="profile-stat-grid">

@@ -5,7 +5,7 @@ import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload } from 'lucide-react'
 
-const ROLES = ['admin', 'faculty', 'student', 'researcher']
+const ROLES = ['admin', 'faculty', 'student']
 
 export default function AdminPage() {
     const navigate = useNavigate()

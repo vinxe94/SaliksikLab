@@ -225,7 +225,7 @@ export default function DashboardPage() {
                                                              {fileKindLabel(doc.original_filename)}
                                                          </span>
                                                          <span className="feed-meta-item">v{doc.current_version || 1}</span>
-                                                         <span className="feed-meta-item">{doc.uploaded_by?.full_name || doc.uploaded_by?.email || 'Researcher'}</span>
+                                                         <span className="feed-meta-item">{doc.uploaded_by?.full_name || doc.uploaded_by?.email || 'User'}</span>
                                                          {doc.system_link && <span className="feed-meta-item"><Link2 size={13} /> System linked</span>}
                                                          {archiveStatusBadge(doc)}
                                                      </span>
