@@ -178,7 +178,7 @@ export default function ProfilePage() {
                                 <h1>{user?.first_name} {user?.last_name}</h1>
                                 <div className="profile-handle">@{user?.email?.split('@')[0]}</div>
                                 <p className="profile-bio-copy">
-                                    SaliksikLab contributor focused on academic PDFs, review, and research collaboration.
+                                    SaliksikLab contributor focused on academic PDFs, review, and repository access.
                                 </p>
                             </div>
                             <div className="profile-badges">

@@ -13,7 +13,6 @@ import AdminPage from './pages/AdminPage'
 import ProfilePage from './pages/ProfilePage'
 import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
-import CollaborationPage from './pages/CollaborationPage'
 import ReportGenerationPage from './pages/ReportGenerationPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import PropTypes from 'prop-types'
@@ -68,7 +67,6 @@ export default function App() {
             <Route path="/upload" element={<PrivateRoute><UploadPage /></PrivateRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
-            <Route path="/collaborate" element={<PrivateRoute><CollaborationPage /></PrivateRoute>} />
             <Route path="/reports" element={<AdminRoute><ReportGenerationPage /></AdminRoute>} />
             <Route path="/analytics" element={<AdminRoute><AnalyticsPage /></AdminRoute>} />
           </Routes>

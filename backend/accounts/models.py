@@ -70,3 +70,20 @@ class PasswordResetToken(models.Model):
 
     def __str__(self):
         return f'Reset token for {self.user.email}'
+
+
+class LoginEvent(models.Model):
+    user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='login_events')
+    created_at = models.DateTimeField(auto_now_add=True)
+    ip_address = models.GenericIPAddressField(blank=True, null=True)
+    user_agent = models.TextField(blank=True)
+
+    class Meta:
+        ordering = ['-created_at']
+        indexes = [
+            models.Index(fields=['created_at']),
+            models.Index(fields=['user', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'Login by {self.user.email} at {self.created_at}'

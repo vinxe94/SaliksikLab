@@ -13,33 +13,9 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 def csv_env(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
-def append_unique(values, required):
-    return list(dict.fromkeys([*values, *required]))
+ALLOWED_HOSTS = csv_env('ALLOWED_HOSTS', 'localhost,127.0.0.1')
 
-TUNNEL_ALLOWED_HOSTS = [
-    '.ngrok-free.dev',
-    '.trycloudflare.com',
-]
-
-TUNNEL_TRUSTED_ORIGINS = [
-    'https://*.ngrok-free.dev',
-    'https://*.trycloudflare.com',
-]
-
-TUNNEL_CORS_REGEXES = [
-    r'^https://.*\.ngrok-free\.dev$',
-    r'^https://.*\.trycloudflare\.com$',
-]
-
-ALLOWED_HOSTS = append_unique(
-    csv_env('ALLOWED_HOSTS', 'localhost,127.0.0.1'),
-    TUNNEL_ALLOWED_HOSTS,
-)
-
-CSRF_TRUSTED_ORIGINS = append_unique(
-    csv_env('CSRF_TRUSTED_ORIGINS'),
-    TUNNEL_TRUSTED_ORIGINS,
-)
+CSRF_TRUSTED_ORIGINS = csv_env('CSRF_TRUSTED_ORIGINS')
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -54,7 +30,6 @@ INSTALLED_APPS = [
     # Local
     'accounts',
     'repository',
-    'collaboration',
 ]
 
 MIDDLEWARE = [
@@ -100,7 +75,6 @@ if RUNNING_TESTS:
     MIGRATION_MODULES = {
         'accounts': None,
         'repository': None,
-        'collaboration': None,
     }
 else:
     DATABASES = {
@@ -142,10 +116,7 @@ CORS_ALLOWED_ORIGINS = os.getenv(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173'
 ).split(',')
-CORS_ALLOWED_ORIGIN_REGEXES = append_unique(
-    csv_env('CORS_ALLOWED_ORIGIN_REGEXES'),
-    TUNNEL_CORS_REGEXES,
-)
+CORS_ALLOWED_ORIGIN_REGEXES = csv_env('CORS_ALLOWED_ORIGIN_REGEXES')
 CORS_ALLOW_CREDENTIALS = True
 
 # DRF

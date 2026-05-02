@@ -3,12 +3,14 @@ from .runner import run_repository_file, list_runnable_files, RunnerError
 import base64
 import binascii
 import csv
+from datetime import timedelta
 from django.http import FileResponse, Http404, HttpResponse
 from django.shortcuts import get_object_or_404
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.conf import settings as django_settings
 from django.db.models import Q, Count
+from django.db.models.functions import TruncDate
 from django.utils import timezone
 from rest_framework import generics, permissions, status, filters
 from rest_framework.decorators import api_view, permission_classes
@@ -46,6 +48,43 @@ from .serializers import (
     CourseSerializer,
 )
 from .file_browser import browse_file, read_file_content, get_file_type, MAX_PREVIEW_SIZE
+from accounts.models import LoginEvent
+
+
+DEPARTMENT_ALIASES = {
+    'ccis': 'College of Computing',
+    'college of computing': 'College of Computing',
+    'college of computing and information sciences': 'College of Computing',
+}
+
+
+def canonical_department_name(name):
+    value = (name or '').strip()
+    if not value:
+        return 'Unassigned'
+    return DEPARTMENT_ALIASES.get(value.lower(), value)
+
+
+def department_alias_filter(value):
+    canonical = canonical_department_name(value)
+    aliases = [alias for alias, normalized in DEPARTMENT_ALIASES.items() if normalized == canonical]
+    if not aliases:
+        return Q(department__icontains=value)
+    query = Q()
+    for alias in aliases:
+        query |= Q(department__iexact=alias)
+    return query
+
+
+def grouped_department_counts(rows):
+    grouped = {}
+    for row in rows:
+        department = canonical_department_name(row.get('department'))
+        grouped[department] = grouped.get(department, 0) + row.get('count', 0)
+    return [
+        {'department': department, 'count': count}
+        for department, count in sorted(grouped.items(), key=lambda item: item[1], reverse=True)
+    ]
 
 
 class IsAdminUser(permissions.BasePermission):
@@ -888,9 +927,34 @@ class StatsView(APIView):
         my_uploads = qs.filter(uploaded_by=user).count()
 
         by_type = list(qs.values('output_type').annotate(count=Count('id')).order_by('-count'))
-        by_dept = list(qs.filter(is_approved=True).values('department').annotate(count=Count('id')).order_by('-count')[:8])
+        by_dept = grouped_department_counts(
+            qs.filter(is_approved=True).values('department').annotate(count=Count('id'))
+        )[:8]
         by_course = list(qs.filter(is_approved=True).values('course').annotate(count=Count('id')).order_by('-count')[:8])
         by_year = list(qs.filter(is_approved=True).values('year').annotate(count=Count('id')).order_by('year'))
+        today = timezone.localdate()
+        start_date = today - timedelta(days=13)
+        engagement_rows = (
+            LoginEvent.objects
+            .filter(created_at__date__gte=start_date, user__role='student')
+            .annotate(day=TruncDate('created_at'))
+            .values('day')
+            .annotate(
+                daily_active_users=Count('user', distinct=True),
+                logins_per_day=Count('id'),
+            )
+            .order_by('day')
+        )
+        engagement_by_day = {row['day']: row for row in engagement_rows}
+        user_engagement = []
+        for offset in range(14):
+            day = start_date + timedelta(days=offset)
+            row = engagement_by_day.get(day, {})
+            user_engagement.append({
+                'date': day.isoformat(),
+                'daily_active_users': row.get('daily_active_users', 0),
+                'logins_per_day': row.get('logins_per_day', 0),
+            })
 
         return Response({
             'total': total,
@@ -902,6 +966,7 @@ class StatsView(APIView):
             'by_dept': by_dept,
             'by_course': by_course,
             'by_year': by_year,
+            'user_engagement': user_engagement,
         })
 
 
@@ -1404,7 +1469,10 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
         )
         user = self.request.user
         if user.role != 'admin':
-            qs = qs.filter(Q(is_public=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            if self.request.query_params.get('activity_feed') == 'true':
+                qs = qs.filter(Q(uploaded_by=user) | Q(assigned_faculty=user))
+            else:
+                qs = qs.filter(Q(is_public=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -1417,7 +1485,7 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
             )
         department = self.request.query_params.get('department', '').strip()
         if department:
-            qs = qs.filter(department__icontains=department)
+            qs = qs.filter(department_alias_filter(department))
         course = self.request.query_params.get('course', '').strip()
         if course:
             qs = qs.filter(course__icontains=course)

@@ -8,7 +8,7 @@ from rest_framework import status
 from rest_framework.test import APITestCase
 
 from accounts.models import User
-from repository.models import ArchiveDocument, ArchiveDocumentVersion, Course, Department, Repository, RepositoryFile
+from repository.models import ArchiveDocument, ArchiveDocumentVersion, Course, Department, Repository, RepositoryFile, ResearchOutput
 
 
 def pdf_file(name='sample.pdf'):
@@ -209,6 +209,151 @@ class RoleBasedAccessTests(APITestCase):
             self.client.force_authenticate(user)
             detail_response = self.client.get(reverse('archive-detail', args=[archive.id]))
             self.assertEqual(detail_response.status_code, status.HTTP_200_OK)
+
+    def test_college_of_computing_and_ccis_department_filters_match(self):
+        ArchiveDocument.objects.create(
+            title='College Named Paper',
+            abstract='Alias test',
+            file=pdf_file('college-named.pdf'),
+            original_filename='college-named.pdf',
+            uploaded_by=self.admin,
+            assigned_faculty=self.faculty,
+            department='College of Computing',
+            is_public=True,
+            is_approved=True,
+        )
+        ArchiveDocument.objects.create(
+            title='Acronym Named Paper',
+            abstract='Alias test',
+            file=pdf_file('acronym-named.pdf'),
+            original_filename='acronym-named.pdf',
+            uploaded_by=self.admin,
+            assigned_faculty=self.faculty,
+            department='CCIS',
+            is_public=True,
+            is_approved=True,
+        )
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get(reverse('archive-list-create'), {'department': 'CCIS'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [item['title'] for item in response.data['results']]
+        self.assertIn('College Named Paper', titles)
+        self.assertIn('Acronym Named Paper', titles)
+
+    def test_college_of_computing_and_ccis_are_grouped_in_stats(self):
+        ResearchOutput.objects.create(
+            title='College Named Stats Paper',
+            abstract='Alias stats',
+            uploaded_by=self.admin,
+            author='Admin User',
+            department='College of Computing',
+            year=2026,
+            is_approved=True,
+        )
+        ResearchOutput.objects.create(
+            title='Acronym Named Stats Paper',
+            abstract='Alias stats',
+            uploaded_by=self.admin,
+            author='Admin User',
+            department='CCIS',
+            year=2026,
+            is_approved=True,
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(reverse('output-stats'))
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        dept_counts = {item['department']: item['count'] for item in response.data['by_dept']}
+        self.assertEqual(dept_counts.get('College of Computing'), 2)
+        self.assertNotIn('CCIS', dept_counts)
+
+    def test_archive_activity_feed_is_scoped_to_current_non_admin_user(self):
+        ArchiveDocument.objects.create(
+            title='Student Own Activity',
+            abstract='Own upload',
+            file=pdf_file('student-own.pdf'),
+            original_filename='student-own.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+            is_public=True,
+            is_approved=True,
+        )
+        ArchiveDocument.objects.create(
+            title='Other Public Activity',
+            abstract='Visible in repository but not personal feed',
+            file=pdf_file('other-public.pdf'),
+            original_filename='other-public.pdf',
+            uploaded_by=self.researcher,
+            assigned_faculty=self.other_faculty,
+            is_public=True,
+            is_approved=True,
+        )
+
+        self.client.force_authenticate(self.student)
+        response = self.client.get(reverse('archive-list-create'), {'activity_feed': 'true'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [item['title'] for item in response.data['results']]
+        self.assertIn('Student Own Activity', titles)
+        self.assertNotIn('Other Public Activity', titles)
+
+    def test_archive_activity_feed_includes_assigned_faculty_documents(self):
+        ArchiveDocument.objects.create(
+            title='Assigned Faculty Activity',
+            abstract='Assigned review',
+            file=pdf_file('assigned-faculty.pdf'),
+            original_filename='assigned-faculty.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+            is_public=False,
+        )
+        ArchiveDocument.objects.create(
+            title='Unassigned Public Activity',
+            abstract='Public but unrelated',
+            file=pdf_file('unassigned-public.pdf'),
+            original_filename='unassigned-public.pdf',
+            uploaded_by=self.researcher,
+            assigned_faculty=self.other_faculty,
+            is_public=True,
+            is_approved=True,
+        )
+
+        self.client.force_authenticate(self.faculty)
+        response = self.client.get(reverse('archive-list-create'), {'activity_feed': 'true'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [item['title'] for item in response.data['results']]
+        self.assertIn('Assigned Faculty Activity', titles)
+        self.assertNotIn('Unassigned Public Activity', titles)
+
+    def test_archive_activity_feed_is_global_for_admin(self):
+        ArchiveDocument.objects.create(
+            title='Student Activity',
+            abstract='Student upload',
+            file=pdf_file('student-activity.pdf'),
+            original_filename='student-activity.pdf',
+            uploaded_by=self.student,
+            assigned_faculty=self.faculty,
+        )
+        ArchiveDocument.objects.create(
+            title='Researcher Activity',
+            abstract='Researcher upload',
+            file=pdf_file('researcher-activity.pdf'),
+            original_filename='researcher-activity.pdf',
+            uploaded_by=self.researcher,
+            assigned_faculty=self.other_faculty,
+        )
+
+        self.client.force_authenticate(self.admin)
+        response = self.client.get(reverse('archive-list-create'), {'activity_feed': 'true'})
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        titles = [item['title'] for item in response.data['results']]
+        self.assertIn('Student Activity', titles)
+        self.assertIn('Researcher Activity', titles)
 
     def test_archive_upload_accepts_private_visibility(self):
         self.client.force_authenticate(self.student)

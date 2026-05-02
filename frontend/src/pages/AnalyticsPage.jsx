@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Activity, BarChart3, CheckCircle, Clock, Gauge, GraduationCap, Layers3, XCircle } from 'lucide-react'
-import { Bar, Pie } from 'react-chartjs-2'
-import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, Tooltip } from 'chart.js'
+import { Building2, CheckCircle, Clock, Gauge, GraduationCap, UsersRound, XCircle } from 'lucide-react'
+import { Bar, Doughnut, Line } from 'react-chartjs-2'
+import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 
-ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, Tooltip, Legend)
+ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
 
 const palette = ['#1b5e20', '#2f855a', '#0f766e', '#b7791f', '#7c3aed', '#0369a1', '#be123c', '#4b5563']
 const coursePalette = ['#0f766e', '#0369a1', '#7c3aed', '#be123c', '#b7791f', '#2E7D32', '#c2410c', '#4b5563']
@@ -15,10 +15,9 @@ function percent(value, total) {
   return Math.round((value / total) * 100)
 }
 
-function labelType(type = 'other') {
-  return type
-    .replace(/_/g, ' ')
-    .replace(/\b\w/g, (letter) => letter.toUpperCase())
+function shortDate(value) {
+  if (!value) return ''
+  return new Intl.DateTimeFormat('en', { month: 'short', day: 'numeric' }).format(new Date(`${value}T00:00:00`))
 }
 
 export default function AnalyticsPage() {
@@ -37,8 +36,13 @@ export default function AnalyticsPage() {
     { label: 'Rejected', value: stats?.rejected ?? 0, color: '#C62828', icon: XCircle },
   ], [stats])
 
-  const topDept = stats?.by_dept?.[0]
   const topCourse = stats?.by_course?.[0]
+  const topDepartment = stats?.by_dept?.[0]
+  const totalStatus = statusSeries.reduce((sum, item) => sum + item.value, 0)
+  const engagementSeries = stats?.user_engagement || []
+  const latestEngagement = engagementSeries[engagementSeries.length - 1]
+  const departmentTotal = stats?.by_dept?.[0]?.count ?? 0
+  const courseTotal = stats?.by_course?.[0]?.count ?? 0
 
   const statusData = {
     labels: statusSeries.map((item) => item.label),
@@ -47,16 +51,6 @@ export default function AnalyticsPage() {
       backgroundColor: statusSeries.map((item) => item.color),
       borderColor: '#ffffff',
       borderWidth: 4,
-    }],
-  }
-
-  const departmentData = {
-    labels: (stats?.by_dept || []).map((item) => item.department || 'Unassigned'),
-    datasets: [{
-      label: 'Approved outputs',
-      data: (stats?.by_dept || []).map((item) => item.count),
-      backgroundColor: palette,
-      borderRadius: 8,
     }],
   }
 
@@ -80,9 +74,10 @@ export default function AnalyticsPage() {
     },
   }
 
-  const pieOptions = {
+  const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
+    cutout: '68%',
     animation: {
       animateRotate: true,
       animateScale: true,
@@ -94,6 +89,50 @@ export default function AnalyticsPage() {
     },
   }
 
+  const engagementData = {
+    labels: engagementSeries.map((item) => shortDate(item.date)),
+    datasets: [
+      {
+        label: 'Daily active users',
+        data: engagementSeries.map((item) => item.daily_active_users),
+        borderColor: '#0f766e',
+        backgroundColor: 'rgba(15, 118, 110, 0.12)',
+        pointBackgroundColor: '#0f766e',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 3,
+        tension: 0.36,
+      },
+      {
+        label: 'Logins per day',
+        data: engagementSeries.map((item) => item.logins_per_day),
+        borderColor: '#7c3aed',
+        backgroundColor: 'rgba(124, 58, 237, 0.1)',
+        pointBackgroundColor: '#7c3aed',
+        pointBorderColor: '#ffffff',
+        pointBorderWidth: 2,
+        pointRadius: 3,
+        tension: 0.36,
+      },
+    ],
+  }
+
+  const lineOptions = {
+    responsive: true,
+    maintainAspectRatio: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: {
+      legend: {
+        position: 'bottom',
+        labels: { usePointStyle: true, boxWidth: 8, padding: 14 },
+      },
+    },
+    scales: {
+      x: { grid: { display: false }, ticks: { color: '#5f6b5c', font: { size: 11 }, maxRotation: 0 } },
+      y: { beginAtZero: true, grid: { color: 'rgba(95, 107, 92, 0.12)' }, ticks: { precision: 0, color: '#5f6b5c' } },
+    },
+  }
+
   return (
     <div className="layout">
       <Sidebar />
@@ -102,7 +141,7 @@ export default function AnalyticsPage() {
           <div>
             <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Analytics</h2>
             <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-              Visual snapshot of repository status, department coverage, and course output distribution.
+              Visual snapshot of repository status, student engagement, and course output distribution.
             </p>
           </div>
         </div>
@@ -135,10 +174,10 @@ export default function AnalyticsPage() {
               )
             })}
             <div className="stat-card dashboard-stat-card analytics-stat-card">
-              <span className="analytics-stat-icon"><Layers3 size={18} /></span>
-              <span className="stat-value">{loading ? '...' : stats?.by_dept?.length ?? 0}</span>
-              <span className="stat-label">Departments</span>
-              <span className="dashboard-stat-meta">Active approved research sources</span>
+              <span className="analytics-stat-icon"><UsersRound size={18} /></span>
+              <span className="stat-value">{loading ? '...' : (latestEngagement?.daily_active_users ?? 0)}</span>
+              <span className="stat-label">Student DAU</span>
+              <span className="dashboard-stat-meta">{loading ? '...' : (latestEngagement?.logins_per_day ?? 0)} logins today</span>
             </div>
           </div>
 
@@ -151,20 +190,24 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <div className="analytics-doughnut-wrap">
-                <Pie data={statusData} options={pieOptions} />
+                <Doughnut data={statusData} options={doughnutOptions} />
+                <div className="analytics-doughnut-center">
+                  <strong>{loading ? '...' : totalStatus}</strong>
+                  <span>Total</span>
+                </div>
               </div>
             </article>
 
             <article className="dashboard-panel analytics-chart-panel analytics-wide-panel">
               <div className="dashboard-panel-head">
                 <div>
-                  <span className="dashboard-panel-kicker">Departments</span>
-                  <h3><BarChart3 size={16} /> Approved Outputs by Department</h3>
+                  <span className="dashboard-panel-kicker">Usage consistency</span>
+                  <h3><UsersRound size={16} /> User Engagement</h3>
                 </div>
-                {topDept && <strong className="dashboard-panel-total">{topDept.count}</strong>}
+                {latestEngagement && <strong className="dashboard-panel-total">{latestEngagement.daily_active_users}</strong>}
               </div>
               <div className="analytics-chart-height">
-                <Bar data={departmentData} options={barOptions} />
+                <Line data={engagementData} options={lineOptions} />
               </div>
             </article>
 
@@ -184,22 +227,43 @@ export default function AnalyticsPage() {
             <article className="dashboard-panel analytics-chart-panel">
               <div className="dashboard-panel-head">
                 <div>
-                  <span className="dashboard-panel-kicker">Output types</span>
-                  <h3><Activity size={16} /> Repository Mix</h3>
+                  <span className="dashboard-panel-kicker">Academic coverage</span>
+                  <h3><Building2 size={16} /> Departments & Courses</h3>
                 </div>
               </div>
               <div className="analytics-type-list">
-                {(stats?.by_type || []).map((item, index) => (
-                  <div key={item.output_type || index} className="analytics-type-row">
-                    <span>{labelType(item.output_type)}</span>
+                <div className="analytics-breakdown-label">
+                  <span>Departments</span>
+                  {topDepartment && <strong>{topDepartment.count}</strong>}
+                </div>
+                {(stats?.by_dept || []).map((item, index) => (
+                  <div key={item.department || index} className="analytics-type-row">
+                    <span>{item.department || 'Unassigned'}</span>
                     <div className="analytics-mini-track">
-                      <span style={{ width: `${percent(item.count, stats?.total ?? 0)}%`, background: palette[index % palette.length] }} />
+                      <span style={{ width: `${percent(item.count, departmentTotal)}%`, background: palette[index % palette.length] }} />
                     </div>
                     <strong>{item.count}</strong>
                   </div>
                 ))}
-                {!loading && (stats?.by_type || []).length === 0 && (
-                  <p className="dashboard-card-copy">No output type data available yet.</p>
+                {!loading && (stats?.by_dept || []).length === 0 && (
+                  <p className="dashboard-card-copy">No department data available yet.</p>
+                )}
+
+                <div className="analytics-breakdown-label">
+                  <span>Courses</span>
+                  {topCourse && <strong>{topCourse.count}</strong>}
+                </div>
+                {(stats?.by_course || []).map((item, index) => (
+                  <div key={item.course || index} className="analytics-type-row">
+                    <span>{item.course || 'Unassigned'}</span>
+                    <div className="analytics-mini-track">
+                      <span style={{ width: `${percent(item.count, courseTotal)}%`, background: coursePalette[index % coursePalette.length] }} />
+                    </div>
+                    <strong>{item.count}</strong>
+                  </div>
+                ))}
+                {!loading && (stats?.by_course || []).length === 0 && (
+                  <p className="dashboard-card-copy">No course data available yet.</p>
                 )}
               </div>
             </article>

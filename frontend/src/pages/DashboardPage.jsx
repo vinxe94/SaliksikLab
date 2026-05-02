@@ -4,19 +4,9 @@ import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import { BookOpen, Upload, Clock, CheckCircle, AlertCircle, XCircle, Activity, ArrowRight, FileText, RefreshCw, Eye, Link2 } from 'lucide-react'
-import { Chart as ChartJS, ArcElement, Tooltip, Legend } from 'chart.js'
-import { Doughnut } from 'react-chartjs-2'
-
-ChartJS.register(ArcElement, Tooltip, Legend)
 
 const TYPE_LABELS = { thesis: 'Thesis', software: 'Research PDF', sourcecode: 'Research PDF', documentation: 'Docs', other: 'Other' }
 const typeColor = { thesis: 'badge-blue', software: 'badge-gray', sourcecode: 'badge-gray', documentation: 'badge-gray', other: 'badge-gray' }
-
-const chartColors = {
-  secondary: '#2E7D32',
-  danger: '#c62828',
-  vibrant: '#FF9800',
-}
 
 // Note: All CSS variables are defined in index.css
 
@@ -63,7 +53,7 @@ export default function DashboardPage() {
         Promise.all([
             api.get('/repository/stats/'),
             api.get('/repository/?page_size=5'),
-            api.get('/repository/archives/?page_size=12'),
+            api.get('/repository/archives/?page_size=12&activity_feed=true'),
         ]).then(([s, rec, archives]) => {
             setStats(s.data)
             setRecent(rec.data.results || [])
@@ -111,14 +101,6 @@ export default function DashboardPage() {
                 <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
                 <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
               </div>
-              <div className="card">
-                <h3 style={{ fontSize: '0.85rem', fontWeight: 700, marginBottom: 14, display: 'flex', alignItems: 'center', gap: 6 }}>
-                  <Activity size={14} color="var(--warning)" /> Review Breakdown
-                </h3>
-                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
-                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
-                <div className="skeleton-text h-4 w-full" style={{ margin: '8px 0' }} />
-              </div>
             </div>
             
             {/* Recent Submissions Skeleton */}
@@ -137,45 +119,6 @@ export default function DashboardPage() {
         </div>
       </div>
     )
-
-    const statusSeries = [
-        { label: 'Approved', value: stats?.approved ?? 0, color: chartColors.secondary },
-        { label: 'Pending', value: stats?.pending ?? 0, color: chartColors.vibrant },
-        { label: 'Rejected', value: stats?.rejected ?? 0, color: chartColors.danger },
-    ]
-
-    const totalReviewed = statusSeries.reduce((sum, item) => sum + item.value, 0)
-    const reviewPieOptions = {
-        responsive: true,
-        maintainAspectRatio: false,
-        cutout: '68%',
-        animation: {
-            animateRotate: true,
-            animateScale: true,
-            duration: 900,
-            easing: 'easeOutQuart',
-        },
-        plugins: {
-            legend: {
-                position: 'bottom',
-                labels: {
-                    usePointStyle: true,
-                    boxWidth: 8,
-                    padding: 12,
-                    font: { size: 11 },
-                },
-            },
-            tooltip: {
-                callbacks: {
-                    label(context) {
-                        const value = context.parsed || 0
-                        const percent = totalReviewed ? Math.round((value / totalReviewed) * 100) : 0
-                        return `${context.label}: ${value.toLocaleString()} (${percent}%)`
-                    },
-                },
-            },
-        },
-    }
 
     return (
         <div className="layout">
@@ -238,7 +181,7 @@ export default function DashboardPage() {
                     </div>
 
                      {/* Recent archive activity */}
-                     {(recentArchives.length > 0 || totalReviewed > 0) && (
+                     {recentArchives.length > 0 && (
                          <section className="dashboard-analytics-grid dashboard-activity-grid">
                              <div className="dashboard-panel dashboard-panel-wide dashboard-panel-animated dashboard-archive-activity-panel">
                                  <div className="dashboard-panel-head">
@@ -292,32 +235,6 @@ export default function DashboardPage() {
                                      })}
                                  </div>
                              </div>
-
-                             {totalReviewed > 0 && (
-                                 <div className="dashboard-panel dashboard-panel-animated dashboard-review-chart-panel">
-                                     <div className="dashboard-panel-head">
-                                         <div>
-                                             <span className="dashboard-panel-kicker">Status</span>
-                                             <h3><Activity size={16} /> Review Breakdown</h3>
-                                         </div>
-                                         <strong className="dashboard-panel-total">{totalReviewed}</strong>
-                                     </div>
-                                     <div className="dashboard-chart dashboard-chart-pie dashboard-chart-reveal">
-                                         <Doughnut
-                                             data={{
-                                                 labels: statusSeries.map((item) => item.label),
-                                                 datasets: [{
-                                                     data: statusSeries.map((item) => item.value),
-                                                     backgroundColor: statusSeries.map((item) => item.color),
-                                                     borderColor: '#f7faf7',
-                                                     borderWidth: 2,
-                                                 }],
-                                             }}
-                                             options={reviewPieOptions}
-                                         />
-                                     </div>
-                                 </div>
-                             )}
                          </section>
                      )}
 

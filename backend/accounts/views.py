@@ -8,13 +8,18 @@ from rest_framework.views import APIView
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from .models import User, PasswordResetToken
+from .models import User, PasswordResetToken, LoginEvent
 from .serializers import RegisterSerializer, UserSerializer, UserAdminSerializer
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
+        request = self.context.get('request')
+        forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR', '') if request else ''
+        ip_address = forwarded_for.split(',')[0].strip() if forwarded_for else (request.META.get('REMOTE_ADDR') if request else None)
+        user_agent = request.META.get('HTTP_USER_AGENT', '')[:1000] if request else ''
+        LoginEvent.objects.create(user=self.user, ip_address=ip_address or None, user_agent=user_agent)
         data['user'] = UserSerializer(self.user).data
         return data
 

@@ -605,7 +605,7 @@ a:hover {
 }
 
 .dashboard-activity-grid {
-  grid-template-columns: minmax(0, 1.45fr) minmax(280px, 0.75fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .dashboard-panel {
@@ -637,18 +637,6 @@ a:hover {
 
 .dashboard-panel-wide {
   min-width: 0;
-}
-
-.dashboard-review-chart-panel {
-  display: flex;
-  flex-direction: column;
-}
-
-.dashboard-review-chart-panel .dashboard-chart-pie {
-  flex: 1;
-  min-height: 290px;
-  display: flex;
-  align-items: center;
 }
 
 .dashboard-panel-head {
@@ -954,6 +942,28 @@ a:hover {
 .report-dept-bars {
   display: grid;
   gap: 12px;
+}
+
+.analytics-breakdown-label {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding-top: 2px;
+  color: var(--text);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.analytics-breakdown-label:not(:first-child) {
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+.analytics-breakdown-label strong {
+  color: var(--accent);
+  font-size: 0.95rem;
 }
 
 .analytics-type-row,
