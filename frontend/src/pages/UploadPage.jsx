@@ -241,7 +241,7 @@ export default function UploadPage() {
                             </div>
                         </div>
 
-                        <div style={{ display: 'flex', gap: 12 }}>
+                        <div className="upload-actions">
                             <button type="submit" className="btn btn-primary" disabled={loading}>
                                 <UploadCloud size={16} /> {loading ? 'Saving...' : 'Upload Archive'}
                             </button>

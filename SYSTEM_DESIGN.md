@@ -4,7 +4,7 @@
 
 SaliksikLab is a web-based research repository system for academic PDF archives. The system supports authenticated uploads, faculty/admin review, versioned revisions, public/private archive visibility, repository search, user management, and analytics.
 
-Removed features are not part of the current system design: collaboration, ngrok/SSH tunneling, and Hugging Face AI translation.
+Removed features are not part of the current system design: collaboration, SSH tunnel scripts, and Hugging Face AI translation. Development deployments allow ngrok/Cloudflare tunnel hostnames through explicit host, CORS, and CSRF settings.
 
 ## Goals
 

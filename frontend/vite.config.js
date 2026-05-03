@@ -7,7 +7,12 @@ export default defineConfig({
     host: true,
     port: 5173,
     allowedHosts: [
-      'andreas-citizenship-lifetime-gear.trycloudflare.com',
+      '.ngrok-free.app',
+      '.ngrok.app',
+      '.ngrok-free.dev',
+      '.ngrok.dev',
+      '.ngrok.io',
+      '.trycloudflare.com',
     ],
     proxy: {
       '/api': {

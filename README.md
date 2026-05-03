@@ -18,7 +18,7 @@ SaliksikLab currently provides:
 - Department and course management.
 - CSV export plus JSON backup/restore for repository data.
 
-Collaboration, ngrok/SSH tunneling, and Hugging Face translation/model-cache features have been removed.
+Collaboration, SSH tunnel scripts, and Hugging Face translation/model-cache features have been removed. Local development still allows ngrok/Cloudflare tunnel hostnames through the frontend and backend security settings.
 
 ## Tech Stack
 
@@ -190,10 +190,10 @@ Create `backend/.env` from `backend/.env.example` and set:
 ```env
 SECRET_KEY=your-secret-key
 DEBUG=True
-ALLOWED_HOSTS=localhost,127.0.0.1
+ALLOWED_HOSTS=localhost,127.0.0.1,.ngrok-free.app,.ngrok.app,.ngrok-free.dev,.ngrok.dev,.ngrok.io,.trycloudflare.com
 CORS_ALLOWED_ORIGINS=http://localhost:5173,http://127.0.0.1:5173
-CORS_ALLOWED_ORIGIN_REGEXES=
-CSRF_TRUSTED_ORIGINS=
+CORS_ALLOWED_ORIGIN_REGEXES=^https://.*\.ngrok-free\.app$,^https://.*\.ngrok\.app$,^https://.*\.ngrok-free\.dev$,^https://.*\.ngrok\.dev$,^https://.*\.ngrok\.io$,^https://.*\.trycloudflare\.com$
+CSRF_TRUSTED_ORIGINS=https://*.ngrok-free.app,https://*.ngrok.app,https://*.ngrok-free.dev,https://*.ngrok.dev,https://*.ngrok.io,https://*.trycloudflare.com
 DB_NAME=thesis_repo
 DB_USER=postgres
 DB_PASSWORD=postgres

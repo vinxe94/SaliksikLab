@@ -21,10 +21,10 @@ services:
     environment:
       SECRET_KEY: django-insecure-change-me-in-production
       DEBUG: "True"
-      ALLOWED_HOSTS: localhost,127.0.0.1,backend,0.0.0.0
+      ALLOWED_HOSTS: "localhost,127.0.0.1,backend,0.0.0.0,.ngrok-free.app,.ngrok.app,.ngrok-free.dev,.ngrok.dev,.ngrok.io,.trycloudflare.com"
       CORS_ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173
-      CORS_ALLOWED_ORIGIN_REGEXES: ""
-      CSRF_TRUSTED_ORIGINS: ""
+      CORS_ALLOWED_ORIGIN_REGEXES: "^https://.*\\.ngrok-free\\.app$,^https://.*\\.ngrok\\.app$,^https://.*\\.ngrok-free\\.dev$,^https://.*\\.ngrok\\.dev$,^https://.*\\.ngrok\\.io$,^https://.*\\.trycloudflare\\.com$"
+      CSRF_TRUSTED_ORIGINS: "https://*.ngrok-free.app,https://*.ngrok.app,https://*.ngrok-free.dev,https://*.ngrok.dev,https://*.ngrok.io,https://*.trycloudflare.com"
       FRONTEND_URL: http://localhost:3000
       DB_NAME: thesis_repo
       DB_USER: postgres

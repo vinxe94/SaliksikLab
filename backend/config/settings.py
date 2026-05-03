@@ -13,9 +13,29 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 def csv_env(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
-ALLOWED_HOSTS = csv_env('ALLOWED_HOSTS', 'localhost,127.0.0.1')
+TUNNEL_ALLOWED_HOSTS = (
+    '.ngrok-free.app,.ngrok.app,.ngrok-free.dev,.ngrok.dev,.ngrok.io,.trycloudflare.com'
+)
+TUNNEL_ALLOWED_ORIGIN_REGEXES = (
+    r'^https://.*\.ngrok-free\.app$,'
+    r'^https://.*\.ngrok\.app$,'
+    r'^https://.*\.ngrok-free\.dev$,'
+    r'^https://.*\.ngrok\.dev$,'
+    r'^https://.*\.ngrok\.io$,'
+    r'^https://.*\.trycloudflare\.com$'
+)
+TUNNEL_CSRF_TRUSTED_ORIGINS = (
+    'https://*.ngrok-free.app,'
+    'https://*.ngrok.app,'
+    'https://*.ngrok-free.dev,'
+    'https://*.ngrok.dev,'
+    'https://*.ngrok.io,'
+    'https://*.trycloudflare.com'
+)
 
-CSRF_TRUSTED_ORIGINS = csv_env('CSRF_TRUSTED_ORIGINS')
+ALLOWED_HOSTS = csv_env('ALLOWED_HOSTS', f'localhost,127.0.0.1,{TUNNEL_ALLOWED_HOSTS}')
+
+CSRF_TRUSTED_ORIGINS = csv_env('CSRF_TRUSTED_ORIGINS', TUNNEL_CSRF_TRUSTED_ORIGINS)
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -112,11 +132,11 @@ MEDIA_ROOT = BASE_DIR / 'media'
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 # CORS
-CORS_ALLOWED_ORIGINS = os.getenv(
+CORS_ALLOWED_ORIGINS = csv_env(
     'CORS_ALLOWED_ORIGINS',
     'http://localhost:5173,http://127.0.0.1:5173'
-).split(',')
-CORS_ALLOWED_ORIGIN_REGEXES = csv_env('CORS_ALLOWED_ORIGIN_REGEXES')
+)
+CORS_ALLOWED_ORIGIN_REGEXES = csv_env('CORS_ALLOWED_ORIGIN_REGEXES', TUNNEL_ALLOWED_ORIGIN_REGEXES)
 CORS_ALLOW_CREDENTIALS = True
 
 # DRF

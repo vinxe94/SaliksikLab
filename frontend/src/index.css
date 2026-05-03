@@ -3299,6 +3299,13 @@ iframe {
 
 .upload-form {
   width: 100%;
+  margin: 0 auto;
+}
+
+.upload-actions {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
 }
 
 .archive-detail-grid,

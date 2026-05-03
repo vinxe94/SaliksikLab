@@ -277,5 +277,5 @@ The following are intentionally no longer part of the architecture:
 
 - Collaboration app and `/api/collab/` routes.
 - Collaboration React page.
-- ngrok and SSH reverse tunnel scripts/docs/config.
+- SSH reverse tunnel scripts/docs/config.
 - Hugging Face model cache, translation settings, and AI translation docs.
