@@ -19,12 +19,12 @@ export default function Sidebar() {
     return (
         <>
             <header className="mobile-brand-header">
-                <img src="/logo.png" alt="SaliksikLab logo" />
+                <img src="/logo-nav.png" alt="SaliksikLab logo" />
                 <span>SaliksikLab</span>
             </header>
             <aside className="sidebar">
                 <div className="sidebar-logo">
-                    <img src="/logo.png" alt="Research Repository" style={{ width: 32, height: 32, borderRadius: '50%' }} />
+                    <img src="/logo-nav.png" alt="SaliksikLab logo" className="sidebar-logo-image" />
                     <span>SaliksikLab</span>
                 </div>
 

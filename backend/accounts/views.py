@@ -10,6 +10,12 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from .models import User, PasswordResetToken, LoginEvent
 from .serializers import RegisterSerializer, UserSerializer, UserAdminSerializer
+from .throttles import (
+    LoginEmailRateThrottle,
+    LoginIPRateThrottle,
+    PasswordResetEmailRateThrottle,
+    PasswordResetIPRateThrottle,
+)
 
 
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
@@ -26,6 +32,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class CustomTokenObtainPairView(TokenObtainPairView):
     serializer_class = CustomTokenObtainPairSerializer
+    throttle_classes = [LoginIPRateThrottle, LoginEmailRateThrottle]
 
     def post(self, request, *args, **kwargs):
         try:
@@ -43,6 +50,7 @@ class RegisterView(generics.CreateAPIView):
     queryset = User.objects.all()
     serializer_class = RegisterSerializer
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'auth_register'
 
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
@@ -134,6 +142,7 @@ class UserApprovalView(APIView):
 class PasswordResetRequestView(APIView):
     """Step 1: Submit email to get a reset link."""
     permission_classes = [permissions.AllowAny]
+    throttle_classes = [PasswordResetIPRateThrottle, PasswordResetEmailRateThrottle]
 
     def post(self, request):
         email = request.data.get('email', '').strip().lower()
@@ -170,6 +179,7 @@ class PasswordResetRequestView(APIView):
 class PasswordResetConfirmView(APIView):
     """Step 2: Use token + new password to complete the reset."""
     permission_classes = [permissions.AllowAny]
+    throttle_scope = 'auth_password_reset_confirm'
 
     def post(self, request):
         token_value = request.data.get('token', '').strip()

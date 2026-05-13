@@ -53,9 +53,9 @@ export default function RegisterPage() {
             <div className="auth-orb auth-orb-3" />
             <div className="auth-orb auth-orb-4" />
             <div className="auth-card" style={{ maxWidth: 520 }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 24 }}>
-                    <img src="/logo.png" alt="Research Repository" style={{ width: 36, height: 36, borderRadius: '50%' }} />
-                    <span style={{ fontWeight: 800, fontSize: '1.2rem', color: 'var(--accent)' }}>SaliksikLab</span>
+                <div className="auth-brand">
+                    <img src="/logo.png" alt="SaliksikLab logo" className="auth-brand-logo" />
+                    <span className="auth-brand-name">SaliksikLab</span>
                 </div>
                 <h1 className="auth-title">Create account</h1>
                 <p className="auth-subtitle">Join your institution&apos;s research repository</p>

@@ -39,11 +39,9 @@ export default function LoginPage() {
             <div className="auth-orb auth-orb-3" />
             <div className="auth-orb auth-orb-4" />
             <div className="auth-card">
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 28 }}>
-                    <img src="/logo.png" alt="Research Repository" style={{ width: 40, height: 40, borderRadius: '50%' }} />
-                    <span style={{ fontWeight: 800, fontSize: '1.3rem', color: 'var(--accent)' }}>
-                        SaliksikLab
-                    </span>
+                <div className="auth-brand">
+                    <img src="/logo.png" alt="SaliksikLab logo" className="auth-brand-logo" />
+                    <span className="auth-brand-name">SaliksikLab</span>
                 </div>
                 <h1 className="auth-title">Welcome back</h1>
                 <p className="auth-subtitle">Sign in to your institutional research account</p>

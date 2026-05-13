@@ -1,5 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
+from rest_framework.throttling import ScopedRateThrottle
 from .views import (
     RegisterView, CustomTokenObtainPairView, MeView,
     AdminUserListView, AdminUserDetailView,
@@ -8,10 +9,15 @@ from .views import (
     PasswordResetRequestView, PasswordResetConfirmView,
 )
 
+
+class ThrottledTokenRefreshView(TokenRefreshView):
+    throttle_classes = [ScopedRateThrottle]
+    throttle_scope = 'auth_token_refresh'
+
 urlpatterns = [
     path('register/', RegisterView.as_view(), name='register'),
     path('login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('refresh/', TokenRefreshView.as_view(), name='token_refresh'),
+    path('refresh/', ThrottledTokenRefreshView.as_view(), name='token_refresh'),
     path('me/', MeView.as_view(), name='me'),
     path('faculty/', FacultyListView.as_view(), name='faculty-list'),
     path('admin/users/', AdminUserListView.as_view(), name='admin-users'),

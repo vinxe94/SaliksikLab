@@ -54,6 +54,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
+    'config.middleware.DDoSProtectionMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -149,6 +150,18 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 12,
+    'DEFAULT_THROTTLE_CLASSES': (
+        'rest_framework.throttling.ScopedRateThrottle',
+    ),
+    'DEFAULT_THROTTLE_RATES': {
+        'auth_login_ip': os.getenv('AUTH_LOGIN_IP_RATE', '5/min'),
+        'auth_login_email': os.getenv('AUTH_LOGIN_EMAIL_RATE', '5/min'),
+        'auth_register': os.getenv('AUTH_REGISTER_RATE', '5/hour'),
+        'auth_token_refresh': os.getenv('AUTH_TOKEN_REFRESH_RATE', '30/min'),
+        'auth_password_reset_ip': os.getenv('AUTH_PASSWORD_RESET_IP_RATE', '5/hour'),
+        'auth_password_reset_email': os.getenv('AUTH_PASSWORD_RESET_EMAIL_RATE', '3/hour'),
+        'auth_password_reset_confirm': os.getenv('AUTH_PASSWORD_RESET_CONFIRM_RATE', '10/hour'),
+    },
 }
 
 # JWT
@@ -177,3 +190,10 @@ EMAIL_HOST_USER = os.getenv('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.getenv('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.getenv('DEFAULT_FROM_EMAIL', 'Research Repository <noreply@repository.local>')
 FRONTEND_URL = os.getenv('FRONTEND_URL', 'http://localhost:5173')
+
+# App-layer DDoS/flood protection
+DDOS_PROTECTION_ENABLED = os.getenv('DDOS_PROTECTION_ENABLED', 'True') == 'True'
+DDOS_RATE_LIMIT = os.getenv('DDOS_RATE_LIMIT', '300/min')
+DDOS_BLOCK_SECONDS = int(os.getenv('DDOS_BLOCK_SECONDS', '300'))
+DDOS_TRUST_PROXY_HEADERS = os.getenv('DDOS_TRUST_PROXY_HEADERS', 'False') == 'True'
+DDOS_EXEMPT_PATH_PREFIXES = tuple(csv_env('DDOS_EXEMPT_PATH_PREFIXES', '/static/'))
