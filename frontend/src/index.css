@@ -2747,6 +2747,11 @@ a:hover {
 }
 
 @media (max-width: 768px) {
+  .admin-hosting-grid,
+  .admin-academic-grid {
+    grid-template-columns: 1fr !important;
+  }
+
   .sidebar {
     transform: translateX(-100%);
   }

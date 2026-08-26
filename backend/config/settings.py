@@ -33,7 +33,11 @@ TUNNEL_CSRF_TRUSTED_ORIGINS = (
     'https://*.trycloudflare.com'
 )
 
-ALLOWED_HOSTS = csv_env('ALLOWED_HOSTS', f'localhost,127.0.0.1,{TUNNEL_ALLOWED_HOSTS}')
+ALLOWED_HOSTS = csv_env('ALLOWED_HOSTS', f'localhost,127.0.0.1,0.0.0.0,{TUNNEL_ALLOWED_HOSTS}')
+if DEBUG:
+    for dev_host in ['localhost', '127.0.0.1', '0.0.0.0']:
+        if dev_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(dev_host)
 
 CSRF_TRUSTED_ORIGINS = csv_env('CSRF_TRUSTED_ORIGINS', TUNNEL_CSRF_TRUSTED_ORIGINS)
 INSTALLED_APPS = [
@@ -50,6 +54,7 @@ INSTALLED_APPS = [
     # Local
     'accounts',
     'repository',
+    'hosting',
 ]
 
 MIDDLEWARE = [
@@ -197,3 +202,8 @@ DDOS_RATE_LIMIT = os.getenv('DDOS_RATE_LIMIT', '300/min')
 DDOS_BLOCK_SECONDS = int(os.getenv('DDOS_BLOCK_SECONDS', '300'))
 DDOS_TRUST_PROXY_HEADERS = os.getenv('DDOS_TRUST_PROXY_HEADERS', 'False') == 'True'
 DDOS_EXEMPT_PATH_PREFIXES = tuple(csv_env('DDOS_EXEMPT_PATH_PREFIXES', '/static/'))
+
+# Temporary website preview hosting
+TEMP_HOSTING_DURATION_MINUTES = int(os.getenv('TEMP_HOSTING_DURATION_MINUTES', '30'))
+TEMP_HOSTING_PORT_START = int(os.getenv('TEMP_HOSTING_PORT_START', '9100'))
+TEMP_HOSTING_PORT_END = int(os.getenv('TEMP_HOSTING_PORT_END', '9199'))

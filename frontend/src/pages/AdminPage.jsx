@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
-import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload } from 'lucide-react'
+import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload, Server, Play, Square, RotateCcw, Terminal } from 'lucide-react'
 
 const ROLES = ['admin', 'faculty', 'student']
 
@@ -20,6 +20,16 @@ export default function AdminPage() {
     const [academicLoading, setAcademicLoading] = useState(true)
     const [departmentName, setDepartmentName] = useState('')
     const [courseForm, setCourseForm] = useState({ name: '', department: '' })
+    const [hosting, setHosting] = useState(null)
+    const [hostingLogs, setHostingLogs] = useState('')
+    const [hostingLoading, setHostingLoading] = useState(false)
+    const [hostingForm, setHostingForm] = useState({
+        name: '',
+        project_type: 'static',
+        entrypoint: '',
+        start_command: '',
+        site_zip: null,
+    })
     // Rejection modal state
     const [rejectTarget, setRejectTarget] = useState(null)   // output object
     const [rejectReason, setRejectReason] = useState('')
@@ -42,6 +52,12 @@ export default function AdminPage() {
             setCourses(courseRes.data || [])
         }).catch(() => toast.error('Failed to load departments and courses.'))
             .finally(() => setAcademicLoading(false))
+    }, [])
+
+    useEffect(() => {
+        loadHosting()
+        const timer = setInterval(loadHosting, 10000)
+        return () => clearInterval(timer)
     }, [])
 
     const approve = async (id) => {
@@ -160,6 +176,62 @@ export default function AdminPage() {
         toast.success(data.is_active ? 'Course activated.' : 'Course deactivated.')
     }
 
+    const loadHosting = async () => {
+        try {
+            const { data } = await api.get('/hosting/status/')
+            setHosting(data.session)
+            const logsRes = await api.get('/hosting/logs/')
+            setHostingLogs(logsRes.data.logs || '')
+        } catch {
+            // Keep the admin page usable if this optional panel fails.
+        }
+    }
+
+    const startHosting = async (e) => {
+        e.preventDefault()
+        if (!hostingForm.site_zip) {
+            toast.error('Upload a website zip first.')
+            return
+        }
+        setHostingLoading(true)
+        try {
+            const fd = new FormData()
+            fd.append('site_zip', hostingForm.site_zip)
+            fd.append('name', hostingForm.name)
+            fd.append('project_type', hostingForm.project_type)
+            fd.append('entrypoint', hostingForm.entrypoint)
+            fd.append('start_command', hostingForm.start_command)
+            const { data } = await api.post('/hosting/start/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
+            setHosting(data)
+            toast.success('Website preview started.')
+            await loadHosting()
+        } catch (err) {
+            toast.error(err.response?.data?.detail || 'Failed to start website.')
+        } finally {
+            setHostingLoading(false)
+        }
+    }
+
+    const hostingAction = async (action) => {
+        setHostingLoading(true)
+        try {
+            const { data } = await api.post(`/hosting/${action}/`)
+            setHosting(data)
+            toast.success(action === 'kill' ? 'Website killed.' : `Website ${action}ed.`)
+            await loadHosting()
+        } catch (err) {
+            toast.error(err.response?.data?.detail || `Failed to ${action} website.`)
+        } finally {
+            setHostingLoading(false)
+        }
+    }
+
+    const formatRemaining = (seconds = 0) => {
+        const mins = Math.floor(seconds / 60)
+        const secs = seconds % 60
+        return `${mins}:${String(secs).padStart(2, '0')}`
+    }
+
     const pending = outputs.filter(o => !o.is_approved && !o.is_rejected)
     const approved = outputs.filter(o => o.is_approved)
     const rejected = outputs.filter(o => o.is_rejected)
@@ -212,7 +284,7 @@ export default function AdminPage() {
 
                     {/* Tabs */}
                     <div className="tabs-scroll" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-                        {[['outputs', 'Research PDFs'], ['users', 'User Management'], ['academic', 'Departments & Courses']].map(([key, label]) => (
+                        {[['outputs', 'Research PDFs'], ['users', 'User Management'], ['academic', 'Departments & Courses'], ['hosting', 'Temporary Hosting']].map(([key, label]) => (
                             <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', color: tab === key ? 'var(--accent)' : 'var(--text2)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', marginBottom: -1 }}>
                                 {label}
                             </button>
@@ -366,6 +438,130 @@ export default function AdminPage() {
                                         ))}
                                     </div>
                                 )}
+                            </div>
+                        </div>
+                    )}
+
+                    {tab === 'hosting' && (
+                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 420px) 1fr', gap: 18 }} className="admin-hosting-grid">
+                            <div className="card">
+                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
+                                    <Server size={17} color="var(--accent)" />
+                                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Temporary Website Preview</h3>
+                                </div>
+
+                                <form onSubmit={startHosting} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+                                    <div className="form-group">
+                                        <label className="form-label">Website name</label>
+                                        <input
+                                            className="form-input"
+                                            value={hostingForm.name}
+                                            onChange={(e) => setHostingForm((form) => ({ ...form, name: e.target.value }))}
+                                            placeholder="Preview name"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Project type</label>
+                                        <select
+                                            className="form-input"
+                                            value={hostingForm.project_type}
+                                            onChange={(e) => setHostingForm((form) => ({ ...form, project_type: e.target.value }))}
+                                        >
+                                            <option value="static">HTML / CSS / JavaScript</option>
+                                            <option value="php">PHP</option>
+                                            <option value="python">Python</option>
+                                            <option value="node">Node / JavaScript</option>
+                                        </select>
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Website zip</label>
+                                        <input
+                                            className="form-input"
+                                            type="file"
+                                            accept=".zip,application/zip"
+                                            onChange={(e) => setHostingForm((form) => ({ ...form, site_zip: e.target.files[0] || null }))}
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Entrypoint</label>
+                                        <input
+                                            className="form-input"
+                                            value={hostingForm.entrypoint}
+                                            onChange={(e) => setHostingForm((form) => ({ ...form, entrypoint: e.target.value }))}
+                                            placeholder="index.php, app.py, manage.py"
+                                        />
+                                    </div>
+
+                                    <div className="form-group">
+                                        <label className="form-label">Start command</label>
+                                        <input
+                                            className="form-input"
+                                            value={hostingForm.start_command}
+                                            onChange={(e) => setHostingForm((form) => ({ ...form, start_command: e.target.value }))}
+                                            placeholder="python manage.py runserver 127.0.0.1:{port}"
+                                        />
+                                    </div>
+
+                                    <button className="btn btn-primary" type="submit" disabled={hostingLoading || hosting?.status === 'running'}>
+                                        <Play size={15} /> Start 30-minute preview
+                                    </button>
+                                </form>
+                            </div>
+
+                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
+                                <div className="card">
+                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
+                                        <div>
+                                            <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{hosting?.name || 'No preview running'}</h3>
+                                            <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
+                                                {hosting?.status === 'running'
+                                                    ? `Remaining time: ${formatRemaining(hosting.seconds_remaining)}`
+                                                    : 'Upload a zip to start a temporary website.'}
+                                            </p>
+                                        </div>
+                                        <span className={`badge ${hosting?.status === 'running' ? 'badge-green' : hosting?.status === 'failed' ? 'badge-red' : 'badge-gray'}`}>
+                                            {hosting?.status || 'idle'}
+                                        </span>
+                                    </div>
+
+                                    {hosting?.preview_url && (
+                                        <a className="btn btn-ghost btn-sm" href={hosting.preview_url} target="_blank" rel="noreferrer" style={{ marginBottom: 14 }}>
+                                            <Server size={14} /> Open Preview
+                                        </a>
+                                    )}
+
+                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                                        <button className="btn btn-ghost btn-sm" disabled={hostingLoading || hosting?.status !== 'running'} onClick={() => hostingAction('stop')}>
+                                            <Square size={14} /> Stop
+                                        </button>
+                                        <button className="btn btn-ghost btn-sm" disabled={hostingLoading || !hosting} onClick={() => hostingAction('restart')}>
+                                            <RotateCcw size={14} /> Restart
+                                        </button>
+                                        <button className="btn btn-sm" style={{ background: 'rgba(198,40,40,0.1)', color: 'var(--danger)' }} disabled={hostingLoading || !hosting} onClick={() => hostingAction('kill')}>
+                                            <XCircle size={14} /> Kill
+                                        </button>
+                                        <button className="btn btn-ghost btn-sm" disabled={hostingLoading} onClick={loadHosting}>
+                                            <Terminal size={14} /> Refresh Logs
+                                        </button>
+                                    </div>
+
+                                    {hosting?.error_message && (
+                                        <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: 12 }}>{hosting.error_message}</p>
+                                    )}
+                                </div>
+
+                                <div className="card">
+                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
+                                        <Terminal size={16} color="var(--accent)" />
+                                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Preview Logs</h3>
+                                    </div>
+                                    <pre style={{ minHeight: 240, maxHeight: 420, overflow: 'auto', whiteSpace: 'pre-wrap', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: 14, fontSize: '0.8rem', color: 'var(--text)' }}>
+                                        {hostingLogs || 'No logs yet.'}
+                                    </pre>
+                                </div>
                             </div>
                         </div>
                     )}

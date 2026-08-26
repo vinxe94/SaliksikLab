@@ -9,7 +9,7 @@ from django.http import JsonResponse
 def _parse_rate(rate):
     requests, period = rate.split('/', 1)
     period_seconds = {
-        's': 1,
+        's': 1, 
         'sec': 1,
         'second': 1,
         'm': 60,

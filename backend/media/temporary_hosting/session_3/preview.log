@@ -1,0 +1,4 @@
+
+--- Starting preview at 2026-08-26T03:42:59.428236+00:00 ---
+Command: php -S 0.0.0.0:8080
+[Wed Aug 26 11:42:59 2026] Failed to listen on 0.0.0.0:8080 (reason: Address already in use)
