@@ -1,7 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "buildCommand": "python manage.py collectstatic --noinput",
-  "outputDirectory": "staticfiles",
   "functions": {
     "api/index.py": {
       "excludeFiles": "{media,staticfiles,**/__pycache__,**/*.pyc,venv,.venv}/**"

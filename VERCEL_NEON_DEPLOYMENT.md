@@ -27,7 +27,11 @@ Set:
 
 - Root Directory: `backend`
 - Framework Preset: Other
+- Install Command: leave blank
 - Build Command: `python manage.py collectstatic --noinput`
+- Output Directory: leave blank
+
+Vercel's Python runtime installs packages from `requirements.txt` automatically. Do not set `pip install -r requirements.txt` as a custom install command, because Vercel's current Python environment is managed by `uv` and blocks global `pip install`.
 
 Add these environment variables in Vercel:
 
