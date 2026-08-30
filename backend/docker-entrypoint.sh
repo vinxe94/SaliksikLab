@@ -6,8 +6,8 @@ import os
 import socket
 import time
 
-host = os.getenv('DB_HOST')
-port = int(os.getenv('DB_PORT', '5432'))
+host = os.getenv('PGHOST') or os.getenv('DB_HOST')
+port = int(os.getenv('PGPORT') or os.getenv('DB_PORT') or '5432')
 
 if host:
     deadline = time.time() + 60

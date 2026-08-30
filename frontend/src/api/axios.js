@@ -1,9 +1,16 @@
 import axios from 'axios'
 
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
+
 const api = axios.create({
-    baseURL: '/api',
+    baseURL: API_BASE_URL,
     headers: { 'Content-Type': 'application/json' },
 })
+
+export const apiUrl = (path) => {
+    const normalizedPath = path.startsWith('/') ? path : `/${path}`
+    return `${API_BASE_URL.replace(/\/$/, '')}${normalizedPath}`
+}
 
 // Guard against multiple simultaneous token refreshes
 let isRefreshing = false
@@ -51,7 +58,7 @@ api.interceptors.response.use(
             isRefreshing = true
 
             try {
-                const { data } = await axios.post('/api/auth/refresh/', { refresh })
+                const { data } = await axios.post(apiUrl('/auth/refresh/'), { refresh })
                 const newToken = data.access
                 localStorage.setItem('access_token', newToken)
                 api.defaults.headers.common['Authorization'] = `Bearer ${newToken}`

@@ -1,5 +1,6 @@
 import os
 import sys
+from urllib.parse import parse_qs, unquote, urlparse
 from pathlib import Path
 from datetime import timedelta
 from dotenv import load_dotenv
@@ -13,8 +14,28 @@ DEBUG = os.getenv('DEBUG', 'True') == 'True'
 def csv_env(name, default=''):
     return [item.strip() for item in os.getenv(name, default).split(',') if item.strip()]
 
+
+def postgres_config_from_url(url):
+    parsed = urlparse(url)
+    options = {
+        key: values[-1]
+        for key, values in parse_qs(parsed.query).items()
+        if values
+    }
+    config = {
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': unquote(parsed.path.lstrip('/')),
+        'USER': unquote(parsed.username or ''),
+        'PASSWORD': unquote(parsed.password or ''),
+        'HOST': parsed.hostname or '',
+        'PORT': str(parsed.port or 5432),
+    }
+    if options:
+        config['OPTIONS'] = options
+    return config
+
 TUNNEL_ALLOWED_HOSTS = (
-    '.ngrok-free.app,.ngrok.app,.ngrok-free.dev,.ngrok.dev,.ngrok.io,.trycloudflare.com'
+    '.ngrok-free.app,.ngrok.app,.ngrok-free.dev,.ngrok.dev,.ngrok.io,.trycloudflare.com,.up.railway.app,.vercel.app'
 )
 TUNNEL_ALLOWED_ORIGIN_REGEXES = (
     r'^https://.*\.ngrok-free\.app$,'
@@ -22,7 +43,9 @@ TUNNEL_ALLOWED_ORIGIN_REGEXES = (
     r'^https://.*\.ngrok-free\.dev$,'
     r'^https://.*\.ngrok\.dev$,'
     r'^https://.*\.ngrok\.io$,'
-    r'^https://.*\.trycloudflare\.com$'
+    r'^https://.*\.trycloudflare\.com$,'
+    r'^https://.*\.up\.railway\.app$,'
+    r'^https://.*\.vercel\.app$'
 )
 TUNNEL_CSRF_TRUSTED_ORIGINS = (
     'https://*.ngrok-free.app,'
@@ -30,7 +53,9 @@ TUNNEL_CSRF_TRUSTED_ORIGINS = (
     'https://*.ngrok-free.dev,'
     'https://*.ngrok.dev,'
     'https://*.ngrok.io,'
-    'https://*.trycloudflare.com'
+    'https://*.trycloudflare.com,'
+    'https://*.up.railway.app,'
+    'https://*.vercel.app'
 )
 
 ALLOWED_HOSTS = csv_env('ALLOWED_HOSTS', f'localhost,127.0.0.1,0.0.0.0,{TUNNEL_ALLOWED_HOSTS}')
@@ -40,6 +65,7 @@ if DEBUG:
             ALLOWED_HOSTS.append(dev_host)
 
 CSRF_TRUSTED_ORIGINS = csv_env('CSRF_TRUSTED_ORIGINS', TUNNEL_CSRF_TRUSTED_ORIGINS)
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -103,16 +129,18 @@ if RUNNING_TESTS:
         'repository': None,
     }
 else:
-    DATABASES = {
-        'default': {
+    database_url = os.getenv('DATABASE_URL')
+    if database_url:
+        DATABASES = {'default': postgres_config_from_url(database_url)}
+    else:
+        DATABASES = {'default': {
             'ENGINE': 'django.db.backends.postgresql',
-            'NAME': os.getenv('DB_NAME', 'thesis_repo'),
-            'USER': os.getenv('DB_USER', 'postgres'),
-            'PASSWORD': os.getenv('DB_PASSWORD', 'postgres'),
-            'HOST': os.getenv('DB_HOST', 'localhost'),
-            'PORT': os.getenv('DB_PORT', '5432'),
-        }
-    }
+            'NAME': os.getenv('PGDATABASE', os.getenv('DB_NAME', 'thesis_repo')),
+            'USER': os.getenv('PGUSER', os.getenv('DB_USER', 'postgres')),
+            'PASSWORD': os.getenv('PGPASSWORD', os.getenv('DB_PASSWORD', 'postgres')),
+            'HOST': os.getenv('PGHOST', os.getenv('DB_HOST', 'localhost')),
+            'PORT': os.getenv('PGPORT', os.getenv('DB_PORT', '5432')),
+        }}
 
 AUTH_USER_MODEL = 'accounts.User'
 

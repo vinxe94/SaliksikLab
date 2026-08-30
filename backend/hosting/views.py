@@ -7,8 +7,11 @@ from .manager import (
     HostingError,
     active_session,
     create_session_from_upload,
+    delete_saved_system,
     read_logs,
     restart_session,
+    saved_systems,
+    start_saved_system,
     stop_session,
 )
 from .models import HostingSession
@@ -23,6 +26,13 @@ class HostingStatusView(APIView):
         session = active_session() or HostingSession.objects.first()
         data = HostingSessionSerializer(session).data if session else None
         return Response({'session': data})
+
+
+class HostingSavedSystemListView(APIView):
+    permission_classes = [IsAdmin]
+
+    def get(self, request):
+        return Response({'systems': HostingSessionSerializer(saved_systems(), many=True).data})
 
 
 class HostingStartView(APIView):
@@ -82,6 +92,32 @@ class HostingRestartView(APIView):
         except Exception as exc:
             return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
         return Response(HostingSessionSerializer(session).data)
+
+
+class HostingSavedSystemStartView(APIView):
+    permission_classes = [IsAdmin]
+
+    def post(self, request, session_id):
+        try:
+            session = start_saved_system(session_id)
+        except HostingError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response(HostingSessionSerializer(session).data)
+
+
+class HostingSavedSystemDeleteView(APIView):
+    permission_classes = [IsAdmin]
+
+    def delete(self, request, session_id):
+        try:
+            deleted_count = delete_saved_system(session_id)
+        except HostingError as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as exc:
+            return Response({'detail': str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'deleted': deleted_count})
 
 
 class HostingLogsView(APIView):

@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import api from '../api/axios'
+import api, { apiUrl } from '../api/axios'
 import { ArrowLeft, FileText } from 'lucide-react'
 
 export default function ArchivePdfViewerPage() {
@@ -25,8 +25,8 @@ export default function ArchivePdfViewerPage() {
     const token = localStorage.getItem('access_token')
     const versionId = searchParams.get('version')
     const previewPath = versionId
-        ? `/api/repository/archives/${id}/preview/${versionId}/`
-        : `/api/repository/archives/${id}/preview/`
+        ? apiUrl(`/repository/archives/${id}/preview/${versionId}/`)
+        : apiUrl(`/repository/archives/${id}/preview/`)
     const previewUrl = token
         ? `${previewPath}?${new URLSearchParams({ token }).toString()}#toolbar=0&navpanes=0`
         : ''

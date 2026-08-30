@@ -159,6 +159,30 @@ def active_session():
     return session
 
 
+def session_storage_dir(session):
+    root = hosting_root().resolve()
+    expected = (root / f'session_{session.id}').resolve()
+    project_dir = Path(session.project_dir).resolve() if session.project_dir else expected
+    if str(project_dir).startswith(str(expected)):
+        return expected
+    return expected
+
+
+def saved_systems():
+    systems = []
+    seen_names = set()
+    sessions = HostingSession.objects.exclude(project_dir='').order_by('-created_at')
+    for session in sessions:
+        key = session.name.strip().casefold()
+        if not key or key in seen_names:
+            continue
+        if not Path(session.project_dir).exists():
+            continue
+        seen_names.add(key)
+        systems.append(session)
+    return systems
+
+
 def detect_command(project_type, project_dir, port, entrypoint='', start_command=''):
     project_dir = Path(project_dir)
     if start_command.strip():
@@ -290,3 +314,36 @@ def restart_session(session):
         stop_session(session, force=True, status=HostingSession.STATUS_STOPPED)
         session.refresh_from_db()
     return start_session(session)
+
+
+def start_saved_system(session_id):
+    try:
+        session = HostingSession.objects.get(id=session_id)
+    except HostingSession.DoesNotExist:
+        raise HostingError('Saved system does not exist.')
+    if not session.project_dir or not Path(session.project_dir).exists():
+        raise HostingError('Saved system files are missing.')
+    return restart_session(session)
+
+
+def delete_saved_system(session_id):
+    try:
+        selected = HostingSession.objects.get(id=session_id)
+    except HostingSession.DoesNotExist:
+        raise HostingError('Saved system does not exist.')
+
+    name = selected.name.strip()
+    if not name:
+        raise HostingError('Saved system has no name.')
+
+    sessions = list(HostingSession.objects.filter(name__iexact=name))
+    deleted_count = 0
+    for session in sessions:
+        if session.status == HostingSession.STATUS_RUNNING:
+            stop_session(session, force=True, status=HostingSession.STATUS_KILLED)
+        storage_dir = session_storage_dir(session)
+        if storage_dir.exists():
+            shutil.rmtree(storage_dir, ignore_errors=True)
+        session.delete()
+        deleted_count += 1
+    return deleted_count

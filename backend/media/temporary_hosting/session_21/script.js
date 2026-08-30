@@ -1,0 +1,1 @@
+const button=document.getElementById("clickButton");const message=document.getElementById("message");button.addEventListener("click",()=>{message.textContent="JavaScript is working! 🎉";});

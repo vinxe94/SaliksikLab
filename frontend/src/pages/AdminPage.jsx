@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
-import api from '../api/axios'
+import api, { apiUrl } from '../api/axios'
 import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload, Server, Play, Square, RotateCcw, Terminal } from 'lucide-react'
 
 const ROLES = ['admin', 'faculty', 'student']
@@ -134,7 +134,7 @@ export default function AdminPage() {
     const exportCSV = async () => {
         try {
             const token = localStorage.getItem('access_token')
-            const response = await fetch('/api/repository/export/csv/', {
+            const response = await fetch(apiUrl('/repository/export/csv/'), {
                 headers: { Authorization: `Bearer ${token}` }
             })
             if (!response.ok) throw new Error()
@@ -325,7 +325,7 @@ export default function AdminPage() {
                                                         <button className="btn btn-sm" style={{ background: 'rgba(27,94,32,0.08)', color: 'var(--accent)' }} title="Download latest file" onClick={(e) => {
                                                             e.stopPropagation()
                                                             const token = localStorage.getItem('access_token')
-                                                            fetch(`/api/repository/${o.id}/download/`, { headers: { Authorization: `Bearer ${token}` } })
+                                                            fetch(apiUrl(`/repository/${o.id}/download/`), { headers: { Authorization: `Bearer ${token}` } })
                                                                 .then(r => r.blob()).then(blob => {
                                                                     const href = URL.createObjectURL(blob)
                                                                     const a = document.createElement('a')
