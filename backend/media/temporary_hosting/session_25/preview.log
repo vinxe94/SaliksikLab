@@ -1,0 +1,10 @@
+
+--- Starting preview at 2026-08-31T07:52:35.152115+00:00 ---
+Command: php -S 0.0.0.0:8007
+[Mon Aug 31 15:52:35 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8007) started
+[Mon Aug 31 15:53:02 2026] 127.0.0.1:58048 Accepted
+[Mon Aug 31 15:53:02 2026] 127.0.0.1:58048 [200]: GET /
+[Mon Aug 31 15:53:02 2026] 127.0.0.1:58048 Closing
+[Mon Aug 31 15:53:02 2026] 127.0.0.1:58050 Accepted
+[Mon Aug 31 15:53:02 2026] 127.0.0.1:58050 [404]: GET /favicon.ico - No such file or directory
+[Mon Aug 31 15:53:02 2026] 127.0.0.1:58050 Closing

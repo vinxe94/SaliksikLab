@@ -1,17 +1,18 @@
-# SaliksikLab
+# Tukiva
 
-SaliksikLab is a research repository management system for submitting, reviewing, archiving, and browsing academic PDF outputs. It uses a Django REST Framework backend, a React + Vite frontend, and PostgreSQL for persistent data.
+Tukiva is a research repository management system for submitting, reviewing, archiving, and browsing academic PDF outputs. It uses a Django REST Framework backend, a React + Vite frontend, and PostgreSQL for persistent data.
 
 ## Current Scope
 
-SaliksikLab currently provides:
+Tukiva currently provides:
 
 - JWT authentication, registration, profile editing, and password reset.
 - Role-based access for admin, faculty, and student users.
 - Account approval and user management for admins.
-- PDF-focused archive submission with metadata, keywords, public/private visibility, assigned faculty, and optional system links.
-- Review workflows for pending, approved, rejected, and revision-requested archive documents.
-- Archive version history and revision upload.
+- Student upload requests with private research PDFs and system ZIPs for administrator review.
+- An administrator-only, first-come/first-served queue with approve, reject, and return-for-revision actions.
+- Administrator-only upload and publication of research PDFs and executable-system ZIP packages.
+- Published archive version history, system downloads, and optional system links.
 - Repository browsing with search, filters, inline PDF viewing, previews, and downloads.
 - Admin analytics with approval donut chart, user engagement line chart, course distribution, and department/course output counts.
 - Dashboard summary cards, recent archive activity, and recent submissions.
@@ -22,21 +23,21 @@ Collaboration, SSH tunnel scripts, and Hugging Face translation/model-cache feat
 
 ## Tech Stack
 
-| Layer | Technology |
-| --- | --- |
-| Backend | Python, Django, Django REST Framework |
-| Auth | Simple JWT |
-| Frontend | React 18, Vite, React Router |
-| Charts | Chart.js, react-chartjs-2 |
-| Styling | Custom CSS in `frontend/src/index.css` |
-| Database | PostgreSQL |
-| File Storage | Django media files |
-| Deployment | Docker, Docker Compose, Nginx frontend container |
+| Layer        | Technology                                       |
+| ------------ | ------------------------------------------------ |
+| Backend      | Python, Django, Django REST Framework            |
+| Auth         | Simple JWT                                       |
+| Frontend     | React 18, Vite, React Router                     |
+| Charts       | Chart.js, react-chartjs-2                        |
+| Styling      | Custom CSS in `frontend/src/index.css`           |
+| Database     | PostgreSQL                                       |
+| File Storage | Django media files                               |
+| Deployment   | Docker, Docker Compose, Nginx frontend container |
 
 ## Project Structure
 
 ```text
-SaliksikLab/
+Tukiva/
 ├── backend/
 │   ├── accounts/              # User model, auth, admin user APIs, login events
 │   ├── config/                # Django settings and root URL config
@@ -61,21 +62,21 @@ SaliksikLab/
 
 ## Main Frontend Routes
 
-| Route | Page | Access |
-| --- | --- | --- |
-| `/login` | Login | Guest |
-| `/register` | Register | Guest |
-| `/forgot-password` | Password reset request | Guest |
-| `/reset-password` | Password reset confirm | Guest |
-| `/dashboard` | Dashboard | Authenticated |
-| `/repository` | Repository browser | Authenticated |
-| `/archives/:id` | Archive detail and review actions | Authenticated |
-| `/archives/:id/view` | PDF viewer | Authenticated |
-| `/upload` | Archive upload | Authenticated |
-| `/profile` | Profile | Authenticated |
-| `/admin` | Management | Admin |
-| `/analytics` | Analytics | Admin |
-| `/reports` | Report generation page | Admin route, not shown in sidebar |
+| Route                | Page                              | Access                            |
+| -------------------- | --------------------------------- | --------------------------------- |
+| `/login`             | Login                             | Guest                             |
+| `/register`          | Register                          | Guest                             |
+| `/forgot-password`   | Password reset request            | Guest                             |
+| `/reset-password`    | Password reset confirm            | Guest                             |
+| `/dashboard`         | Dashboard                         | Authenticated                     |
+| `/repository`        | Repository browser                | Authenticated                     |
+| `/archives/:id`      | Published archive detail          | Authenticated                     |
+| `/archives/:id/view` | PDF viewer                        | Authenticated                     |
+| `/upload`            | Student request / admin publish   | Student or admin                  |
+| `/profile`           | Profile                           | Authenticated                     |
+| `/admin`             | Management                        | Admin                             |
+| `/analytics`         | Analytics                         | Admin                             |
+| `/reports`           | Report generation page            | Admin route, not shown in sidebar |
 
 ## Backend API Overview
 
@@ -83,54 +84,70 @@ All API paths are served under `/api/`.
 
 ### Auth
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `POST` | `/api/auth/register/` | Create user account |
-| `POST` | `/api/auth/login/` | Login and create a login event |
-| `POST` | `/api/auth/refresh/` | Refresh JWT |
-| `GET/PATCH` | `/api/auth/me/` | Get or update current user |
-| `GET` | `/api/auth/faculty/` | List active approved faculty |
-| `GET` | `/api/auth/admin/users/` | Admin user list |
-| `PATCH` | `/api/auth/admin/users/<id>/` | Admin user update |
-| `POST` | `/api/auth/admin/users/<id>/approve/` | Toggle account approval |
-| `POST` | `/api/auth/password-reset/` | Request password reset |
-| `POST` | `/api/auth/password-reset/confirm/` | Confirm password reset |
+| Method      | Path                                  | Purpose                        |
+| ----------- | ------------------------------------- | ------------------------------ |
+| `POST`      | `/api/auth/register/`                 | Create user account            |
+| `POST`      | `/api/auth/login/`                    | Login and create a login event |
+| `POST`      | `/api/auth/refresh/`                  | Refresh JWT                    |
+| `GET/PATCH` | `/api/auth/me/`                       | Get or update current user     |
+| `GET`       | `/api/auth/faculty/`                  | List active approved faculty   |
+| `GET`       | `/api/auth/admin/users/`              | Admin user list                |
+| `PATCH`     | `/api/auth/admin/users/<id>/`         | Admin user update              |
+| `POST`      | `/api/auth/admin/users/<id>/approve/` | Toggle account approval        |
+| `POST`      | `/api/auth/password-reset/`           | Request password reset         |
+| `POST`      | `/api/auth/password-reset/confirm/`   | Confirm password reset         |
 
 ### Repository And Archives
 
-| Method | Path | Purpose |
-| --- | --- | --- |
-| `GET/POST` | `/api/repository/` | Legacy research output list/create |
-| `GET` | `/api/repository/stats/` | Dashboard and analytics stats |
-| `GET` | `/api/repository/export/csv/` | Admin CSV export |
-| `GET/POST` | `/api/repository/backup/` | Admin JSON backup |
-| `POST` | `/api/repository/restore/` | Admin JSON restore |
-| `GET/POST` | `/api/repository/archives/` | Archive list/create |
-| `GET/PATCH/DELETE` | `/api/repository/archives/<id>/` | Archive detail/update/delete |
-| `GET` | `/api/repository/archives/<id>/preview/` | Preview current file |
-| `GET` | `/api/repository/archives/<id>/download/` | Download current file |
-| `GET` | `/api/repository/archives/<id>/versions/` | Archive version history |
-| `POST` | `/api/repository/archives/<id>/revise/` | Upload revised archive file |
-| `POST` | `/api/repository/archives/<id>/review/` | Approve, reject, or request revision |
-| `GET/POST` | `/api/repository/departments/` | Department management |
-| `GET/POST` | `/api/repository/courses/` | Course management |
+| Method             | Path                                      | Purpose                              |
+| ------------------ | ----------------------------------------- | ------------------------------------ |
+| `GET/POST`         | `/api/repository/`                        | Legacy list / admin-only create      |
+| `GET`              | `/api/repository/stats/`                  | Dashboard and analytics stats        |
+| `GET`              | `/api/repository/export/csv/`             | Admin CSV export                     |
+| `GET/POST`         | `/api/repository/backup/`                 | Admin JSON backup                    |
+| `POST`             | `/api/repository/restore/`                | Admin JSON restore                   |
+| `GET/POST`         | `/api/repository/archives/`               | Archive list / admin-only publication |
+| `GET/PATCH/DELETE` | `/api/repository/archives/<id>/`          | Detail / admin-only mutation         |
+| `GET`              | `/api/repository/archives/<id>/preview/`  | Preview current file                 |
+| `GET`              | `/api/repository/archives/<id>/download/` | Download current file                |
+| `GET`              | `/api/repository/archives/<id>/versions/` | Archive version history              |
+| `POST`             | `/api/repository/archives/<id>/revise/`   | Admin upload of a revised paper      |
+| `GET`              | `/api/repository/archives/<id>/system/download/` | Download published system ZIP |
+| `GET/POST`         | `/api/repository/submission-requests/`    | Admin queue list / student request   |
+| `GET`              | `/api/repository/submission-requests/<id>/` | Admin-only request detail          |
+| `POST`             | `/api/repository/submission-requests/<id>/review/` | Admin decision and publication |
+| `GET`              | `/api/repository/submission-requests/<id>/status/` | Student owner checks one request |
+| `POST`             | `/api/repository/submission-requests/<id>/resubmit/` | Student resubmits a returned request |
+| `GET/POST`         | `/api/repository/departments/`            | Department management                |
+| `GET/POST`         | `/api/repository/courses/`                | Course management                    |
 
 ## Data Model Summary
 
-| Model | Purpose |
-| --- | --- |
-| `accounts.User` | Custom user with role, department, avatar, approval state |
-| `accounts.PasswordResetToken` | Password reset tokens |
-| `accounts.LoginEvent` | Successful login history for student engagement analytics |
-| `repository.ResearchOutput` | Legacy research output metadata |
-| `repository.OutputFile` | Legacy output file versions |
-| `repository.DownloadLog` | Download tracking for legacy outputs |
-| `repository.Department` | Academic department list |
-| `repository.Course` | Course list, optionally linked to a department |
-| `repository.Repository` | General repository container |
-| `repository.RepositoryFile` | Versioned repository file |
-| `repository.ArchiveDocument` | Main PDF archive record and review state |
-| `repository.ArchiveDocumentVersion` | Version history for archive revisions |
+| Model                               | Purpose                                                   |
+| ----------------------------------- | --------------------------------------------------------- |
+| `accounts.User`                     | Custom user with role, department, avatar, approval state |
+| `accounts.PasswordResetToken`       | Password reset tokens                                     |
+| `accounts.LoginEvent`               | Successful login history for student engagement analytics |
+| `repository.ResearchOutput`         | Legacy research output metadata                           |
+| `repository.OutputFile`             | Legacy output file versions                               |
+| `repository.DownloadLog`            | Download tracking for legacy outputs                      |
+| `repository.Department`             | Academic department list                                  |
+| `repository.Course`                 | Course list, optionally linked to a department            |
+| `repository.Repository`             | General repository container                              |
+| `repository.RepositoryFile`         | Versioned repository file                                 |
+| `repository.ResearchSubmissionRequest` | Student metadata, private PDF/ZIP attachments, and FIFO review state |
+| `repository.ArchiveDocument`        | Administrator-published paper/system archive              |
+| `repository.ArchiveDocumentVersion` | Version history for archive revisions                     |
+
+## Submission Workflow
+
+1. A student submits metadata and a research PDF, a system ZIP, or both according to the submission type (100 MB maximum per file). Attachments are stored privately and the request receives a FIFO queue position.
+2. Only administrators can list the queue. The API enforces processing of the oldest pending request first.
+3. An administrator reads the submitted PDF in the review screen with page navigation and zoom, then approves, rejects with a reason, or returns the request with revision instructions. The viewer and its fonts/image decoders are hosted with the frontend. Earlier metadata-only requests can still receive missing files from the administrator.
+4. A returned request can be revised by its student owner, including replacement attachments, and is placed at the end of the pending queue when resubmitted. Unchanged attachments are retained.
+5. Approval copies the submitted files into a published archive whose uploader and reviewer are the administrator. An included ZIP is also saved as the archive's default hosting configuration, initially stopped. The administrator can select **Run approved system** without uploading the ZIP again; approval does not start execution or require an online hosting worker.
+
+Pending attachments are served only to their student owner and administrators through `/api/repository/submission-requests/<id>/research/` and `/system/`. They have no public media URLs. `SUBMISSION_STORAGE_PATH` defaults to `backend/private_submissions`; keep it outside `MEDIA_ROOT` and on persistent storage. Docker Compose mounts dedicated volumes for these attachments and saved hosting packages. Run `python manage.py migrate` after this update (repository migration 0014 and hosting migration 0007), then restart the backend and hosting worker.
 
 ## Analytics
 
@@ -175,11 +192,11 @@ The Vite dev server runs on `http://localhost:5173` and proxies `/api` and `/med
 docker compose up --build
 ```
 
-| Service | URL |
-| --- | --- |
-| Frontend | `http://localhost:3000` |
-| Backend | `http://localhost:8080` |
-| PostgreSQL | `localhost:5432` |
+| Service    | URL                     |
+| ---------- | ----------------------- |
+| Frontend   | `http://localhost:3000` |
+| Backend    | `http://localhost:8080` |
+| PostgreSQL | `localhost:5432`        |
 
 Docker volumes store PostgreSQL data, uploaded media, and collected static files.
 
@@ -202,6 +219,16 @@ DB_PORT=5432
 FRONTEND_URL=http://localhost:5173
 ```
 
+## Temporary Website Hosting
+
+Administrators can upload and manage temporary websites from the admin page's **Temporary Hosting** tab or an archive's hosting card. The existing APIs now queue isolated Docker deployments, verify HTTP readiness, and preserve the uploaded ZIP for restart. A session lasts 30 minutes after readiness, with its deadline stored in PostgreSQL.
+
+Supported languages are **JavaScript (Node.js), Python, PHP, Ruby, and C++**, plus static HTML/CSS/JavaScript sites. Ruby installs gems with Bundler; C++ compiles source with GCC inside the deployment container. Both require an HTTP server listening on `0.0.0.0` using `PORT`. See the [Ruby/C++ examples and ZIP instructions](backend/hosting/examples/README.md). Apply migrations (including `0005_add_ruby_cpp_runtimes`) and restart the worker after updating.
+
+Run `python manage.py hosting_worker` in the backend environment alongside the normal web/frontend processes. For Linux Docker hosting, use `docker compose -f docker-compose.yml -f docker-compose.hosting.yml up --build`. The persistent worker is required for deployment processing, expiration, and recovery.
+
+See [the temporary hosting investigation and runbook](docs/TEMPORARY_HOSTING_REPORT.md) for the old implementation's root causes, migration, storage/dependency isolation, public-domain setup, environment variables, tests, and limitations.
+
 ## Cleanup Notes
 
 The following are local/generated data and should not be treated as core source:
@@ -212,3 +239,7 @@ The following are local/generated data and should not be treated as core source:
 - `frontend/dist/`
 - `frontend/node_modules/`
 - local virtual environments such as `.venv/` or `backend/venv/`
+
+future plans
+
+make the

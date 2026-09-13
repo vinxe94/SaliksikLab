@@ -54,7 +54,7 @@ export default function ReportGenerationPage() {
       const href = URL.createObjectURL(response.data)
       const link = document.createElement('a')
       link.href = href
-      link.download = `saliksiklab-report-${new Date().toISOString().slice(0, 10)}.csv`
+      link.download = `tukiva-report-${new Date().toISOString().slice(0, 10)}.csv`
       link.click()
       URL.revokeObjectURL(href)
       toast.success('CSV report generated.')

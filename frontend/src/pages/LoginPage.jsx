@@ -40,8 +40,8 @@ export default function LoginPage() {
             <div className="auth-orb auth-orb-4" />
             <div className="auth-card">
                 <div className="auth-brand">
-                    <img src="/logo.png" alt="SaliksikLab logo" className="auth-brand-logo" />
-                    <span className="auth-brand-name">SaliksikLab</span>
+                    <img src="/logo.png" alt="Tukiva logo" className="auth-brand-logo" />
+                    <span className="auth-brand-name">Tukiva</span>
                 </div>
                 <h1 className="auth-title">Welcome back</h1>
                 <p className="auth-subtitle">Sign in to your institutional research account</p>

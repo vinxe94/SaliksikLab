@@ -3,14 +3,13 @@ import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
-import api from '../api/axios'
-import { ArrowLeft, Link2, FileText, Eye, CheckCircle, MessageSquare, XCircle, RefreshCw, Pencil } from 'lucide-react'
+import TemporaryHostingPanel from '../components/TemporaryHostingPanel'
+import api, { apiUrl } from '../api/axios'
+import { ArrowLeft, Link2, FileText, Eye, CheckCircle, MessageSquare, XCircle, RefreshCw, Pencil, Download } from 'lucide-react'
 
 function uploadErrorMessage(err) {
     const data = err.response?.data
     if (data?.file?.[0]) return data.file[0]
-    if (data?.assigned_faculty?.[0]) return data.assigned_faculty[0]
-    if (data?.is_public?.[0]) return data.is_public[0]
     if (data?.detail) return data.detail
     return 'Revision upload failed.'
 }
@@ -29,11 +28,9 @@ export default function ArchiveDetailPage() {
     const [revFile, setRevFile] = useState(null)
     const [revNotes, setRevNotes] = useState('')
     const [revLoading, setRevLoading] = useState(false)
-    const [faculty, setFaculty] = useState([])
     const [showEditForm, setShowEditForm] = useState(false)
-    const [editForm, setEditForm] = useState({ assigned_faculty: '', is_public: true, system_link: '' })
+    const [editForm, setEditForm] = useState({ system_link: '' })
     const [editLoading, setEditLoading] = useState(false)
-
     const load = useCallback(() => {
         setLoading(true)
         Promise.all([
@@ -43,8 +40,6 @@ export default function ArchiveDetailPage() {
             .then(([docRes, versionsRes]) => {
                 setDoc(docRes.data)
                 setEditForm({
-                    assigned_faculty: docRes.data.assigned_faculty?.id ? String(docRes.data.assigned_faculty.id) : '',
-                    is_public: Boolean(docRes.data.is_public),
                     system_link: docRes.data.system_link || '',
                 })
                 setVersions(versionsRes.data.results || versionsRes.data)
@@ -57,15 +52,10 @@ export default function ArchiveDetailPage() {
         load()
     }, [load])
 
-    useEffect(() => {
-        api.get('/auth/faculty/')
-            .then((response) => setFaculty(response.data || []))
-            .catch(() => setFaculty([]))
-    }, [])
-
-    const canReview = user?.role === 'faculty' && doc?.assigned_faculty?.id === user.id
-    const canRevise = user?.role === 'admin' || user?.id === doc?.uploaded_by?.id
-    const canEditArchive = canRevise
+    const canReview = user?.role === 'admin'
+    const canRevise = user?.role === 'admin'
+    const canEditArchive = user?.role === 'admin'
+    const canConfigureSystem = user?.role === 'admin'
     const latestVersion = versions[0]
 
     const statusBadge = () => {
@@ -132,8 +122,6 @@ export default function ArchiveDetailPage() {
 
     const openEditForm = () => {
         setEditForm({
-            assigned_faculty: doc.assigned_faculty?.id ? String(doc.assigned_faculty.id) : '',
-            is_public: Boolean(doc.is_public),
             system_link: doc.system_link || '',
         })
         setShowEditForm(true)
@@ -141,10 +129,6 @@ export default function ArchiveDetailPage() {
 
     const submitArchiveSettings = async (e) => {
         e.preventDefault()
-        if (!editForm.assigned_faculty) {
-            toast.error('Select an assigned faculty.')
-            return
-        }
         if (editForm.system_link && !/^https?:\/\//i.test(editForm.system_link)) {
             toast.error('System link must start with http:// or https://.')
             return
@@ -152,14 +136,10 @@ export default function ArchiveDetailPage() {
         setEditLoading(true)
         try {
             const fd = new FormData()
-            fd.append('assigned_faculty', editForm.assigned_faculty)
-            fd.append('is_public', editForm.is_public ? 'true' : 'false')
             fd.append('system_link', editForm.system_link.trim())
             const { data } = await api.patch(`/repository/archives/${id}/`, fd, { headers: { 'Content-Type': 'multipart/form-data' } })
             setDoc(data)
             setEditForm({
-                assigned_faculty: data.assigned_faculty?.id ? String(data.assigned_faculty.id) : '',
-                is_public: Boolean(data.is_public),
                 system_link: data.system_link || '',
             })
             setShowEditForm(false)
@@ -168,6 +148,25 @@ export default function ArchiveDetailPage() {
             toast.error(uploadErrorMessage(err).replace('Revision', 'Update'))
         } finally {
             setEditLoading(false)
+        }
+    }
+
+    const downloadSystem = async () => {
+        try {
+            const token = localStorage.getItem('access_token')
+            const response = await fetch(apiUrl(`/repository/archives/${id}/system/download/`), {
+                headers: { Authorization: `Bearer ${token}` },
+            })
+            if (!response.ok) throw new Error()
+            const blob = await response.blob()
+            const url = URL.createObjectURL(blob)
+            const anchor = document.createElement('a')
+            anchor.href = url
+            anchor.download = doc.system_original_filename || 'system.zip'
+            anchor.click()
+            URL.revokeObjectURL(url)
+        } catch {
+            toast.error('System download failed.')
         }
     }
 
@@ -185,44 +184,6 @@ export default function ArchiveDetailPage() {
             </div>
             {showEditForm ? (
                 <form className="archive-document-info-form" onSubmit={submitArchiveSettings} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                    <div className="form-group">
-                        <label className="form-label">Assigned Faculty</label>
-                        <select
-                            className="form-input"
-                            value={editForm.assigned_faculty}
-                            onChange={(e) => setEditForm((current) => ({ ...current, assigned_faculty: e.target.value }))}
-                            required
-                        >
-                            <option value="">Select faculty reviewer</option>
-                            {faculty.map((member) => (
-                                <option key={member.id} value={member.id}>
-                                    {member.full_name || `${member.first_name} ${member.last_name}`} ({member.email})
-                                </option>
-                            ))}
-                        </select>
-                    </div>
-                    <div className="form-group">
-                        <label className="form-label">Visibility</label>
-                        <div className="filters repository-filters">
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${editForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
-                                onClick={() => setEditForm((current) => ({ ...current, is_public: true }))}
-                            >
-                                Public
-                            </button>
-                            <button
-                                type="button"
-                                className={`btn btn-sm ${!editForm.is_public ? 'btn-primary' : 'btn-ghost'}`}
-                                onClick={() => setEditForm((current) => ({ ...current, is_public: false }))}
-                            >
-                                Private
-                            </button>
-                        </div>
-                        <span className="dashboard-stat-meta">
-                            Public archives are visible in the repository. Private archives are limited to the uploader, admins, and assigned faculty.
-                        </span>
-                    </div>
                     <div className="form-group">
                         <label className="form-label">System Link</label>
                         <input
@@ -243,18 +204,19 @@ export default function ArchiveDetailPage() {
                 </form>
             ) : (
                 <div className="profile-summary-list archive-document-info-list">
-                    <div><span>Filename</span><strong>{doc.original_filename}</strong></div>
-                    <div><span>Current version</span><strong>v{latestVersion?.version || doc.current_version || 1}</strong></div>
+                    <div><span>Research paper</span><strong>{doc.original_filename || 'None'}</strong></div>
+                    <div><span>Current version</span><strong>{doc.original_filename ? `v${latestVersion?.version || doc.current_version || 1}` : '—'}</strong></div>
+                    <div><span>Executable system</span><strong>{doc.system_original_filename || 'None'}</strong></div>
                     <div><span>Uploaded</span><strong>{new Date(doc.uploaded_at).toLocaleDateString()}</strong></div>
                     <div><span>Uploaded by</span><strong>{doc.uploaded_by?.full_name || doc.uploaded_by?.email || '—'}</strong></div>
-                    <div><span>Assigned faculty</span><strong>{doc.assigned_faculty?.full_name || doc.assigned_faculty?.email || '—'}</strong></div>
-                    <div><span>Visibility</span><strong>{doc.is_public ? 'Public' : 'Private'}</strong></div>
+                    <div><span>Requested by</span><strong>{doc.requested_by?.full_name || doc.requested_by?.email || 'Direct administrator publication'}</strong></div>
                     <div><span>Review status</span><strong>{doc.review_status || 'pending'}</strong></div>
                     <div><span>System link</span><strong>{doc.system_link || 'None'}</strong></div>
                 </div>
             )}
         </div>
     )
+
 
     return (
         <div className="layout">
@@ -268,9 +230,16 @@ export default function ArchiveDetailPage() {
                                 <Link2 size={18} /> Open System Link
                             </button>
                         )}
-                        <button className="btn btn-primary archive-header-action" onClick={() => navigate(`/archives/${id}/view`)}>
-                            <Eye size={18} /> View File
-                        </button>
+                        {doc.system_original_filename && (
+                            <button className="btn btn-ghost archive-header-action" onClick={downloadSystem}>
+                                <Download size={18} /> Download System
+                            </button>
+                        )}
+                        {doc.original_filename && (
+                            <button className="btn btn-primary archive-header-action" onClick={() => navigate(`/archives/${id}/view`)}>
+                                <Eye size={18} /> View Paper
+                            </button>
+                        )}
                         {canRevise && (
                             <button className="btn btn-ghost archive-header-action" onClick={() => setShowRevForm((value) => !value)}>
                                 <RefreshCw size={18} /> Upload New Version
@@ -286,7 +255,6 @@ export default function ArchiveDetailPage() {
                                     <span className="badge badge-gray"><FileText size={11} style={{ marginRight: 4 }} /> Archive Document</span>
                                     <span className="badge badge-blue">v{latestVersion?.version || doc.current_version || 1}</span>
                                     <span className="badge badge-gray">{versions.length || doc.version_count || 1} version{(versions.length || doc.version_count || 1) === 1 ? '' : 's'}</span>
-                                    <span className={`badge ${doc.is_public ? 'badge-green' : 'badge-gray'}`}>{doc.is_public ? 'Public' : 'Private'}</span>
                                     {statusBadge()}
                                     {doc.system_link && <span className="badge badge-blue">System linked</span>}
                                 </div>
@@ -329,6 +297,8 @@ export default function ArchiveDetailPage() {
 
                             {documentInfoCard}
 
+                            {(doc.system_original_filename || doc.system_link || canConfigureSystem) && <TemporaryHostingPanel archiveId={id} defaultName={`${doc.title} system`} isAdmin={canConfigureSystem} />}
+
                             {showRevForm && (
                                 <div className="card">
                                     <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Upload Revised File</h3>
@@ -360,7 +330,7 @@ export default function ArchiveDetailPage() {
 
                             {canReview && (
                                 <div className="card">
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Faculty Review</h3>
+                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Administrator Review</h3>
                                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
                                         <button className="btn btn-sm" style={{ background: 'rgba(46,168,108,0.1)', color: 'var(--accent2)' }} onClick={() => openReview('approve')}>
                                             <CheckCircle size={14} /> Approve

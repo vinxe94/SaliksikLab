@@ -34,6 +34,8 @@ services:
     volumes:
       - backend_media:/app/media
       - backend_static:/app/staticfiles
+      - backend_submissions:/app/private_submissions
+      - hosting_storage:/app/storage
     ports:
       - "8080:8080"
     depends_on:
@@ -52,3 +54,5 @@ volumes:
   postgres_data:
   backend_media:
   backend_static:
+  backend_submissions:
+  hosting_storage:

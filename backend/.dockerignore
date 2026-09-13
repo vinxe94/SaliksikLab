@@ -15,3 +15,5 @@ media/
 staticfiles/
 venv/
 .venv/
+storage/
+private_submissions/

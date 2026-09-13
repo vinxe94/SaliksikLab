@@ -1,5 +1,5 @@
 /**
- * LanguageContext — Multilingual interface support for SaliksikLab.
+ * LanguageContext — Multilingual interface support for Tukiva.
  * 
  * Supported locales:
  *   'en'  — English

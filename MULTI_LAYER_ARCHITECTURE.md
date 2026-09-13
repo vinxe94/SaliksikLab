@@ -1,8 +1,8 @@
-# SaliksikLab Multi-Layer Architecture
+# Tukiva Multi-Layer Architecture
 
 ## Purpose
 
-This document describes the current layered architecture of SaliksikLab after removal of collaboration, tunneling, and AI translation/model-cache features.
+This document describes the current layered architecture of Tukiva after removal of collaboration, tunneling, and AI translation/model-cache features.
 
 ## Layer Overview
 
@@ -107,10 +107,11 @@ This layer manages browser state, navigation, and API communication.
 | `ResetPasswordPage` | `/reset-password` | Applies reset token |
 | `DashboardPage` | `/dashboard` | Summary cards, archive activity, recent submissions |
 | `RepositoryPage` | `/repository` | Browse/search archive repository |
-| `ArchiveDetailPage` | `/archives/:id` | Detail, metadata, review, revisions |
+| `ArchiveDetailPage` | `/archives/:id` | Published artifact details and admin controls |
 | `ArchivePdfViewerPage` | `/archives/:id/view` | PDF reading view |
-| `UploadPage` | `/upload` | Upload archive PDF |
-| `AdminPage` | `/admin` | User/account/admin management |
+| `UploadPage` | `/upload` | Student metadata request or administrator publication |
+| `SubmissionRequestPage` | `/submission-requests/:id` | Owned request status and resubmission |
+| `AdminPage` | `/admin` | FIFO request processing and user/account management |
 | `AnalyticsPage` | `/analytics` | Charts and repository/user engagement analytics |
 | `ReportGenerationPage` | `/reports` | Admin-only route, hidden from sidebar |
 | `ProfilePage` | `/profile` | Profile and avatar editing |
@@ -140,9 +141,12 @@ The backend exposes DRF views through two active API namespaces.
 
 | Endpoint Group | Responsibility |
 | --- | --- |
-| `/api/repository/archives/` | Archive document CRUD |
-| `/api/repository/archives/<id>/review/` | Approve, reject, request revision |
-| `/api/repository/archives/<id>/revise/` | Upload a revised archive file |
+| `/api/repository/submission-requests/` | Student request creation and admin-only FIFO list |
+| `/api/repository/submission-requests/<id>/review/` | Admin approval/publication, rejection, or revision return |
+| `/api/repository/submission-requests/<id>/resubmit/` | Student resubmission at the queue tail |
+| `/api/repository/archives/` | Published archive list and admin-only creation |
+| `/api/repository/archives/<id>/review/` | Admin-only legacy archive review |
+| `/api/repository/archives/<id>/revise/` | Admin-only revised PDF upload |
 | `/api/repository/archives/<id>/versions/` | Archive version history |
 | `/api/repository/archives/<id>/preview/` | Preview archive file |
 | `/api/repository/archives/<id>/download/` | Download archive file |
@@ -175,6 +179,7 @@ Core entities:
 
 - `ArchiveDocument`
 - `ArchiveDocumentVersion`
+- `ResearchSubmissionRequest`
 - `Department`
 - `Course`
 - `ResearchOutput`
@@ -185,11 +190,13 @@ Core entities:
 
 Rules:
 
-- Archive uploads are PDF-focused.
-- Archive documents start as pending review.
-- Review can approve, reject, or request revision.
-- Revision uploads create a version record and reset review state.
-- Private archives are limited by uploader/faculty/admin visibility rules.
+- Student requests contain metadata, system run instructions, and private PDF/ZIP attachments according to submission type.
+- Only administrators can list the request queue, publish archives, and configure or run executable systems. A request owner and administrators can stream its private attachments.
+- Pending requests are processed oldest-first; the backend rejects out-of-order decisions.
+- Review can approve and publish, reject, or return a request for revision.
+- Approval copies the reviewed attachments to the archive and saves an included ZIP as its stopped default hosting configuration. It does not launch the system.
+- Resubmitted requests rejoin the tail of the FIFO queue.
+- Approved archives are accessible to all authenticated users.
 - Stats are role-aware.
 
 ### Analytics Domain
@@ -235,24 +242,32 @@ sequenceDiagram
     F->>F: Store tokens and redirect
 ```
 
-### Archive Upload And Review
+### Student Request And Administrator Publication
 
 ```mermaid
 sequenceDiagram
-    participant U as Uploader
+    participant U as Student
     participant F as React
     participant R as Repository API
     participant DB as PostgreSQL
     participant M as Media Storage
-    participant A as Admin/Faculty
+    participant P as Private Submission Storage
+    participant H as Hosting Configuration
+    participant A as Administrator
 
-    U->>F: Submit PDF and metadata
-    F->>R: POST /api/repository/archives/
-    R->>M: Store PDF
-    R->>DB: Create ArchiveDocument pending review
-    A->>F: Open archive detail
-    F->>R: POST /archives/:id/review/
-    R->>DB: Update approval/rejection/revision state
+    U->>F: Submit metadata, PDF, and system ZIP
+    F->>R: POST /api/repository/submission-requests/
+    R->>P: Validate and store private attachments
+    R->>DB: Enqueue pending request
+    A->>F: Open administrator-only FIFO queue
+    F->>R: GET /submission-requests/:id/research/
+    R->>P: Open submitted PDF after authorization
+    R-->>F: Stream PDF for review
+    F->>R: POST /submission-requests/:id/review/
+    R->>R: Verify request is first pending item
+    R->>M: Copy approved student attachments
+    R->>DB: Approve request and create published ArchiveDocument
+    R->>H: Save ZIP as stopped default for this archive
 ```
 
 ### Analytics

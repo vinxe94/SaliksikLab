@@ -1,8 +1,8 @@
-# SaliksikLab System Design
+# Tukiva System Design
 
 ## Overview
 
-SaliksikLab is a web-based research repository system for academic PDF archives. The system supports authenticated uploads, faculty/admin review, versioned revisions, public/private archive visibility, repository search, user management, and analytics.
+Tukiva is a web-based research repository system for academic PDF archives. The system supports authenticated uploads, faculty/admin review, versioned revisions, approval-based archive access, repository search, user management, and analytics.
 
 Removed features are not part of the current system design: collaboration, SSH tunnel scripts, and Hugging Face AI translation. Development deployments allow ngrok/Cloudflare tunnel hostnames through explicit host, CORS, and CSRF settings.
 
@@ -81,7 +81,8 @@ graph TB
 | `/repository` | `RepositoryPage` | Authenticated |
 | `/archives/:id` | `ArchiveDetailPage` | Authenticated |
 | `/archives/:id/view` | `ArchivePdfViewerPage` | Authenticated |
-| `/upload` | `UploadPage` | Authenticated |
+| `/upload` | `UploadPage` | Student request or admin publication |
+| `/submission-requests/:id` | `SubmissionRequestPage` | Student owner |
 | `/profile` | `ProfilePage` | Authenticated |
 | `/admin` | `AdminPage` | Admin |
 | `/analytics` | `AnalyticsPage` | Admin |
@@ -97,9 +98,10 @@ graph TB
 | `src/components/Sidebar.jsx` | Role-aware navigation and profile shortcut |
 | `src/pages/DashboardPage.jsx` | Summary cards, recent archive activity, recent submissions |
 | `src/pages/AnalyticsPage.jsx` | Approval donut, engagement line chart, courses, departments/courses |
-| `src/pages/AdminPage.jsx` | User approval, role changes, repository review/admin tools |
-| `src/pages/ArchiveDetailPage.jsx` | Archive details, review actions, revisions, preview/download |
-| `src/pages/UploadPage.jsx` | Archive metadata and PDF upload form |
+| `src/pages/AdminPage.jsx` | FIFO upload-request queue, decisions, publication, users, and admin tools |
+| `src/pages/ArchiveDetailPage.jsx` | Published archive details and administrator-only file/system controls |
+| `src/pages/UploadPage.jsx` | Metadata-only student request or administrator publication form |
+| `src/pages/SubmissionRequestPage.jsx` | Owned request status, feedback, and metadata resubmission |
 
 ## Backend Design
 
@@ -125,6 +127,8 @@ graph TB
 ```mermaid
 erDiagram
     User ||--o{ ArchiveDocument : uploads
+    User ||--o{ ResearchSubmissionRequest : requests
+    User ||--o{ ResearchSubmissionRequest : reviews
     User ||--o{ ArchiveDocumentVersion : uploads
     User ||--o{ ArchiveDocument : reviews
     User ||--o{ LoginEvent : creates
@@ -133,6 +137,7 @@ erDiagram
 
     Department ||--o{ Course : contains
     ArchiveDocument ||--o{ ArchiveDocumentVersion : has
+    ResearchSubmissionRequest |o--o| ArchiveDocument : publishes
     ResearchOutput ||--o{ OutputFile : has
     ResearchOutput ||--o{ DownloadLog : has
     Repository ||--o{ RepositoryFile : has
@@ -147,7 +152,8 @@ erDiagram
 | `LoginEvent` | One row per successful login, used for engagement analytics |
 | `Department` | Admin-managed academic department |
 | `Course` | Admin-managed course, optionally tied to a department |
-| `ArchiveDocument` | Primary reviewed PDF archive record |
+| `ResearchSubmissionRequest` | Metadata-only student request, decision state, and FIFO queue timestamp |
+| `ArchiveDocument` | Administrator-published research PDF and/or executable-system ZIP |
 | `ArchiveDocumentVersion` | Immutable revision history for archive files |
 | `ResearchOutput` | Legacy output model still supported by repository APIs |
 | `OutputFile` | Legacy output file version |
@@ -158,26 +164,24 @@ erDiagram
 
 | Role | Main Abilities |
 | --- | --- |
-| Admin | Manage users, approve accounts, review archives, manage departments/courses, export/backup/restore, view analytics |
-| Faculty | Browse archives, upload, review assigned private/archive items where permitted |
-| Student | Upload archives, revise own submissions, browse visible approved archive content |
+| Admin | Privately list/process requests, upload/publish files and systems, manage users and academic data, export/restore, and view analytics |
+| Faculty | Browse approved archives and download published artifacts |
+| Student | Upload private research PDFs/system ZIPs for review, revise returned requests and attachments, and browse approved archives |
 
-Repository APIs filter data by role. Non-admin users see approved public content and their own submissions; admin users can see and manage broader repository state.
+Non-admin users only see approved archive content. The request-list and request-detail APIs are administrator-only; students can inspect their own request status and attachments and resubmit after a request is returned for revision. Submitted files are outside public media storage and require owner or administrator authorization to stream.
 
-## Archive Review Flow
+## Submission Request Flow
 
 ```mermaid
 stateDiagram-v2
-    [*] --> Pending: upload
-    Pending --> Approved: admin/faculty approval
-    Pending --> Rejected: rejection
-    Pending --> RevisionRequested: revision request
-    Rejected --> Pending: user uploads revision
-    RevisionRequested --> Pending: user uploads revision
-    Approved --> Pending: user uploads new revision
+    [*] --> Pending: student uploads metadata and PDF/ZIP
+    Pending --> Approved: admin reviews PDF and publishes submitted files
+    Pending --> Rejected: admin rejects with reason
+    Pending --> RevisionRequested: admin returns with instructions
+    RevisionRequested --> Pending: student resubmits at queue tail
 ```
 
-Revision uploads create `ArchiveDocumentVersion` rows and reset the review state to pending.
+Pending requests are ordered by `queued_at` and `id`. The review endpoint rejects out-of-order processing. Approval creates the published `ArchiveDocument` from the student attachments. If a ZIP is present, it also creates a stopped `HostingSession` marked `is_default`, linked to that archive with its own retained source ZIP. A conditional unique constraint allows one default per archive. Saving the default requires neither the hosting worker nor the active deployment slot; administrators start it through the existing saved-system endpoint.
 
 ## Analytics Design
 
@@ -205,9 +209,10 @@ Files are stored under Django `MEDIA_ROOT`.
 | Legacy output files | `outputs/<output_id>/v<version>/<filename>` |
 | Archive uploads | `archives/<archive_id>/<filename>` |
 | Archive revisions | `archives/<archive_id>/v<version>/<filename>` |
+| Executable systems | `archives/<archive_id>/system/<filename>` |
 | Avatars | `avatars/user_<id>.<ext>` |
 
-Production deployments should serve media through the backend or a dedicated media/static-file layer with access controls appropriate to public/private archive visibility.
+Production deployments should serve media through the backend or a dedicated media/static-file layer with access controls based on archive approval and ownership/reviewer access.
 
 ## Deployment
 

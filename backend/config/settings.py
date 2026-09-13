@@ -127,6 +127,7 @@ if RUNNING_TESTS:
     MIGRATION_MODULES = {
         'accounts': None,
         'repository': None,
+        'hosting': None,
     }
 else:
     database_url = os.getenv('DATABASE_URL')
@@ -162,6 +163,7 @@ STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+SUBMISSION_STORAGE_PATH = os.getenv('SUBMISSION_STORAGE_PATH', str(BASE_DIR / 'private_submissions'))
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -232,6 +234,49 @@ DDOS_TRUST_PROXY_HEADERS = os.getenv('DDOS_TRUST_PROXY_HEADERS', 'False') == 'Tr
 DDOS_EXEMPT_PATH_PREFIXES = tuple(csv_env('DDOS_EXEMPT_PATH_PREFIXES', '/static/'))
 
 # Temporary website preview hosting
-TEMP_HOSTING_DURATION_MINUTES = int(os.getenv('TEMP_HOSTING_DURATION_MINUTES', '30'))
-TEMP_HOSTING_PORT_START = int(os.getenv('TEMP_HOSTING_PORT_START', '9100'))
-TEMP_HOSTING_PORT_END = int(os.getenv('TEMP_HOSTING_PORT_END', '9199'))
+DEPLOYMENT_DURATION_MINUTES = int(os.getenv('DEPLOYMENT_DURATION_MINUTES', os.getenv('TEMP_HOSTING_DURATION_MINUTES', '30')))
+DEPLOYMENT_STORAGE_PATH = os.getenv('DEPLOYMENT_STORAGE_PATH', str(BASE_DIR / 'storage' / 'deployments'))
+MAX_UPLOAD_SIZE_MB = int(os.getenv('MAX_UPLOAD_SIZE_MB', '200'))
+DEPLOYMENT_MAX_EXTRACTED_MB = int(os.getenv('DEPLOYMENT_MAX_EXTRACTED_MB', '500'))
+DEPLOYMENT_MAX_FILES = int(os.getenv('DEPLOYMENT_MAX_FILES', '10000'))
+DEPLOYMENT_INTERNAL_PORT = int(os.getenv('DEPLOYMENT_INTERNAL_PORT', '8080'))
+DEPLOYMENT_MEMORY_LIMIT = os.getenv('DEPLOYMENT_MEMORY_LIMIT', '512m')
+DEPLOYMENT_CPU_LIMIT = os.getenv('DEPLOYMENT_CPU_LIMIT', '0.5')
+DEPLOYMENT_PIDS_LIMIT = int(os.getenv('DEPLOYMENT_PIDS_LIMIT', '128'))
+DEPLOYMENT_BUILD_TIMEOUT_SECONDS = int(os.getenv('DEPLOYMENT_BUILD_TIMEOUT_SECONDS', '600'))
+HEALTHCHECK_TIMEOUT_SECONDS = int(os.getenv('HEALTHCHECK_TIMEOUT_SECONDS', '60'))
+DEPLOYMENT_HEALTHCHECK_FAILURES = int(os.getenv('DEPLOYMENT_HEALTHCHECK_FAILURES', '3'))
+DEPLOYMENT_HEALTHCHECK_PATH = os.getenv('DEPLOYMENT_HEALTHCHECK_PATH', '/')
+DEPLOYMENT_CLEANUP_INTERVAL = float(os.getenv('DEPLOYMENT_CLEANUP_INTERVAL', '1'))
+DEPLOYMENT_LOG_MAX_BYTES = int(os.getenv('DEPLOYMENT_LOG_MAX_BYTES', '2097152'))
+DEPLOYMENT_PROXY_MAX_BYTES = int(os.getenv('DEPLOYMENT_PROXY_MAX_BYTES', '20971520'))
+DEPLOYMENT_BASE_DOMAIN = os.getenv('DEPLOYMENT_BASE_DOMAIN', '').strip().lower()
+DEPLOYMENT_PUBLIC_SCHEME = os.getenv('DEPLOYMENT_PUBLIC_SCHEME', 'https')
+DEPLOYMENT_PUBLIC_ORIGIN = os.getenv('DEPLOYMENT_PUBLIC_ORIGIN', '').rstrip('/')
+DEPLOYMENT_FULLSTACK_BASE_DOMAIN = os.getenv('DEPLOYMENT_FULLSTACK_BASE_DOMAIN', 'preview.localhost:8080').strip().lower()
+DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME = os.getenv('DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME', 'http')
+DEPLOYMENT_DATABASE_TIMEOUT_SECONDS = int(os.getenv('DEPLOYMENT_DATABASE_TIMEOUT_SECONDS', '120'))
+DEPLOYMENT_FULLSTACK_PYTHON_IMAGE = os.getenv('DEPLOYMENT_FULLSTACK_PYTHON_IMAGE', 'tukiva-hosting-python:3.12')
+DEPLOYMENT_DATABASE_IMAGES = {
+    'postgresql': os.getenv('DEPLOYMENT_POSTGRESQL_IMAGE', 'postgres:17-bookworm'),
+    'mysql': os.getenv('DEPLOYMENT_MYSQL_IMAGE', 'mysql:8.4'),
+}
+DEPLOYMENT_REQUIRE_WORKER = True
+DEPLOYMENT_INSTANCE_ID = os.getenv('DEPLOYMENT_INSTANCE_ID', 'tukiva')
+DEPLOYMENT_IMAGES = {
+    'static': os.getenv('DEPLOYMENT_STATIC_IMAGE', 'nginxinc/nginx-unprivileged:1.28-alpine'),
+    'node': os.getenv('DEPLOYMENT_NODE_IMAGE', 'node:22-bookworm-slim'),
+    'python': os.getenv('DEPLOYMENT_PYTHON_IMAGE', DEPLOYMENT_FULLSTACK_PYTHON_IMAGE),
+    'php': os.getenv('DEPLOYMENT_PHP_IMAGE', 'composer:2'),
+    'ruby': os.getenv('DEPLOYMENT_RUBY_IMAGE', 'ruby:3.4-bookworm'),
+    'cpp': os.getenv('DEPLOYMENT_CPP_IMAGE', 'gcc:14-trixie'),
+}
+if DEPLOYMENT_BASE_DOMAIN:
+    ALLOWED_HOSTS.append('.' + DEPLOYMENT_BASE_DOMAIN.split(':')[0])
+if DEPLOYMENT_FULLSTACK_BASE_DOMAIN:
+    ALLOWED_HOSTS.append('.' + DEPLOYMENT_FULLSTACK_BASE_DOMAIN.split(':')[0])
+
+# Preview domains never enter the platform's authentication/API routes.
+MIDDLEWARE.insert(0, 'hosting.services.proxy_service.PreviewHostMiddleware')
+# Large multipart uploads spill to disk instead of consuming 100 MB per request.
+FILE_UPLOAD_MAX_MEMORY_SIZE = 2621440

@@ -1,8 +1,9 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
+import pdfAssets from './pdf-assets'
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), pdfAssets()],
   server: {
     host: true,
     port: 5173,
@@ -15,6 +16,10 @@ export default defineConfig({
       '.trycloudflare.com',
     ],
     proxy: {
+      '/temp': {
+        target: 'http://localhost:8080',
+        changeOrigin: true,
+      },
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true,

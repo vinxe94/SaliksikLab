@@ -1,4 +1,6 @@
 import os
+from contextlib import ExitStack
+from django.core.files import File
 from .runner import run_repository_file, list_runnable_files, RunnerError
 import base64
 import binascii
@@ -9,6 +11,7 @@ from django.shortcuts import get_object_or_404
 from django.core.files.base import ContentFile
 from django.core.mail import send_mail
 from django.conf import settings as django_settings
+from django.db import models, transaction
 from django.db.models import Q, Count
 from django.db.models.functions import TruncDate
 from django.utils import timezone
@@ -22,7 +25,7 @@ import json
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
     Repository, RepositoryFile, ArchiveDocument, ArchiveDocumentVersion,
-    Department, Course,
+    ResearchSubmissionRequest, Department, Course,
 )
 from .serializers import (
     ResearchOutputListSerializer,
@@ -44,6 +47,8 @@ from .serializers import (
     ArchiveDocumentReviewSerializer,
     ArchiveDocumentRevisionSerializer,
     ArchiveDocumentVersionSerializer,
+    ResearchSubmissionRequestSerializer,
+    ResearchSubmissionRequestReviewSerializer,
     DepartmentSerializer,
     CourseSerializer,
 )
@@ -92,6 +97,11 @@ class IsAdminUser(permissions.BasePermission):
         return request.user.is_authenticated and request.user.role == 'admin'
 
 
+class IsStudentUser(permissions.BasePermission):
+    def has_permission(self, request, view):
+        return request.user.is_authenticated and request.user.role == 'student'
+
+
 class IsOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
@@ -110,7 +120,7 @@ class IsArchiveOwnerOrAdmin(permissions.BasePermission):
     def has_object_permission(self, request, view, obj):
         if request.method in permissions.SAFE_METHODS:
             return True
-        return obj.uploaded_by == request.user or request.user.role == 'admin'
+        return request.user.role == 'admin'
 
 
 def user_can_access_repository(user, repository):
@@ -126,20 +136,13 @@ def user_can_access_repository(user, repository):
 def user_can_access_archive(user, doc):
     return (
         user.is_authenticated and (
-            user.role == 'admin' or
-            doc.is_public or
-            doc.uploaded_by == user or
-            doc.assigned_faculty == user
+            user.role == 'admin' or doc.is_approved
         )
     )
 
 
 def user_can_review_archive(user, doc):
-    return (
-        user.is_authenticated and
-        user.role == 'faculty' and
-        doc.assigned_faculty == user
-    )
+    return user.is_authenticated and user.role == 'admin'
 
 
 def user_email(user):
@@ -191,8 +194,8 @@ class ResearchOutputListCreateView(generics.ListCreateAPIView):
     parser_classes = [MultiPartParser, FormParser]
 
     def get_permissions(self):
-        if self.request.method == 'GET':
-            return [permissions.IsAuthenticated()]
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
         return [permissions.IsAuthenticated()]
 
     def get_serializer_class(self):
@@ -252,6 +255,11 @@ class ResearchOutputListCreateView(generics.ListCreateAPIView):
 class ResearchOutputDetailView(generics.RetrieveUpdateDestroyAPIView):
     serializer_class = ResearchOutputDetailSerializer
     permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
     def get_queryset(self):
         return ResearchOutput.objects.filter(is_deleted=False)
@@ -443,7 +451,7 @@ class PreviewFileView(APIView):
 
 
 class ReviseOutputView(APIView):
-    permission_classes = [permissions.IsAuthenticated, IsOwnerOrAdmin]
+    permission_classes = [IsAdminUser]
     parser_classes = [MultiPartParser, FormParser]
 
     def post(self, request, pk):
@@ -586,11 +594,14 @@ class BackupView(APIView):
         archive_versions = ArchiveDocumentVersion.objects.select_related(
             'archive_document', 'uploaded_by',
         ).all().order_by('id')
+        submission_requests = ResearchSubmissionRequest.objects.select_related(
+            'requested_by', 'reviewed_by', 'published_archive',
+        ).all().order_by('id')
         outputs = ResearchOutput.objects.select_related('uploaded_by').all().order_by('id')
         output_files = OutputFile.objects.select_related('research_output', 'uploaded_by').all().order_by('id')
 
         data = {
-            'schema_version': 2,
+            'schema_version': 3,
             'generated_at': timezone.now().isoformat(),
             'counts': {
                 'departments': departments.count(),
@@ -599,6 +610,7 @@ class BackupView(APIView):
                 'repository_files': repository_files.count(),
                 'archives': archives.count(),
                 'archive_versions': archive_versions.count(),
+                'submission_requests': submission_requests.count(),
                 'research_outputs': outputs.count(),
                 'output_files': output_files.count(),
             },
@@ -652,6 +664,8 @@ class BackupView(APIView):
                         'abstract': item.abstract,
                         'original_filename': item.original_filename,
                         'file_size': item.file_size,
+                        'system_original_filename': item.system_original_filename,
+                        'system_file_size': item.system_file_size,
                         'author': item.author,
                         'department': item.department,
                         'course': item.course,
@@ -661,7 +675,6 @@ class BackupView(APIView):
                         'linked_repository_id': item.linked_repository_id,
                         'system_link': item.system_link,
                         'assigned_faculty_email': user_email(item.assigned_faculty),
-                        'is_public': item.is_public,
                         'is_approved': item.is_approved,
                         'is_rejected': item.is_rejected,
                         'rejection_reason': item.rejection_reason,
@@ -669,6 +682,7 @@ class BackupView(APIView):
                         'reviewed_by_email': user_email(item.reviewed_by),
                         'is_deleted': item.is_deleted,
                         'file': file_backup_payload(item.file, item.original_filename),
+                        'system_file': file_backup_payload(item.system_file, item.system_original_filename),
                     }
                     for item in archives
                 ],
@@ -684,6 +698,33 @@ class BackupView(APIView):
                         'file': file_backup_payload(item.file, item.original_filename),
                     }
                     for item in archive_versions
+                ],
+                'submission_requests': [
+                    {
+                        'id': item.id,
+                        'title': item.title,
+                        'abstract': item.abstract,
+                        'submission_type': item.submission_type,
+                        'author': item.author,
+                        'department': item.department,
+                        'course': item.course,
+                        'year': item.year,
+                        'keywords': item.keywords,
+                        'system_details': item.system_details,
+                        'proposed_system_link': item.proposed_system_link,
+                        'research_file': file_backup_payload(item.research_file, item.research_original_filename),
+                        'system_file': file_backup_payload(item.system_file, item.system_original_filename),
+                        'research_original_filename': item.research_original_filename,
+                        'research_file_size': item.research_file_size,
+                        'system_original_filename': item.system_original_filename,
+                        'system_file_size': item.system_file_size,
+                        'requested_by_email': user_email(item.requested_by),
+                        'status': item.status,
+                        'admin_comment': item.admin_comment,
+                        'reviewed_by_email': user_email(item.reviewed_by),
+                        'published_archive_id': item.published_archive_id,
+                    }
+                    for item in submission_requests
                 ],
                 'research_outputs': [
                     {
@@ -747,6 +788,7 @@ class RestoreView(APIView):
             'repository_files': 0,
             'archives': 0,
             'archive_versions': 0,
+            'submission_requests': 0,
             'research_outputs': 0,
             'output_files': 0,
         }
@@ -798,7 +840,7 @@ class RestoreView(APIView):
                 id=item.get('id'),
                 defaults={
                     'repository': repository,
-                    'file': item.get('file', {}).get('path', ''),
+                    'file': (item.get('file') or {}).get('path', ''),
                     'original_filename': item.get('original_filename', ''),
                     'file_size': item.get('file_size', 0),
                     'version': item.get('version', 1),
@@ -819,9 +861,12 @@ class RestoreView(APIView):
                 defaults={
                     'title': item.get('title', ''),
                     'abstract': item.get('abstract', ''),
-                    'file': item.get('file', {}).get('path', ''),
+                    'file': (item.get('file') or {}).get('path', ''),
                     'original_filename': item.get('original_filename', ''),
                     'file_size': item.get('file_size', 0),
+                    'system_file': (item.get('system_file') or {}).get('path', ''),
+                    'system_original_filename': item.get('system_original_filename', ''),
+                    'system_file_size': item.get('system_file_size', 0),
                     'author': item.get('author', ''),
                     'department': item.get('department', ''),
                     'course': item.get('course', ''),
@@ -831,7 +876,6 @@ class RestoreView(APIView):
                     'linked_repository': linked_repository,
                     'system_link': item.get('system_link', ''),
                     'assigned_faculty': find_backup_user(item.get('assigned_faculty_email'), request.user),
-                    'is_public': item.get('is_public', True),
                     'is_approved': item.get('is_approved', False),
                     'is_rejected': item.get('is_rejected', False),
                     'rejection_reason': item.get('rejection_reason', ''),
@@ -841,6 +885,7 @@ class RestoreView(APIView):
                 },
             )
             restore_file_field(obj, 'file', item.get('file'))
+            restore_file_field(obj, 'system_file', item.get('system_file'))
             obj.save()
             restored['archives'] += 1
 
@@ -852,7 +897,7 @@ class RestoreView(APIView):
                 id=item.get('id'),
                 defaults={
                     'archive_document': archive,
-                    'file': item.get('file', {}).get('path', ''),
+                    'file': (item.get('file') or {}).get('path', ''),
                     'original_filename': item.get('original_filename', ''),
                     'file_size': item.get('file_size', 0),
                     'version': item.get('version', 1),
@@ -863,6 +908,39 @@ class RestoreView(APIView):
             restore_file_field(obj, 'file', item.get('file'))
             obj.save()
             restored['archive_versions'] += 1
+
+        for item in data.get('submission_requests', []):
+            published_archive = None
+            if item.get('published_archive_id'):
+                published_archive = ArchiveDocument.objects.filter(id=item['published_archive_id']).first()
+            obj, _ = ResearchSubmissionRequest.objects.update_or_create(
+                id=item.get('id'),
+                defaults={
+                    'title': item.get('title', ''),
+                    'abstract': item.get('abstract', ''),
+                    'submission_type': item.get('submission_type', ResearchSubmissionRequest.TYPE_RESEARCH_PAPER),
+                    'author': item.get('author', ''),
+                    'department': item.get('department', ''),
+                    'course': item.get('course', ''),
+                    'year': item.get('year'),
+                    'keywords': item.get('keywords', []),
+                    'system_details': item.get('system_details', ''),
+                    'proposed_system_link': item.get('proposed_system_link', ''),
+                    'research_original_filename': item.get('research_original_filename', ''),
+                    'research_file_size': item.get('research_file_size', 0),
+                    'system_original_filename': item.get('system_original_filename', ''),
+                    'system_file_size': item.get('system_file_size', 0),
+                    'requested_by': find_backup_user(item.get('requested_by_email'), request.user),
+                    'status': item.get('status', ResearchSubmissionRequest.STATUS_PENDING),
+                    'admin_comment': item.get('admin_comment', ''),
+                    'reviewed_by': find_backup_user(item.get('reviewed_by_email'), request.user) if item.get('reviewed_by_email') else None,
+                    'published_archive': published_archive,
+                },
+            )
+            restore_file_field(obj, 'research_file', item.get('research_file'))
+            restore_file_field(obj, 'system_file', item.get('system_file'))
+            obj.save()
+            restored['submission_requests'] += 1
 
         for item in data.get('research_outputs', []):
             ResearchOutput.objects.update_or_create(
@@ -895,7 +973,7 @@ class RestoreView(APIView):
                 id=item.get('id'),
                 defaults={
                     'research_output': output,
-                    'file': item.get('file', {}).get('path', ''),
+                    'file': (item.get('file') or {}).get('path', ''),
                     'original_filename': item.get('original_filename', ''),
                     'file_size': item.get('file_size', 0),
                     'version': item.get('version', 1),
@@ -1214,6 +1292,11 @@ class RepositoryListCreateView(generics.ListCreateAPIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return RepositoryCreateSerializer
@@ -1238,6 +1321,11 @@ class RepositoryListCreateView(generics.ListCreateAPIView):
 
 class RepositoryDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsRepositoryOwnerOrAdmin]
+
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
 
     def get_queryset(self):
         qs = Repository.objects.filter(is_deleted=False).select_related('created_by')
@@ -1270,7 +1358,7 @@ class RepositoryVersionHistoryView(generics.ListAPIView):
 
 class RepositoryReviseView(APIView):
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated, IsRepositoryOwnerOrAdmin]
+    permission_classes = [IsAdminUser]
 
     def post(self, request, pk):
         repository = get_object_or_404(Repository, pk=pk, is_deleted=False)
@@ -1308,11 +1396,7 @@ class RepositoryRelatedDocumentsView(generics.ListAPIView):
             is_deleted=False,
         ).select_related('linked_repository')
         if self.request.user.role != 'admin':
-            qs = qs.filter(
-                Q(is_public=True) |
-                Q(uploaded_by=self.request.user) |
-                Q(assigned_faculty=self.request.user)
-            )
+            qs = qs.filter(is_approved=True)
         return qs
 
 
@@ -1457,6 +1541,11 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
     parser_classes = [MultiPartParser, FormParser]
     permission_classes = [permissions.IsAuthenticated]
 
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsAdminUser()]
+        return [permissions.IsAuthenticated()]
+
     def get_serializer_class(self):
         if self.request.method == 'POST':
             return ArchiveDocumentCreateSerializer
@@ -1465,14 +1554,11 @@ class ArchiveDocumentListCreateView(generics.ListCreateAPIView):
     def get_queryset(self):
         qs = ArchiveDocument.objects.filter(is_deleted=False).select_related(
             'uploaded_by', 'linked_repository', 'linked_repository__created_by',
-            'assigned_faculty', 'reviewed_by',
+            'assigned_faculty', 'reviewed_by', 'source_submission_request__requested_by',
         )
         user = self.request.user
         if user.role != 'admin':
-            if self.request.query_params.get('activity_feed') == 'true':
-                qs = qs.filter(Q(uploaded_by=user) | Q(assigned_faculty=user))
-            else:
-                qs = qs.filter(Q(is_public=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            qs = qs.filter(is_approved=True)
         search = self.request.query_params.get('search', '').strip()
         if search:
             qs = qs.filter(
@@ -1508,14 +1594,19 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
     permission_classes = [permissions.IsAuthenticated, IsArchiveOwnerOrAdmin]
     parser_classes = [MultiPartParser, FormParser]
 
+    def get_permissions(self):
+        if self.request.method in permissions.SAFE_METHODS:
+            return [permissions.IsAuthenticated()]
+        return [IsAdminUser()]
+
     def get_queryset(self):
         qs = ArchiveDocument.objects.filter(is_deleted=False).select_related(
             'uploaded_by', 'linked_repository', 'linked_repository__created_by',
-            'assigned_faculty', 'reviewed_by',
+            'assigned_faculty', 'reviewed_by', 'source_submission_request__requested_by',
         )
         user = self.request.user
         if user.role != 'admin':
-            qs = qs.filter(Q(is_public=True) | Q(uploaded_by=user) | Q(assigned_faculty=user))
+            qs = qs.filter(is_approved=True)
         return qs
 
     def get_serializer_class(self):
@@ -1525,6 +1616,7 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
 
     def perform_update(self, serializer):
         uploaded_file = serializer.validated_data.get('file')
+        uploaded_system = serializer.validated_data.get('system_file')
         instance = serializer.save()
         if instance.file and not instance.original_filename:
             instance.original_filename = instance.file.name
@@ -1548,6 +1640,9 @@ class ArchiveDocumentDetailView(generics.RetrieveUpdateDestroyAPIView):
             instance.revision_comment = ''
             instance.reviewed_by = None
             instance.reviewed_at = None
+        if uploaded_system:
+            instance.system_original_filename = uploaded_system.name
+            instance.system_file_size = uploaded_system.size
         instance.save()
 
     def destroy(self, request, *args, **kwargs):
@@ -1571,6 +1666,8 @@ class ArchiveDocumentDownloadView(APIView):
         file_field = version.file if version else doc.file
         original_filename = version.original_filename if version else doc.original_filename
 
+        if not file_field:
+            raise Http404('No research paper is published for this archive.')
         if not os.path.exists(file_field.path):
             raise Http404('File not found on server.')
 
@@ -1578,6 +1675,24 @@ class ArchiveDocumentDownloadView(APIView):
             open(file_field.path, 'rb'),
             as_attachment=True,
             filename=original_filename,
+        )
+
+
+class ArchiveSystemDownloadView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk):
+        doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
+        if not user_can_access_archive(request.user, doc):
+            return Response({'detail': 'Not permitted.'}, status=status.HTTP_403_FORBIDDEN)
+        if not doc.system_file:
+            raise Http404('No executable system is published for this archive.')
+        if not os.path.exists(doc.system_file.path):
+            raise Http404('System file not found on server.')
+        return FileResponse(
+            open(doc.system_file.path, 'rb'),
+            as_attachment=True,
+            filename=doc.system_original_filename,
         )
 
 
@@ -1594,7 +1709,7 @@ class ArchiveDocumentVersionHistoryView(generics.ListAPIView):
 
 class ArchiveDocumentReviseView(APIView):
     parser_classes = [MultiPartParser, FormParser]
-    permission_classes = [permissions.IsAuthenticated, IsArchiveOwnerOrAdmin]
+    permission_classes = [IsAdminUser]
 
     def post(self, request, pk):
         doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
@@ -1658,6 +1773,8 @@ class ArchiveDocumentPreviewView(APIView):
             version = get_object_or_404(ArchiveDocumentVersion, pk=version_id, archive_document=doc)
         file_field = version.file if version else doc.file
         original_filename = version.original_filename if version else doc.original_filename
+        if not file_field:
+            raise Http404('No research paper is published for this archive.')
         if not os.path.exists(file_field.path):
             raise Http404('File not found on server.')
         ext = original_filename.rsplit('.', 1)[-1].lower() if '.' in original_filename else ''
@@ -1669,13 +1786,13 @@ class ArchiveDocumentPreviewView(APIView):
 
 
 class ArchiveDocumentReviewView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
+    permission_classes = [IsAdminUser]
 
     def post(self, request, pk):
         doc = get_object_or_404(ArchiveDocument, pk=pk, is_deleted=False)
         if not user_can_review_archive(request.user, doc):
             return Response(
-                {'detail': 'Only the assigned faculty can review this paper.'},
+                {'detail': 'Only administrators can review and publish research.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
 
@@ -1707,6 +1824,262 @@ class ArchiveDocumentReviewView(APIView):
             'reviewed_by', 'reviewed_at', 'updated_at',
         ])
         return Response(ArchiveDocumentDetailSerializer(doc, context={'request': request}).data)
+
+
+class ResearchSubmissionRequestListCreateView(generics.ListCreateAPIView):
+    """Accept student attachments and expose the FIFO review queue to admins."""
+
+    serializer_class = ResearchSubmissionRequestSerializer
+    parser_classes = [MultiPartParser, JSONParser, FormParser]
+
+    def get_permissions(self):
+        if self.request.method == 'POST':
+            return [IsStudentUser()]
+        return [IsAdminUser()]
+
+    def get_queryset(self):
+        queryset = ResearchSubmissionRequest.objects.select_related(
+            'requested_by', 'reviewed_by', 'published_archive',
+        )
+        request_status = self.request.query_params.get('status', '').strip()
+        if request_status:
+            queryset = queryset.filter(status=request_status)
+        # Pending requests always lead the queue; each group remains oldest-first.
+        return queryset.order_by(
+            models.Case(
+                models.When(status=ResearchSubmissionRequest.STATUS_PENDING, then=0),
+                default=1,
+                output_field=models.IntegerField(),
+            ),
+            'queued_at',
+            'id',
+        )
+
+    def perform_create(self, serializer):
+        serializer.save(requested_by=self.request.user)
+
+
+class ResearchSubmissionRequestDetailView(generics.RetrieveAPIView):
+    serializer_class = ResearchSubmissionRequestSerializer
+    permission_classes = [IsAdminUser]
+    queryset = ResearchSubmissionRequest.objects.select_related(
+        'requested_by', 'reviewed_by', 'published_archive',
+    )
+
+
+class ResearchSubmissionRequestOwnerStatusView(generics.RetrieveAPIView):
+    """Let a student inspect one owned request without exposing the request list."""
+
+    serializer_class = ResearchSubmissionRequestSerializer
+    permission_classes = [IsStudentUser]
+
+    def get_queryset(self):
+        return ResearchSubmissionRequest.objects.filter(
+            requested_by=self.request.user,
+        ).select_related('requested_by', 'reviewed_by', 'published_archive')
+
+
+class ResearchSubmissionRequestAttachmentView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request, pk, attachment):
+        queryset = ResearchSubmissionRequest.objects.all()
+        if request.user.role != 'admin':
+            queryset = queryset.filter(requested_by=request.user)
+        submission = get_object_or_404(queryset, pk=pk)
+        field = 'research_file' if attachment == 'research' else 'system_file'
+        stored = getattr(submission, field)
+        if not stored:
+            raise Http404('No attachment was uploaded.')
+        try:
+            stream = stored.open('rb')
+        except (FileNotFoundError, OSError):
+            raise Http404('The attachment is no longer available.')
+        filename = getattr(submission, f'{attachment}_original_filename')
+        response = FileResponse(
+            stream, content_type='application/pdf' if attachment == 'research' else 'application/zip',
+            as_attachment=attachment == 'system' or request.query_params.get('download') == '1',
+            filename=filename or os.path.basename(stored.name),
+        )
+        response['Cache-Control'] = 'private, no-store'
+        response['X-Content-Type-Options'] = 'nosniff'
+        return response
+
+
+class ResearchSubmissionRequestReviewView(APIView):
+    permission_classes = [IsAdminUser]
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        submission = get_object_or_404(
+            ResearchSubmissionRequest.objects.select_for_update().select_related('requested_by'),
+            pk=pk,
+        )
+        if submission.status != ResearchSubmissionRequest.STATUS_PENDING:
+            return Response(
+                {'detail': 'Only pending requests can be processed.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        first_pending = ResearchSubmissionRequest.objects.select_for_update().filter(
+            status=ResearchSubmissionRequest.STATUS_PENDING,
+        ).order_by('queued_at', 'id').first()
+        if first_pending and first_pending.pk != submission.pk:
+            return Response(
+                {
+                    'detail': 'Requests must be processed first-come, first-served.',
+                    'next_request_id': first_pending.pk,
+                },
+                status=status.HTTP_409_CONFLICT,
+            )
+
+        serializer = ResearchSubmissionRequestReviewSerializer(
+            data=request.data,
+            context={'submission': submission},
+        )
+        serializer.is_valid(raise_exception=True)
+        action = serializer.validated_data['action']
+        comment = serializer.validated_data.get('comment', '')
+
+        if action == 'approve':
+            from hosting.services.deployment_service import save_default_archive_configuration
+            from hosting.services.errors import HostingError
+            from rest_framework.exceptions import ValidationError
+
+            archive = None
+            try:
+                with ExitStack() as stack:
+                    artifacts = {}
+                    for field in ('research_file', 'system_file'):
+                        uploaded = serializer.validated_data.get(field)
+                        stored = getattr(submission, field)
+                        if stored:
+                            stream = stack.enter_context(stored.open('rb'))
+                            filename = getattr(submission, field.replace('_file', '_original_filename'))
+                            uploaded = File(stream, name=filename or os.path.basename(stored.name))
+                        artifacts[field] = uploaded
+                    archive = self.publish_archive(request, submission, serializer.validated_data, artifacts)
+                    if archive.system_file:
+                        save_default_archive_configuration(archive, request.user)
+            except (OSError, HostingError) as exc:
+                # DB rollback does not remove newly copied storage files.
+                if archive:
+                    for stored in (archive.file, archive.system_file):
+                        if stored:
+                            stored.delete(save=False)
+                raise ValidationError({'detail': 'The submitted files could not be published. Check the attachments and storage, then retry.'}) from exc
+            submission.status = ResearchSubmissionRequest.STATUS_APPROVED
+            submission.published_archive = archive
+        elif action == 'reject':
+            submission.status = ResearchSubmissionRequest.STATUS_REJECTED
+        else:
+            submission.status = ResearchSubmissionRequest.STATUS_REVISION_REQUESTED
+
+        submission.admin_comment = comment
+        submission.reviewed_by = request.user
+        submission.reviewed_at = timezone.now()
+        submission.save(update_fields=[
+            'status', 'admin_comment', 'reviewed_by', 'reviewed_at',
+            'published_archive', 'updated_at',
+        ])
+
+        if submission.requested_by.email:
+            try:
+                send_mail(
+                    subject=f'Submission request {submission.get_status_display()}: {submission.title}',
+                    message=(
+                        f'Your research submission request "{submission.title}" is now '
+                        f'{submission.get_status_display().lower()}.\n\n'
+                        f'Administrator comment: {comment or "No comment provided."}\n\n'
+                        f'View your request: {django_settings.FRONTEND_URL}/submission-requests/{submission.id}'
+                    ),
+                    from_email=django_settings.DEFAULT_FROM_EMAIL,
+                    recipient_list=[submission.requested_by.email],
+                    fail_silently=True,
+                )
+            except Exception:
+                pass
+
+        return Response(
+            ResearchSubmissionRequestSerializer(submission, context={'request': request}).data
+        )
+
+    @staticmethod
+    def publish_archive(request, submission, reviewed, artifacts):
+        research_file = artifacts['research_file']
+        system_file = artifacts['system_file']
+        archive = ArchiveDocument(
+            title=submission.title,
+            abstract=submission.abstract,
+            file=research_file or '',
+            original_filename=research_file.name if research_file else '',
+            file_size=research_file.size if research_file else 0,
+            system_file=system_file or '',
+            system_original_filename=system_file.name if system_file else '',
+            system_file_size=system_file.size if system_file else 0,
+            author=submission.author,
+            department=submission.department,
+            course=submission.course,
+            year=submission.year,
+            keywords=submission.keywords,
+            uploaded_by=request.user,
+            system_link=reviewed.get('system_link') or submission.proposed_system_link,
+            is_approved=True,
+            reviewed_by=request.user,
+            reviewed_at=timezone.now(),
+        )
+        try:
+            archive.save()
+            if research_file:
+                ArchiveDocumentVersion.objects.create(
+                    archive_document=archive,
+                    file=archive.file.name,
+                    original_filename=research_file.name,
+                    file_size=research_file.size,
+                    version=1,
+                    change_notes='Published from approved submission request',
+                    uploaded_by=request.user,
+                )
+        except Exception:
+            for stored in (archive.file, archive.system_file):
+                if stored and stored._committed:
+                    stored.delete(save=False)
+            raise
+        return archive
+
+
+class ResearchSubmissionRequestResubmitView(APIView):
+    permission_classes = [IsStudentUser]
+    parser_classes = [MultiPartParser, JSONParser, FormParser]
+
+    @transaction.atomic
+    def post(self, request, pk):
+        submission = get_object_or_404(
+            ResearchSubmissionRequest.objects.select_for_update(),
+            pk=pk,
+            requested_by=request.user,
+        )
+        if submission.status != ResearchSubmissionRequest.STATUS_REVISION_REQUESTED:
+            return Response(
+                {'detail': 'Only requests returned for revision can be resubmitted.'},
+                status=status.HTTP_409_CONFLICT,
+            )
+        serializer = ResearchSubmissionRequestSerializer(
+            submission,
+            data=request.data,
+            partial=True,
+            context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        submission = serializer.save(
+            status=ResearchSubmissionRequest.STATUS_PENDING,
+            admin_comment='',
+            reviewed_by=None,
+            reviewed_at=None,
+            queued_at=timezone.now(),
+        )
+        return Response(ResearchSubmissionRequestSerializer(submission).data)
 
 
 class DepartmentListCreateView(generics.ListCreateAPIView):

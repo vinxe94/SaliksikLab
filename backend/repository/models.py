@@ -1,6 +1,8 @@
 import os
+import uuid
 from django.db import models
 from django.conf import settings
+from .storage import SubmissionStorage
 
 
 def upload_to(instance, filename):
@@ -23,6 +25,16 @@ def archive_upload_to(instance, filename):
 def archive_version_upload_to(instance, filename):
     archive_id = instance.archive_document_id or 'new'
     return f'archives/{archive_id}/v{instance.version}/{filename}'
+
+
+def archive_system_upload_to(instance, filename):
+    archive_id = instance.id or 'new'
+    return f'archives/{archive_id}/system/{filename}'
+
+
+def submission_upload_to(instance, filename):
+    extension = filename.rsplit('.', 1)[-1].lower()
+    return f'requests/{instance.requested_by_id}/{uuid.uuid4().hex}.{extension}'
 
 
 class ResearchOutput(models.Model):
@@ -223,9 +235,12 @@ class RepositoryFile(models.Model):
 class ArchiveDocument(models.Model):
     title = models.CharField(max_length=500)
     abstract = models.TextField(blank=True)
-    file = models.FileField(upload_to=archive_upload_to)
+    file = models.FileField(upload_to=archive_upload_to, blank=True)
     original_filename = models.CharField(max_length=255)
     file_size = models.PositiveBigIntegerField(default=0)
+    system_file = models.FileField(upload_to=archive_system_upload_to, blank=True)
+    system_original_filename = models.CharField(max_length=255, blank=True)
+    system_file_size = models.PositiveBigIntegerField(default=0)
     author = models.CharField(max_length=300, blank=True)
     department = models.CharField(max_length=200, blank=True)
     course = models.CharField(max_length=200, blank=True)
@@ -253,7 +268,6 @@ class ArchiveDocument(models.Model):
         related_name='assigned_archive_documents',
         limit_choices_to={'role': 'faculty'},
     )
-    is_public = models.BooleanField(default=True)
     is_approved = models.BooleanField(default=False)
     is_rejected = models.BooleanField(default=False)
     rejection_reason = models.TextField(blank=True)
@@ -281,6 +295,10 @@ class ArchiveDocument(models.Model):
             self.file_size = self.file.size
         if self.file and not self.original_filename:
             self.original_filename = self.file.name
+        if self.system_file and hasattr(self.system_file, 'size'):
+            self.system_file_size = self.system_file.size
+        if self.system_file and not self.system_original_filename:
+            self.system_original_filename = self.system_file.name
         super().save(*args, **kwargs)
 
     @property
@@ -322,3 +340,81 @@ class ArchiveDocumentVersion(models.Model):
         if self.file and hasattr(self.file, 'size'):
             self.file_size = self.file.size
         super().save(*args, **kwargs)
+
+
+class ResearchSubmissionRequest(models.Model):
+    TYPE_RESEARCH_PAPER = 'research_paper'
+    TYPE_EXECUTABLE_SYSTEM = 'executable_system'
+    TYPE_PAPER_AND_SYSTEM = 'paper_and_system'
+    TYPE_CHOICES = [
+        (TYPE_RESEARCH_PAPER, 'Research paper'),
+        (TYPE_EXECUTABLE_SYSTEM, 'Executable system'),
+        (TYPE_PAPER_AND_SYSTEM, 'Research paper and executable system'),
+    ]
+
+    STATUS_PENDING = 'pending'
+    STATUS_APPROVED = 'approved'
+    STATUS_REJECTED = 'rejected'
+    STATUS_REVISION_REQUESTED = 'revision_requested'
+    STATUS_CHOICES = [
+        (STATUS_PENDING, 'Pending'),
+        (STATUS_APPROVED, 'Approved'),
+        (STATUS_REJECTED, 'Rejected'),
+        (STATUS_REVISION_REQUESTED, 'Returned for revision'),
+    ]
+
+    title = models.CharField(max_length=500)
+    abstract = models.TextField(blank=True)
+    submission_type = models.CharField(
+        max_length=30,
+        choices=TYPE_CHOICES,
+        default=TYPE_RESEARCH_PAPER,
+    )
+    author = models.CharField(max_length=300)
+    department = models.CharField(max_length=200, blank=True)
+    course = models.CharField(max_length=200, blank=True)
+    year = models.PositiveIntegerField(null=True, blank=True)
+    keywords = models.JSONField(default=list, blank=True)
+    system_details = models.TextField(blank=True)
+    proposed_system_link = models.URLField(max_length=500, blank=True)
+    research_file = models.FileField(upload_to=submission_upload_to, storage=SubmissionStorage, blank=True)
+    research_original_filename = models.CharField(max_length=255, blank=True)
+    research_file_size = models.PositiveBigIntegerField(default=0)
+    system_file = models.FileField(upload_to=submission_upload_to, storage=SubmissionStorage, blank=True)
+    system_original_filename = models.CharField(max_length=255, blank=True)
+    system_file_size = models.PositiveBigIntegerField(default=0)
+    requested_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.CASCADE,
+        related_name='research_submission_requests',
+    )
+    status = models.CharField(max_length=30, choices=STATUS_CHOICES, default=STATUS_PENDING)
+    admin_comment = models.TextField(blank=True)
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='processed_research_submission_requests',
+    )
+    reviewed_at = models.DateTimeField(null=True, blank=True)
+    published_archive = models.OneToOneField(
+        ArchiveDocument,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='source_submission_request',
+    )
+    queued_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['queued_at', 'id']
+        indexes = [
+            models.Index(fields=['status', 'queued_at', 'id']),
+            models.Index(fields=['requested_by', 'created_at']),
+        ]
+
+    def __str__(self):
+        return f'{self.title} ({self.get_status_display()})'

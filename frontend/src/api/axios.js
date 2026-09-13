@@ -4,7 +4,6 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '/api'
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-    headers: { 'Content-Type': 'application/json' },
 })
 
 export const apiUrl = (path) => {
@@ -27,6 +26,13 @@ const processQueue = (error, token = null) => {
 api.interceptors.request.use((config) => {
     const token = localStorage.getItem('access_token')
     if (token) config.headers.Authorization = `Bearer ${token}`
+
+    // Do not force a content type for FormData. The browser must add the
+    // multipart boundary; otherwise Django REST Framework returns HTTP 415.
+    if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
+        config.headers.delete('Content-Type')
+    }
+
     return config
 })
 

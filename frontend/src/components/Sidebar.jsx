@@ -33,8 +33,8 @@ export default function Sidebar() {
                 >
                     <Menu size={22} />
                 </button>
-                <img src="/logo-nav.png" alt="SaliksikLab logo" />
-                <span>SaliksikLab</span>
+                <img src="/logo-nav.png" alt="Tukiva logo" />
+                <span>Tukiva</span>
             </header>
             <button
                 type="button"
@@ -44,8 +44,8 @@ export default function Sidebar() {
             />
             <aside className={`sidebar ${isOpen ? 'open' : ''}`} aria-label="Primary navigation">
                 <div className="sidebar-logo">
-                    <img src="/logo-nav.png" alt="SaliksikLab logo" className="sidebar-logo-image" />
-                    <span>SaliksikLab</span>
+                    <img src="/logo-nav.png" alt="Tukiva logo" className="sidebar-logo-image" />
+                    <span>Tukiva</span>
                     <button
                         type="button"
                         className="sidebar-close-button"
@@ -65,9 +65,11 @@ export default function Sidebar() {
                     <NavLink to="/repository" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
                         <BookOpen size={18} /> {t('nav.repository')}
                     </NavLink>
-                    <NavLink to="/upload" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
-                        <Upload size={18} /> {t('nav.upload')}
-                    </NavLink>
+                    {(user?.role === 'student' || user?.role === 'admin') && (
+                        <NavLink to="/upload" onClick={closeSidebar} className={({ isActive }) => `nav-item ${isActive ? 'active' : ''}`}>
+                            <Upload size={18} /> {user?.role === 'admin' ? 'Publish Research' : 'Request Upload'}
+                        </NavLink>
+                    )}
                     {user?.role === 'admin' && (
                         <>
                             <div className="nav-section" style={{ marginTop: 12 }}>Admin</div>

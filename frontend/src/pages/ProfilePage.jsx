@@ -178,7 +178,7 @@ export default function ProfilePage() {
                                 <h1>{user?.first_name} {user?.last_name}</h1>
                                 <div className="profile-handle">@{user?.email?.split('@')[0]}</div>
                                 <p className="profile-bio-copy">
-                                    SaliksikLab contributor focused on academic PDFs, review, and repository access.
+                                    Tukiva contributor focused on academic PDFs, review, and repository access.
                                 </p>
                             </div>
                             <div className="profile-badges">
@@ -188,7 +188,7 @@ export default function ProfilePage() {
                             <div className="profile-meta-list">
                                 <div><Mail size={15} /> {user?.email}</div>
                                 {user?.department && <div><Building size={15} /> {user.department}</div>}
-                                <div><MapPin size={15} /> SaliksikLab workspace</div>
+                                <div><MapPin size={15} /> Tukiva workspace</div>
                                 <div><CalendarDays size={15} /> Joined {new Date(user?.date_joined).toLocaleDateString('en-PH', { year: 'numeric', month: 'short', day: 'numeric' })}</div>
                             </div>
 
@@ -253,7 +253,7 @@ export default function ProfilePage() {
                             <div className="profile-overview-card">
                                 <div>
                                     <span className="dashboard-kicker">Overview</span>
-                                    <h3>Academic profile overview for SaliksikLab.</h3>
+                                    <h3>Academic profile overview for Tukiva.</h3>
                                     <p>Track research PDFs and recent activity in one place.</p>
                                 </div>
                                 <div className="profile-stat-grid">

@@ -1,16 +1,19 @@
-import { useEffect, useRef, useState } from 'react'
+import TemporaryHostingPanel from '../components/TemporaryHostingPanel'
+import SubmissionAttachments from '../components/SubmissionAttachments'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import api, { apiUrl } from '../api/axios'
-import { Shield, Users, BookOpen, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload, Server, Play, Square, RotateCcw, Terminal } from 'lucide-react'
+import { Shield, Users, CheckCircle, Clock, Download, XCircle, FileText, Plus, Upload, ClipboardList, RotateCcw } from 'lucide-react'
 
 const ROLES = ['admin', 'faculty', 'student']
 
 export default function AdminPage() {
     const navigate = useNavigate()
     const restoreInputRef = useRef(null)
-    const [tab, setTab] = useState('outputs')
+    const [tab, setTab] = useState('requests')
+    const [requests, setRequests] = useState([])
     const [outputs, setOutputs] = useState([])
     const [users, setUsers] = useState([])
     const [departments, setDepartments] = useState([])
@@ -18,22 +21,28 @@ export default function AdminPage() {
     const [loadingO, setLoadingO] = useState(true)
     const [loadingU, setLoadingU] = useState(true)
     const [academicLoading, setAcademicLoading] = useState(true)
+    const [requestsLoading, setRequestsLoading] = useState(true)
     const [departmentName, setDepartmentName] = useState('')
     const [courseForm, setCourseForm] = useState({ name: '', department: '' })
-    const [hosting, setHosting] = useState(null)
-    const [hostingLogs, setHostingLogs] = useState('')
-    const [hostingLoading, setHostingLoading] = useState(false)
-    const [hostingForm, setHostingForm] = useState({
-        name: '',
-        project_type: 'static',
-        entrypoint: '',
-        start_command: '',
-        site_zip: null,
-    })
     // Rejection modal state
     const [rejectTarget, setRejectTarget] = useState(null)   // output object
     const [rejectReason, setRejectReason] = useState('')
     const [rejectLoading, setRejectLoading] = useState(false)
+    const [requestReview, setRequestReview] = useState(null)
+    const [requestPreview, setRequestPreview] = useState(null)
+    const [requestComment, setRequestComment] = useState('')
+    const [requestResearchFile, setRequestResearchFile] = useState(null)
+    const [requestSystemFile, setRequestSystemFile] = useState(null)
+    const [requestSystemLink, setRequestSystemLink] = useState('')
+    const [requestReviewLoading, setRequestReviewLoading] = useState(false)
+
+    const loadRequests = useCallback(() => {
+        setRequestsLoading(true)
+        return api.get('/repository/submission-requests/?page_size=100')
+            .then((response) => setRequests(response.data.results || response.data || []))
+            .catch(() => toast.error('Failed to load submission requests.'))
+            .finally(() => setRequestsLoading(false))
+    }, [])
 
     useEffect(() => {
         api.get('/repository/?page_size=100')
@@ -55,10 +64,56 @@ export default function AdminPage() {
     }, [])
 
     useEffect(() => {
-        loadHosting()
-        const timer = setInterval(loadHosting, 10000)
-        return () => clearInterval(timer)
-    }, [])
+        loadRequests()
+    }, [loadRequests])
+
+    const openRequestReview = (submission, action) => {
+        setRequestPreview(null)
+        setRequestReview({ submission, action })
+        setRequestComment('')
+        setRequestResearchFile(null)
+        setRequestSystemFile(null)
+        setRequestSystemLink(submission.proposed_system_link || '')
+    }
+
+    const submitRequestReview = async () => {
+        if (!requestReview) return
+        const { submission, action } = requestReview
+        if (['reject', 'revision'].includes(action) && !requestComment.trim()) {
+            toast.error('Add an administrator comment.')
+            return
+        }
+        const needsPaper = submission.submission_type !== 'executable_system'
+        const needsSystem = submission.submission_type !== 'research_paper'
+        if (action === 'approve' && needsPaper && !submission.has_research_file && !requestResearchFile) {
+            toast.error('Select the approved research PDF.')
+            return
+        }
+        if (action === 'approve' && needsSystem && !submission.has_system_file && !requestSystemFile) {
+            toast.error('Select the approved executable system ZIP.')
+            return
+        }
+
+        setRequestReviewLoading(true)
+        try {
+            const body = new FormData()
+            body.append('action', action)
+            body.append('comment', requestComment.trim())
+            if (requestResearchFile) body.append('research_file', requestResearchFile)
+            if (requestSystemFile) body.append('system_file', requestSystemFile)
+            if (requestSystemLink.trim()) body.append('system_link', requestSystemLink.trim())
+            await api.post(`/repository/submission-requests/${submission.id}/review/`, body)
+            toast.success(action === 'approve' ? (needsSystem ? 'Approved. Files published and the default system configuration saved.' : 'Request approved and research published.') : action === 'revision' ? 'Request returned for revision.' : 'Request rejected.')
+            setRequestReview(null)
+            await loadRequests()
+        } catch (err) {
+            const data = err.response?.data
+            const message = data?.detail || data?.research_file?.[0] || data?.system_file?.[0] || data?.comment?.[0] || 'Request review failed.'
+            toast.error(message)
+        } finally {
+            setRequestReviewLoading(false)
+        }
+    }
 
     const approve = async (id) => {
         await api.post(`/repository/${id}/approve/`, { action: 'approve' })
@@ -176,71 +231,29 @@ export default function AdminPage() {
         toast.success(data.is_active ? 'Course activated.' : 'Course deactivated.')
     }
 
-    const loadHosting = async () => {
-        try {
-            const { data } = await api.get('/hosting/status/')
-            setHosting(data.session)
-            const logsRes = await api.get('/hosting/logs/')
-            setHostingLogs(logsRes.data.logs || '')
-        } catch {
-            // Keep the admin page usable if this optional panel fails.
-        }
-    }
-
-    const startHosting = async (e) => {
-        e.preventDefault()
-        if (!hostingForm.site_zip) {
-            toast.error('Upload a website zip first.')
-            return
-        }
-        setHostingLoading(true)
-        try {
-            const fd = new FormData()
-            fd.append('site_zip', hostingForm.site_zip)
-            fd.append('name', hostingForm.name)
-            fd.append('project_type', hostingForm.project_type)
-            fd.append('entrypoint', hostingForm.entrypoint)
-            fd.append('start_command', hostingForm.start_command)
-            const { data } = await api.post('/hosting/start/', fd, { headers: { 'Content-Type': 'multipart/form-data' } })
-            setHosting(data)
-            toast.success('Website preview started.')
-            await loadHosting()
-        } catch (err) {
-            toast.error(err.response?.data?.detail || 'Failed to start website.')
-        } finally {
-            setHostingLoading(false)
-        }
-    }
-
-    const hostingAction = async (action) => {
-        setHostingLoading(true)
-        try {
-            const { data } = await api.post(`/hosting/${action}/`)
-            setHosting(data)
-            toast.success(action === 'kill' ? 'Website killed.' : `Website ${action}ed.`)
-            await loadHosting()
-        } catch (err) {
-            toast.error(err.response?.data?.detail || `Failed to ${action} website.`)
-        } finally {
-            setHostingLoading(false)
-        }
-    }
-
-    const formatRemaining = (seconds = 0) => {
-        const mins = Math.floor(seconds / 60)
-        const secs = seconds % 60
-        return `${mins}:${String(secs).padStart(2, '0')}`
-    }
-
     const pending = outputs.filter(o => !o.is_approved && !o.is_rejected)
     const approved = outputs.filter(o => o.is_approved)
     const rejected = outputs.filter(o => o.is_rejected)
+    const pendingRequests = requests.filter((item) => item.status === 'pending')
 
     const statusBadge = (o) => {
         if (o.is_approved) return <span className="badge badge-green">Approved</span>
         if (o.is_rejected) return <span className="badge" style={{ background: 'rgba(248,81,73,0.12)', color: 'var(--danger)' }}>Rejected</span>
         return <span className="badge badge-yellow">Pending</span>
     }
+
+    const requestStatusBadge = (submission) => {
+        if (submission.status === 'approved') return <span className="badge badge-green">Approved</span>
+        if (submission.status === 'rejected') return <span className="badge" style={{ background: 'rgba(248,81,73,0.12)', color: 'var(--danger)' }}>Rejected</span>
+        if (submission.status === 'revision_requested') return <span className="badge badge-yellow">Revision requested</span>
+        return <span className="badge badge-blue">Queue #{submission.queue_position}</span>
+    }
+
+    const submissionTypeLabel = (value) => ({
+        research_paper: 'Research paper',
+        executable_system: 'Executable system',
+        paper_and_system: 'Paper + system',
+    }[value] || value)
 
     return (
         <div className="layout">
@@ -251,7 +264,7 @@ export default function AdminPage() {
                         <Shield size={20} color="var(--accent)" />
                         <div>
                             <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Admin Panel</h2>
-                            <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>Manage outputs and users</p>
+                            <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>Process upload requests and manage published research</p>
                         </div>
                     </div>
                     <div style={{ display: 'flex', gap: 8 }}>
@@ -270,9 +283,10 @@ export default function AdminPage() {
 
                 <div className="page-body">
                     <div className="stat-grid" style={{ marginBottom: 24 }}>
-                        {[['Total Outputs', outputs.length, 'var(--accent)', <BookOpen key="1" size={13} />],
-                        ['Approved', approved.length, 'var(--accent2)', <CheckCircle key="2" size={13} />],
-                        ['Pending', pending.length, 'var(--warning)', <Clock key="3" size={13} />],
+                        {[['Upload Requests', requests.length, 'var(--accent)', <ClipboardList key="0" size={13} />],
+                        ['Pending Requests', pendingRequests.length, 'var(--warning)', <Clock key="1" size={13} />],
+                        ['Published', approved.length, 'var(--accent2)', <CheckCircle key="2" size={13} />],
+                        ['Legacy Pending', pending.length, 'var(--warning)', <Clock key="3" size={13} />],
                         ['Rejected', rejected.length, 'var(--danger)', <XCircle key="4" size={13} />],
                         ['Users', users.length, 'var(--text)', <Users key="5" size={13} />]].map(([l, v, c, icon]) => (
                             <div key={l} className="stat-card">
@@ -284,12 +298,69 @@ export default function AdminPage() {
 
                     {/* Tabs */}
                     <div className="tabs-scroll" style={{ display: 'flex', gap: 4, marginBottom: 20, borderBottom: '1px solid var(--border)', paddingBottom: 0 }}>
-                        {[['outputs', 'Research PDFs'], ['users', 'User Management'], ['academic', 'Departments & Courses'], ['hosting', 'Temporary Hosting']].map(([key, label]) => (
+                        {[['requests', 'Upload Requests'], ['outputs', 'Legacy Outputs'], ['users', 'User Management'], ['academic', 'Departments & Courses'], ['hosting', 'Temporary Hosting']].map(([key, label]) => (
                             <button key={key} onClick={() => setTab(key)} style={{ padding: '8px 20px', background: 'none', border: 'none', borderBottom: tab === key ? '2px solid var(--accent)' : '2px solid transparent', color: tab === key ? 'var(--accent)' : 'var(--text2)', fontWeight: 600, cursor: 'pointer', fontSize: '0.9rem', marginBottom: -1 }}>
                                 {label}
                             </button>
                         ))}
                     </div>
+
+                    {tab === 'hosting' && <TemporaryHostingPanel isAdmin />}
+
+                    {tab === 'requests' && (
+                        <div style={{ display: 'grid', gap: 12 }}>
+                            <div className="card" style={{ borderLeft: '3px solid var(--accent)' }}>
+                                <strong>First-come, first-served queue</strong>
+                                <p style={{ color: 'var(--text2)', fontSize: '0.85rem', marginTop: 4 }}>
+                                    View the submitted files before deciding, and process queue #1 first. Approval publishes the attachments and saves an included ZIP as the research’s default system configuration.
+                                </p>
+                            </div>
+                            <div className="table-scroll-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
+                                {requestsLoading ? <div className="spinner" /> : (
+                                    <table className="table">
+                                        <thead><tr><th>Queue</th><th>Requested</th><th>Title / requester</th><th>Type</th><th>Status</th><th>Actions</th></tr></thead>
+                                        <tbody>
+                                            {requests.length === 0 && <tr><td colSpan={6} style={{ textAlign: 'center', padding: 32, color: 'var(--text2)' }}>No upload requests.</td></tr>}
+                                            {requests.map((submission) => {
+                                                const isNext = submission.status === 'pending' && submission.queue_position === 1
+                                                return (
+                                                    <tr key={submission.id}>
+                                                        <td style={{ fontWeight: 700 }}>{submission.queue_position ? `#${submission.queue_position}` : '—'}</td>
+                                                        <td className="text-sm text-muted">{new Date(submission.queued_at).toLocaleString()}</td>
+                                                        <td style={{ maxWidth: 280 }}>
+                                                            <strong>{submission.title}</strong>
+                                                            <div className="text-sm text-muted">{submission.requested_by?.full_name || submission.requested_by?.email} · {submission.author}</div>
+                                                            {submission.admin_comment && <div className="text-sm" style={{ color: 'var(--text2)', marginTop: 4 }}>Comment: {submission.admin_comment}</div>}
+                                                        </td>
+                                                        <td><span className="badge badge-gray">{submissionTypeLabel(submission.submission_type)}</span></td>
+                                                        <td>{requestStatusBadge(submission)}</td>
+                                                        <td>
+                                                            <button className="btn btn-ghost btn-sm" style={{ marginBottom: 6 }} onClick={() => setRequestPreview(submission)}><FileText size={13} /> Review files</button>
+                                                            {submission.status === 'pending' ? (
+                                                                <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                                                                    <button className="btn btn-sm" disabled={!isNext} title={!isNext ? 'Process the earlier request first' : ''} style={{ background: 'rgba(46,168,108,0.1)', color: 'var(--accent2)' }} onClick={() => openRequestReview(submission, 'approve')}>
+                                                                        <CheckCircle size={13} /> Approve
+                                                                    </button>
+                                                                    <button className="btn btn-sm btn-ghost" disabled={!isNext} onClick={() => openRequestReview(submission, 'revision')}>
+                                                                        <RotateCcw size={13} /> Revise
+                                                                    </button>
+                                                                    <button className="btn btn-sm" disabled={!isNext} style={{ background: 'rgba(248,81,73,0.1)', color: 'var(--danger)' }} onClick={() => openRequestReview(submission, 'reject')}>
+                                                                        <XCircle size={13} /> Reject
+                                                                    </button>
+                                                                </div>
+                                                            ) : submission.published_archive_id ? (
+                                                                <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/archives/${submission.published_archive_id}`)}>View publication</button>
+                                                            ) : '—'}
+                                                        </td>
+                                                    </tr>
+                                                )
+                                            })}
+                                        </tbody>
+                                    </table>
+                                )}
+                            </div>
+                        </div>
+                    )}
 
                     {tab === 'outputs' && (
                         <div className="table-scroll-card" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', overflow: 'hidden' }}>
@@ -442,131 +513,85 @@ export default function AdminPage() {
                         </div>
                     )}
 
-                    {tab === 'hosting' && (
-                        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 420px) 1fr', gap: 18 }} className="admin-hosting-grid">
-                            <div className="card">
-                                <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 14 }}>
-                                    <Server size={17} color="var(--accent)" />
-                                    <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Temporary Website Preview</h3>
-                                </div>
-
-                                <form onSubmit={startHosting} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Website name</label>
-                                        <input
-                                            className="form-input"
-                                            value={hostingForm.name}
-                                            onChange={(e) => setHostingForm((form) => ({ ...form, name: e.target.value }))}
-                                            placeholder="Preview name"
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Project type</label>
-                                        <select
-                                            className="form-input"
-                                            value={hostingForm.project_type}
-                                            onChange={(e) => setHostingForm((form) => ({ ...form, project_type: e.target.value }))}
-                                        >
-                                            <option value="static">HTML / CSS / JavaScript</option>
-                                            <option value="php">PHP</option>
-                                            <option value="python">Python</option>
-                                            <option value="node">Node / JavaScript</option>
-                                        </select>
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Website zip</label>
-                                        <input
-                                            className="form-input"
-                                            type="file"
-                                            accept=".zip,application/zip"
-                                            onChange={(e) => setHostingForm((form) => ({ ...form, site_zip: e.target.files[0] || null }))}
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Entrypoint</label>
-                                        <input
-                                            className="form-input"
-                                            value={hostingForm.entrypoint}
-                                            onChange={(e) => setHostingForm((form) => ({ ...form, entrypoint: e.target.value }))}
-                                            placeholder="index.php, app.py, manage.py"
-                                        />
-                                    </div>
-
-                                    <div className="form-group">
-                                        <label className="form-label">Start command</label>
-                                        <input
-                                            className="form-input"
-                                            value={hostingForm.start_command}
-                                            onChange={(e) => setHostingForm((form) => ({ ...form, start_command: e.target.value }))}
-                                            placeholder="python manage.py runserver 127.0.0.1:{port}"
-                                        />
-                                    </div>
-
-                                    <button className="btn btn-primary" type="submit" disabled={hostingLoading || hosting?.status === 'running'}>
-                                        <Play size={15} /> Start 30-minute preview
-                                    </button>
-                                </form>
-                            </div>
-
-                            <div style={{ display: 'flex', flexDirection: 'column', gap: 18 }}>
-                                <div className="card">
-                                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: 12, alignItems: 'flex-start', marginBottom: 16 }}>
-                                        <div>
-                                            <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{hosting?.name || 'No preview running'}</h3>
-                                            <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-                                                {hosting?.status === 'running'
-                                                    ? `Remaining time: ${formatRemaining(hosting.seconds_remaining)}`
-                                                    : 'Upload a zip to start a temporary website.'}
-                                            </p>
-                                        </div>
-                                        <span className={`badge ${hosting?.status === 'running' ? 'badge-green' : hosting?.status === 'failed' ? 'badge-red' : 'badge-gray'}`}>
-                                            {hosting?.status || 'idle'}
-                                        </span>
-                                    </div>
-
-                                    {hosting?.preview_url && (
-                                        <a className="btn btn-ghost btn-sm" href={hosting.preview_url} target="_blank" rel="noreferrer" style={{ marginBottom: 14 }}>
-                                            <Server size={14} /> Open Preview
-                                        </a>
-                                    )}
-
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
-                                        <button className="btn btn-ghost btn-sm" disabled={hostingLoading || hosting?.status !== 'running'} onClick={() => hostingAction('stop')}>
-                                            <Square size={14} /> Stop
-                                        </button>
-                                        <button className="btn btn-ghost btn-sm" disabled={hostingLoading || !hosting} onClick={() => hostingAction('restart')}>
-                                            <RotateCcw size={14} /> Restart
-                                        </button>
-                                        <button className="btn btn-sm" style={{ background: 'rgba(198,40,40,0.1)', color: 'var(--danger)' }} disabled={hostingLoading || !hosting} onClick={() => hostingAction('kill')}>
-                                            <XCircle size={14} /> Kill
-                                        </button>
-                                        <button className="btn btn-ghost btn-sm" disabled={hostingLoading} onClick={loadHosting}>
-                                            <Terminal size={14} /> Refresh Logs
-                                        </button>
-                                    </div>
-
-                                    {hosting?.error_message && (
-                                        <p style={{ color: 'var(--danger)', fontSize: '0.85rem', marginTop: 12 }}>{hosting.error_message}</p>
-                                    )}
-                                </div>
-
-                                <div className="card">
-                                    <div style={{ display: 'flex', alignItems: 'center', gap: 8, marginBottom: 12 }}>
-                                        <Terminal size={16} color="var(--accent)" />
-                                        <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Preview Logs</h3>
-                                    </div>
-                                    <pre style={{ minHeight: 240, maxHeight: 420, overflow: 'auto', whiteSpace: 'pre-wrap', background: 'var(--bg3)', border: '1px solid var(--border)', borderRadius: 8, padding: 14, fontSize: '0.8rem', color: 'var(--text)' }}>
-                                        {hostingLogs || 'No logs yet.'}
-                                    </pre>
-                                </div>
-                            </div>
-                        </div>
-                    )}
                 </div>
             </div>
+
+            {requestPreview && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+                    <div role="dialog" aria-modal="true" aria-label="Review submitted files" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 24, width: '100%', maxWidth: 1000, maxHeight: '94vh', overflowY: 'auto' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
+                            <h3>{requestPreview.title}</h3>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setRequestPreview(null)}>Close preview</button>
+                        </div>
+                        <p className="text-sm text-muted" style={{ marginBottom: 12, whiteSpace: 'pre-wrap' }}>{requestPreview.abstract || 'No abstract provided.'}</p>
+                        {requestPreview.system_details && <p className="text-sm" style={{ marginBottom: 12, whiteSpace: 'pre-wrap' }}><strong>System details:</strong> {requestPreview.system_details}</p>}
+                        <SubmissionAttachments key={requestPreview.id} submission={requestPreview} autoPreview />
+                        {requestPreview.status === 'pending' && requestPreview.queue_position === 1 && <div style={{ display: 'flex', gap: 10, marginTop: 18, flexWrap: 'wrap' }}>
+                            <button className="btn btn-primary btn-sm" onClick={() => openRequestReview(requestPreview, 'approve')}><CheckCircle size={14} /> Approve request</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => openRequestReview(requestPreview, 'revision')}><RotateCcw size={14} /> Return for revision</button>
+                            <button className="btn btn-ghost btn-sm" onClick={() => openRequestReview(requestPreview, 'reject')}><XCircle size={14} /> Reject request</button>
+                        </div>}
+                    </div>
+                </div>
+            )}
+
+            {requestReview && (
+                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
+                    <div role="dialog" aria-modal="true" aria-label="Decide submission request" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 28, width: '100%', maxWidth: 960, maxHeight: '90vh', overflowY: 'auto' }}>
+                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 6, textTransform: 'capitalize' }}>
+                            {requestReview.action === 'revision' ? 'Return for revision' : `${requestReview.action} request`}
+                        </h3>
+                        <p style={{ color: 'var(--text2)', fontSize: '0.85rem', marginBottom: 16 }}>
+                            Queue #1: <strong style={{ color: 'var(--text)' }}>{requestReview.submission.title}</strong>
+                        </p>
+
+                        <SubmissionAttachments key={requestReview.submission.id} submission={requestReview.submission} autoPreview />
+                        {requestReview.action === 'approve' && requestReview.submission.has_system_file && <p className="text-sm" style={{ margin: '14px 0', color: 'var(--accent)' }}>The submitted ZIP will be saved as the default configuration for this research. You can run it from the published archive.</p>}
+
+                        {requestReview.action === 'approve' && (
+                            <div style={{ display: 'grid', gap: 14, marginBottom: 14 }}>
+                                {requestReview.submission.submission_type !== 'executable_system' && !requestReview.submission.has_research_file && (
+                                    <div className="form-group">
+                                        <label className="form-label">Research paper (PDF) *</label>
+                                        <input className="form-input" type="file" accept="application/pdf,.pdf" onChange={(event) => setRequestResearchFile(event.target.files[0] || null)} />
+                                    </div>
+                                )}
+                                {requestReview.submission.submission_type !== 'research_paper' && (
+                                    <>
+                                        {!requestReview.submission.has_system_file && <div className="form-group">
+                                            <label className="form-label">Executable system (ZIP) *</label>
+                                            <input className="form-input" type="file" accept="application/zip,.zip" onChange={(event) => setRequestSystemFile(event.target.files[0] || null)} />
+                                        </div>}
+                                        <div className="form-group">
+                                            <label className="form-label">Published system link</label>
+                                            <input className="form-input" type="url" value={requestSystemLink} onChange={(event) => setRequestSystemLink(event.target.value)} placeholder="https://example.com/system" />
+                                        </div>
+                                        {requestReview.submission.system_details && (
+                                            <div style={{ background: 'var(--bg3)', borderRadius: 8, padding: 12, fontSize: '0.85rem' }}>
+                                                <strong>Student handoff details</strong>
+                                                <p style={{ color: 'var(--text2)', marginTop: 4, whiteSpace: 'pre-wrap' }}>{requestReview.submission.system_details}</p>
+                                            </div>
+                                        )}
+                                    </>
+                                )}
+                            </div>
+                        )}
+
+                        <div className="form-group">
+                            <label className="form-label">
+                                Administrator comment {requestReview.action !== 'approve' && <span style={{ color: 'var(--danger)' }}>*</span>}
+                            </label>
+                            <textarea className="form-textarea" rows={4} value={requestComment} onChange={(event) => setRequestComment(event.target.value)} placeholder="Record the decision or revision instructions." autoFocus={requestReview.action !== 'approve'} />
+                        </div>
+                        <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
+                            <button className="btn btn-ghost btn-sm" onClick={() => setRequestReview(null)} disabled={requestReviewLoading}>Cancel</button>
+                            <button className="btn btn-primary btn-sm" onClick={submitRequestReview} disabled={requestReviewLoading}>
+                                {requestReviewLoading ? 'Processing…' : 'Confirm decision'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
 
             {/* Rejection Modal */}
             {rejectTarget && (

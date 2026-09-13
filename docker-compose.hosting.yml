@@ -1,0 +1,69 @@
+# Optional Linux hosting support. Keep the ordinary Compose stack unchanged.
+# docker compose -f docker-compose.yml -f docker-compose.hosting.yml up --build
+x-hosting-environment: &hosting-environment
+  DEPLOYMENT_DURATION_MINUTES: ${DEPLOYMENT_DURATION_MINUTES:-30}
+  DEPLOYMENT_INSTANCE_ID: ${DEPLOYMENT_INSTANCE_ID:-tukiva}
+  MAX_UPLOAD_SIZE_MB: ${MAX_UPLOAD_SIZE_MB:-200}
+  DEPLOYMENT_MAX_EXTRACTED_MB: ${DEPLOYMENT_MAX_EXTRACTED_MB:-500}
+  DEPLOYMENT_MAX_FILES: ${DEPLOYMENT_MAX_FILES:-10000}
+  DEPLOYMENT_INTERNAL_PORT: ${DEPLOYMENT_INTERNAL_PORT:-8080}
+  DEPLOYMENT_MEMORY_LIMIT: ${DEPLOYMENT_MEMORY_LIMIT:-512m}
+  DEPLOYMENT_CPU_LIMIT: ${DEPLOYMENT_CPU_LIMIT:-0.5}
+  DEPLOYMENT_PIDS_LIMIT: ${DEPLOYMENT_PIDS_LIMIT:-128}
+  DEPLOYMENT_BUILD_TIMEOUT_SECONDS: ${DEPLOYMENT_BUILD_TIMEOUT_SECONDS:-600}
+  HEALTHCHECK_TIMEOUT_SECONDS: ${HEALTHCHECK_TIMEOUT_SECONDS:-60}
+  DEPLOYMENT_HEALTHCHECK_FAILURES: ${DEPLOYMENT_HEALTHCHECK_FAILURES:-3}
+  DEPLOYMENT_CLEANUP_INTERVAL: ${DEPLOYMENT_CLEANUP_INTERVAL:-1}
+  DEPLOYMENT_HEALTHCHECK_PATH: ${DEPLOYMENT_HEALTHCHECK_PATH:-/}
+  DEPLOYMENT_RUBY_IMAGE: ${DEPLOYMENT_RUBY_IMAGE:-ruby:3.4-bookworm}
+  DEPLOYMENT_CPP_IMAGE: ${DEPLOYMENT_CPP_IMAGE:-gcc:14-trixie}
+  DEPLOYMENT_FULLSTACK_PYTHON_IMAGE: ${DEPLOYMENT_FULLSTACK_PYTHON_IMAGE:-tukiva-hosting-python:3.12}
+  DEPLOYMENT_PYTHON_IMAGE: ${DEPLOYMENT_PYTHON_IMAGE:-${DEPLOYMENT_FULLSTACK_PYTHON_IMAGE:-tukiva-hosting-python:3.12}}
+  DEPLOYMENT_POSTGRESQL_IMAGE: ${DEPLOYMENT_POSTGRESQL_IMAGE:-postgres:17-bookworm}
+  DEPLOYMENT_MYSQL_IMAGE: ${DEPLOYMENT_MYSQL_IMAGE:-mysql:8.4}
+  DEPLOYMENT_DATABASE_TIMEOUT_SECONDS: ${DEPLOYMENT_DATABASE_TIMEOUT_SECONDS:-120}
+  DEPLOYMENT_BASE_DOMAIN: ${DEPLOYMENT_BASE_DOMAIN:-}
+  DEPLOYMENT_PUBLIC_SCHEME: ${DEPLOYMENT_PUBLIC_SCHEME:-https}
+  DEPLOYMENT_PUBLIC_ORIGIN: ${DEPLOYMENT_PUBLIC_ORIGIN:-}
+  DEPLOYMENT_FULLSTACK_BASE_DOMAIN: ${DEPLOYMENT_FULLSTACK_BASE_DOMAIN:-preview.localhost:8080}
+  DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME: ${DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME:-http}
+
+services:
+  backend:
+    network_mode: host
+    ports: !reset []
+    environment:
+      <<: *hosting-environment
+      DB_HOST: 127.0.0.1
+    volumes:
+      - hosting_storage:/app/storage
+
+  hosting-worker:
+    build:
+      context: ./backend
+      target: hosting-worker
+    network_mode: host
+    restart: unless-stopped
+    environment:
+      <<: *hosting-environment
+      DB_HOST: 127.0.0.1
+      DB_PORT: "5432"
+      DB_NAME: thesis_repo
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+    volumes:
+      - hosting_storage:/app/storage
+      - backend_media:/app/media
+      - /var/run/docker.sock:/var/run/docker.sock
+    depends_on:
+      backend:
+        condition: service_started
+
+  frontend:
+    environment:
+      BACKEND_URL: http://host.docker.internal:8080
+    extra_hosts:
+      - host.docker.internal:host-gateway
+
+volumes:
+  hosting_storage:

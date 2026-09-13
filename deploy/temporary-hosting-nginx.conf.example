@@ -1,0 +1,18 @@
+# Dedicated preview domain: wildcard DNS + TLS certificate must point here.
+# Use a domain separate from the platform for full application/session support.
+# Set DEPLOYMENT_BASE_DOMAIN=preview.example.net in backend/.env.
+server {
+    listen 443 ssl;
+    server_name *.preview.example.net;
+    ssl_certificate /etc/letsencrypt/live/preview.example.net/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/preview.example.net/privkey.pem;
+    client_max_body_size 20m;
+
+    location / {
+        proxy_pass http://127.0.0.1:8080;
+        proxy_set_header Host $host;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_buffering off;
+        proxy_read_timeout 10s;
+    }
+}

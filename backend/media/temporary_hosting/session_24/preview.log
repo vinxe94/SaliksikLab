@@ -1,0 +1,4 @@
+
+--- Starting preview at 2026-08-31T07:51:56.678798+00:00 ---
+Command: php -S 0.0.0.0:8000
+[Mon Aug 31 15:51:56 2026] PHP 8.3.6 Development Server (http://0.0.0.0:8000) started

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Full-stack hosting example</title>
+  <link rel="stylesheet" href="/assets/style.css">
+</head>
+<body>
+  <main>
+    <h1>Full-stack hosting works!</h1>
+    <p>Items are saved by Django in the managed preview database.</p>
+    <form id="items-form">
+      <label>Item <input name="name" required maxlength="120" autocomplete="off"></label>
+      <button type="submit">Save item</button>
+    </form>
+    <p id="status" role="status"></p>
+    <ul id="items"></ul>
+  </main>
+  <script type="module" src="/assets/app.js"></script>
+</body>
+</html>

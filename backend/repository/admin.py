@@ -3,7 +3,7 @@ from django.utils.html import format_html
 from .models import (
     ResearchOutput, OutputFile, DownloadLog,
     Repository, RepositoryFile, ArchiveDocument, ArchiveDocumentVersion,
-    Department, Course,
+    ResearchSubmissionRequest, Department, Course,
 )
 
 
@@ -78,6 +78,20 @@ class ArchiveDocumentAdmin(admin.ModelAdmin):
     search_fields = ['title', 'abstract', 'author', 'department', 'system_link', 'assigned_faculty__email']
     readonly_fields = ['uploaded_by', 'uploaded_at', 'updated_at', 'original_filename', 'file_size']
     inlines = [ArchiveDocumentVersionInline]
+
+
+@admin.register(ResearchSubmissionRequest)
+class ResearchSubmissionRequestAdmin(admin.ModelAdmin):
+    list_display = [
+        'title', 'submission_type', 'requested_by', 'status', 'queued_at',
+        'reviewed_by', 'reviewed_at',
+    ]
+    list_filter = ['status', 'submission_type', 'department', 'queued_at']
+    search_fields = ['title', 'author', 'requested_by__email', 'system_details']
+    readonly_fields = [
+        'requested_by', 'status', 'admin_comment', 'reviewed_by', 'reviewed_at',
+        'published_archive', 'queued_at', 'created_at', 'updated_at',
+    ]
 
 
 @admin.register(Department)

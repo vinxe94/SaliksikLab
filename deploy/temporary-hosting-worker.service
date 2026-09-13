@@ -1,0 +1,19 @@
+[Unit]
+Description=Tukiva temporary hosting worker
+After=network-online.target docker.service postgresql.service
+Wants=network-online.target
+Requires=docker.service
+
+[Service]
+Type=simple
+User=vince
+WorkingDirectory=/home/vince/Desktop/SaliksikLab/backend
+Environment=PYTHONDONTWRITEBYTECODE=1
+ExecStart=/home/vince/Desktop/SaliksikLab/.venv/bin/python manage.py hosting_worker
+Restart=always
+RestartSec=3
+TimeoutStopSec=15
+UMask=0077
+
+[Install]
+WantedBy=multi-user.target

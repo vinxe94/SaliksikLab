@@ -1,2 +1,4 @@
 .venv/
 .codex
+backend/storage/
+backend/private_submissions/

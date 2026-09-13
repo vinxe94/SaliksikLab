@@ -54,8 +54,8 @@ export default function RegisterPage() {
             <div className="auth-orb auth-orb-4" />
             <div className="auth-card" style={{ maxWidth: 520 }}>
                 <div className="auth-brand">
-                    <img src="/logo.png" alt="SaliksikLab logo" className="auth-brand-logo" />
-                    <span className="auth-brand-name">SaliksikLab</span>
+                    <img src="/logo.png" alt="Tukiva logo" className="auth-brand-logo" />
+                    <span className="auth-brand-name">Tukiva</span>
                 </div>
                 <h1 className="auth-title">Create account</h1>
                 <p className="auth-subtitle">Join your institution&apos;s research repository</p>

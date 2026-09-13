@@ -15,6 +15,7 @@ import ForgotPasswordPage from './pages/ForgotPasswordPage'
 import ResetPasswordPage from './pages/ResetPasswordPage'
 import ReportGenerationPage from './pages/ReportGenerationPage'
 import AnalyticsPage from './pages/AnalyticsPage'
+import SubmissionRequestPage from './pages/SubmissionRequestPage'
 import PropTypes from 'prop-types'
 
 function PrivateRoute({ children }) {
@@ -65,6 +66,7 @@ export default function App() {
             <Route path="/archives/:id" element={<PrivateRoute><ArchiveDetailPage /></PrivateRoute>} />
             <Route path="/archives/:id/view" element={<PrivateRoute><ArchivePdfViewerPage /></PrivateRoute>} />
             <Route path="/upload" element={<PrivateRoute><UploadPage /></PrivateRoute>} />
+            <Route path="/submission-requests/:id" element={<PrivateRoute><SubmissionRequestPage /></PrivateRoute>} />
             <Route path="/admin" element={<AdminRoute><AdminPage /></AdminRoute>} />
             <Route path="/profile" element={<PrivateRoute><ProfilePage /></PrivateRoute>} />
             <Route path="/reports" element={<AdminRoute><ReportGenerationPage /></AdminRoute>} />

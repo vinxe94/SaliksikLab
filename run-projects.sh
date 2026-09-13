@@ -3,7 +3,8 @@ set -euo pipefail
 
 # Edit these if your project folders live somewhere else.
 DESKTOP_DIR="${DESKTOP_DIR:-/home/vince/Desktop}"
-SALIKSIKLAB_DIR="${SALIKSIKLAB_DIR:-$DESKTOP_DIR/SaliksikLab}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+TUKIVA_DIR="${TUKIVA_DIR:-$SCRIPT_DIR}"
 THESIS_DIR="${THESIS_DIR:-/home/vince/thesis}"
 TABLE_EGG_DIR="${TABLE_EGG_DIR:-/home/vince/table-egg-management-system}"
 YOURDESK_DIR="${YOURDESK_DIR:-$DESKTOP_DIR/YourDesk}"
@@ -16,14 +17,14 @@ Usage:
   ./run-projects.sh <project>
 
 Projects:
-  saliksiklab   Backend 8080, frontend 5173
+  tukiva   Backend 8080, frontend 5173
   thesis        Backend 8002, frontend 5175
   table-egg     Backend 8000, frontend 5174
   yourdesk      Backend 8001
   all           Start all configured projects
 
 Path overrides:
-  SALIKSIKLAB_DIR=/path/to/SaliksikLab ./run-projects.sh saliksiklab
+  TUKIVA_DIR=/path/to/Tukiva ./run-projects.sh tukiva
   THESIS_DIR=/path/to/thesis ./run-projects.sh thesis
   TABLE_EGG_DIR=/path/to/table-egg-management-system ./run-projects.sh table-egg
   YOURDESK_DIR=/path/to/YourDesk ./run-projects.sh yourdesk
@@ -84,6 +85,10 @@ start_django_backend() {
     cd '$backend_dir'
     $(declare -f activate_venv_if_present)
     activate_venv_if_present '$project_dir' '$backend_dir'
+    if ! python manage.py migrate --noinput; then
+      echo 'Unable to apply database migrations; the backend was not started.' >&2
+      exit 1
+    fi
     python manage.py runserver 0.0.0.0:$port
   "
 }
@@ -119,9 +124,9 @@ start_frontend() {
   "
 }
 
-start_saliksiklab() {
-  start_django_backend "$SALIKSIKLAB_DIR" 8080 "SALIKSIKLAB"
-  start_frontend "$SALIKSIKLAB_DIR" 5173 "SALIKSIKLAB"
+start_tukiva() {
+  start_django_backend "$TUKIVA_DIR" 8080 "TUKIVA"
+  start_frontend "$TUKIVA_DIR" 5173 "TUKIVA"
 }
 
 start_thesis() {
@@ -151,8 +156,8 @@ trap cleanup EXIT INT TERM
 PROJECT="${1:-}"
 
 case "$PROJECT" in
-  saliksiklab)
-    start_saliksiklab
+  tukiva)
+    start_tukiva
     ;;
   thesis)
     start_thesis
@@ -164,7 +169,7 @@ case "$PROJECT" in
     start_yourdesk
     ;;
   all)
-    start_saliksiklab
+    start_tukiva
     start_thesis
     start_table_egg
     start_yourdesk

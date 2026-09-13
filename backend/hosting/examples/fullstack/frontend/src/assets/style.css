@@ -1,0 +1,4 @@
+body { color: #203040; background: #f5f7fa; font: 1rem/1.6 system-ui, sans-serif; }
+main { max-width: 42rem; margin: 4rem auto; padding: 2rem; background: white; border-radius: 1rem; }
+input, button { font: inherit; padding: .5rem; }
+button { cursor: pointer; }
