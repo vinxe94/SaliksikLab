@@ -21,10 +21,12 @@ def unavailable(message='This temporary website has stopped or expired.', status
 
 
 @csrf_exempt
-def public_proxy(request, deployment_id, path='', isolated=False):
+def public_proxy(request, deployment_id, path='', isolated=False, tunneled=False):
     session = HostingSession.objects.filter(deployment_id=deployment_id, status='running',
                                             active_slot=1, expires_at__gt=timezone.now()).first()
     if not session or not session.port:
+        return unavailable()
+    if tunneled and not session.tunnel_url:
         return unavailable()
     if session.project_type == 'fullstack' and not isolated:
         return unavailable('Open this application using its separate preview hostname.', 400)
@@ -42,6 +44,9 @@ def public_proxy(request, deployment_id, path='', isolated=False):
     headers = {key: request.headers[key] for key in ('Accept', 'Content-Type', 'Range', 'If-None-Match', 'If-Modified-Since') if key in request.headers}
     headers.update({'Host': request.get_host(), 'Accept-Encoding': 'identity',
                     'X-Forwarded-Proto': request.scheme})
+    if tunneled:
+        headers['Host'] = urlsplit(session.tunnel_url).netloc
+        headers['X-Forwarded-Proto'] = 'https'
     prefix = '' if isolated else f'/temp/{deployment_id}'
     headers['X-Forwarded-Prefix'] = prefix
     headers['X-Hosting-Container'] = session.container_id
@@ -115,12 +120,16 @@ class PreviewHostMiddleware:
         if posixpath.normpath(request.path).startswith('/media/temporary_hosting/'):
             return unavailable('Private deployment files are not publicly served.', 404)
         host = request.get_host().lower()
-        for domain in (settings.DEPLOYMENT_BASE_DOMAIN, settings.DEPLOYMENT_FULLSTACK_BASE_DOMAIN):
+        for domain in (settings.DEPLOYMENT_TUNNEL_HOST_SUFFIX, settings.DEPLOYMENT_BASE_DOMAIN, settings.DEPLOYMENT_FULLSTACK_BASE_DOMAIN):
             if domain and (host == domain or host.endswith('.' + domain)):
                 label = host[:-(len(domain) + 1)]
                 try:
                     deployment_id = uuid.UUID(label)
                 except ValueError:
                     return unavailable('Unknown temporary website.', 404)
-                return public_proxy(request, deployment_id, request.path.lstrip('/'), isolated=True)
+                response = public_proxy(request, deployment_id, request.path.lstrip('/'), isolated=True,
+                                        tunneled=domain == settings.DEPLOYMENT_TUNNEL_HOST_SUFFIX)
+                if domain == settings.DEPLOYMENT_TUNNEL_HOST_SUFFIX:
+                    response['X-Hosting-Deployment'] = str(deployment_id)
+                return response
         return self.get_response(request)

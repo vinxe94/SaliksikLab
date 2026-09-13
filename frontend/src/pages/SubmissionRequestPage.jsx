@@ -37,7 +37,6 @@ export default function SubmissionRequestPage() {
                     year: data.year || '',
                     keywords: (data.keywords || []).join(', '),
                     system_details: data.system_details || '',
-                    proposed_system_link: data.proposed_system_link || '',
                 })
             })
             .catch(() => {
@@ -138,10 +137,7 @@ export default function SubmissionRequestPage() {
                             </div>
                             <div className="form-group"><label className="form-label">Keywords</label><input className="form-input" value={form.keywords} onChange={(event) => setForm((current) => ({ ...current, keywords: event.target.value }))} /></div>
                             {hasSystem && (
-                                <>
-                                    <div className="form-group"><label className="form-label">System handoff details</label><textarea className="form-textarea" rows={4} value={form.system_details} onChange={(event) => setForm((current) => ({ ...current, system_details: event.target.value }))} required /></div>
-                                    <div className="form-group"><label className="form-label">Proposed system link</label><input className="form-input" type="url" value={form.proposed_system_link} onChange={(event) => setForm((current) => ({ ...current, proposed_system_link: event.target.value }))} /></div>
-                                </>
+                                <div className="form-group"><label className="form-label">System handoff details</label><textarea className="form-textarea" rows={4} value={form.system_details} onChange={(event) => setForm((current) => ({ ...current, system_details: event.target.value }))} required /></div>
                             )}
                             <button className="btn btn-primary" type="submit" disabled={saving}><RotateCcw size={15} /> {saving ? 'Resubmitting…' : 'Resubmit request'}</button>
                         </form>

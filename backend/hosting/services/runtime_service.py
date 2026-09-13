@@ -63,7 +63,9 @@ def runtime_plan(session, *, workdir='/app', allow_fullstack=True):
     venv = workdir + '/.venv'
     cpp_executable = workdir + '/.hosting-build/server'
     env = {'PORT': port, 'HOST': '0.0.0.0', 'HOME': '/tmp', 'PYTHONUNBUFFERED': '1',
-           'PYTHONDONTWRITEBYTECODE': '1', 'PUBLIC_URL': '/' if settings.DEPLOYMENT_BASE_DOMAIN else f'/temp/{session.deployment_id}/'}
+           'PYTHONDONTWRITEBYTECODE': '1', 'PUBLIC_URL': '/' if settings.DEPLOYMENT_TUNNEL_ENABLED or settings.DEPLOYMENT_BASE_DOMAIN else f'/temp/{session.deployment_id}/'}
+    if getattr(session, 'tunnel_url', ''):
+        env['HOSTING_PUBLIC_ORIGIN'] = session.tunnel_url.rstrip('/')
     install = 'true'
     command = []
     entry = session.entrypoint.strip()

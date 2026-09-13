@@ -184,6 +184,7 @@ export default function TemporaryHostingPanel({ archiveId, defaultName = '', isA
                 <dt>Remaining</dt><dd>{Math.floor(remaining / 60)}:{String(remaining % 60).padStart(2, '0')}</dd>
                 {canOpen && <><dt>Public URL</dt><dd><a href={session.preview_url} target="_blank" rel="noreferrer">{session.preview_url}</a></dd></>}
             </dl>
+            {canOpen && session.preview_url.includes('.trycloudflare.com/') && <p className="text-sm text-muted" style={{ marginBottom: 12 }}>This Cloudflare link is accessible online while the system is running. Restarting creates a new temporary link.</p>}
         </>}
         <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 16 }}>
             {canOpen && <a className="btn btn-ghost btn-sm" href={session.preview_url} target="_blank" rel="noreferrer"><Server size={14} /> Open Website</a>}

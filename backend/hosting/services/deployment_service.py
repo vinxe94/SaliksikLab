@@ -21,6 +21,7 @@ from .errors import HostingError
 from .healthcheck_service import check_http, public_health_path, wait_until_healthy
 from .log_service import append_log
 from .runtime_service import SUPPORTED_RUNTIMES_MESSAGE, runtime_plan
+from .tunnel_service import CloudflareTunnel
 
 logger = logging.getLogger(__name__)
 BUSY_MESSAGE = 'A temporary website is currently active. Stop it or wait until it expires before starting another deployment.'
@@ -250,6 +251,8 @@ def deploy(session, docker=None, stop_event=None):
         session.internal_port = settings.DEPLOYMENT_INTERNAL_PORT
         session.save(update_fields=['project_dir', 'internal_port'])
         append_log(session, f'Project root detected: {Path(session.project_dir).relative_to(storage_dir(session))}.')
+        if settings.DEPLOYMENT_TUNNEL_ENABLED:
+            CloudflareTunnel(docker).start(session, cancelled)
         plan = runtime_plan(session)
         session.project_type = plan.runtime
         session.save(update_fields=['project_type'])
@@ -261,6 +264,8 @@ def deploy(session, docker=None, stop_event=None):
         docker.start(session, plan, image, cancelled=cancelled)
         append_log(session, 'Container started. Waiting for application health check.')
         wait_until_healthy(session, docker, cancelled)
+        if settings.DEPLOYMENT_TUNNEL_ENABLED and not CloudflareTunnel(docker).is_running(session):
+            raise HostingError('Cloudflare tunnel stopped during application startup. Restart the saved system.')
         with transaction.atomic():
             session = HostingSession.objects.select_for_update().get(pk=session.pk)
             if session.status != 'starting':
@@ -275,6 +280,8 @@ def deploy(session, docker=None, stop_event=None):
             session.error_message = ''
             session.save()
         append_log(session, f'Health check passed. Public route activated. Deployment running until {session.expires_at.isoformat()}.')
+        if session.tunnel_url:
+            append_log(session, f'Cloudflare public URL: {session.tunnel_url}')
     except DeploymentCancelled:
         finish_deployment(session, docker=docker)
     except Exception as exc:
@@ -309,6 +316,7 @@ def finish_deployment(session, target=None, docker=None):
         session = HostingSession.objects.select_for_update().get(pk=session.pk)
         session.port, session.pid = None, None
         session.container_id = ''
+        session.tunnel_url = ''
         session.container_status, session.health_status = 'removed', 'inactive'
         session.health_failures = 0
         session.stopped_at = timezone.now()
@@ -340,6 +348,11 @@ def reconcile_deployment(session, docker=None, startup=False):
     if session.status == 'running':
         if not session.expires_at or session.expires_at <= timezone.now():
             return finish_deployment(session, target='expired', docker=docker)
+        if settings.DEPLOYMENT_TUNNEL_ENABLED and (not session.tunnel_url or not CloudflareTunnel(docker).is_running(session)):
+            message = 'The Cloudflare public link is unavailable. Restart the saved system to create a new temporary URL.'
+            HostingSession.objects.filter(pk=session.pk).update(error_message=message)
+            append_log(session, message)
+            return finish_deployment(session, target='failed', docker=docker)
         info = docker.inspect(session.container_name or docker.names(session)[0])
         docker.verify_owned(info, session)
         if not info or not info['State']['Running']:

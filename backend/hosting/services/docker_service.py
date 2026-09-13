@@ -313,6 +313,8 @@ class DockerService:
 
     def cleanup(self, session):
         name, builder, image = self.names(session)
+        self.capture_logs(session, name + '_tunnel', 'tunnel.log')
+        self.remove_container(name + '_tunnel', session)
         info = self.capture_logs(session, name, 'runtime.log')
         if info:
             session.exit_code = info['State']['ExitCode'] if not info['State']['Running'] else session.exit_code

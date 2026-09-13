@@ -8,9 +8,10 @@ if os.getenv('HOSTING_TEST_POSTGRES_PORT'):
     DATABASES = {'default': {'ENGINE': 'django.db.backends.postgresql', 'NAME': os.getenv('HOSTING_TEST_DATABASE', 'hosting_test'), 'USER': 'hosting_test', 'PASSWORD': 'hosting_test', 'HOST': '127.0.0.1', 'PORT': os.environ['HOSTING_TEST_POSTGRES_PORT']}}
     MIGRATION_MODULES = {}
 DEPLOYMENT_REQUIRE_WORKER = False
+DEPLOYMENT_TUNNEL_ENABLED = False  # External tunnels require an explicit integration test.
 PASSWORD_HASHERS = ['django.contrib.auth.hashers.MD5PasswordHasher']
 DDOS_PROTECTION_ENABLED = False
-ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '.previews.localhost']
+ALLOWED_HOSTS = ['testserver', 'localhost', '127.0.0.1', '.previews.localhost', '.tunnel.preview.localhost']
 
 if os.getenv('HOSTING_TEST_DURATION_SECONDS'):
     DEPLOYMENT_DURATION_MINUTES = float(os.environ['HOSTING_TEST_DURATION_SECONDS']) / 60

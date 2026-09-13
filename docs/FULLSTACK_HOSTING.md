@@ -220,8 +220,21 @@ Keep the worker running separately from Django. With Compose, rebuild/recreate t
 hosting stack using the existing hosting override. No change to the platform's
 own database engine or application credentials is needed.
 
-Fullstack previews use a separate host so root-relative assets, API paths, and
-application cookies belong to the preview. When `DEPLOYMENT_BASE_DOMAIN` is set,
+Fullstack previews now receive a public Cloudflare Quick Tunnel URL for each
+execution. The generated HTTPS origin is supplied to the backend for redirects,
+allowed hosts, CSRF checks, and secure cookies. Root-relative frontend assets and
+API paths belong to that system's Cloudflare host. The platform's own API and
+administrator routes are never served through a deployment tunnel. Stop and expiry
+deny requests even if the worker has not yet removed the connector container.
+Restarting creates a new link; the saved ZIP and retained database stay with the research.
+
+The backend and worker default to `DEPLOYMENT_TUNNEL_ENABLED=true` and
+`DEPLOYMENT_TUNNEL_ORIGIN=http://127.0.0.1:8080`. The latter must identify the local
+Django backend. Apply hosting migration `0008` and restart both processes when upgrading.
+
+When `DEPLOYMENT_TUNNEL_ENABLED=false`, fullstack previews still use a separate
+host so root-relative assets, API paths, and application cookies belong to the
+preview. When `DEPLOYMENT_BASE_DOMAIN` is set,
 the URL uses that domain and `DEPLOYMENT_PUBLIC_SCHEME`. Otherwise the local default
 is:
 

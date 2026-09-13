@@ -5,7 +5,7 @@ import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
 import TemporaryHostingPanel from '../components/TemporaryHostingPanel'
 import api, { apiUrl } from '../api/axios'
-import { ArrowLeft, Link2, FileText, Eye, CheckCircle, MessageSquare, XCircle, RefreshCw, Pencil, Download } from 'lucide-react'
+import { ArrowLeft, Link2, FileText, Eye, RefreshCw, Pencil, Download } from 'lucide-react'
 
 function uploadErrorMessage(err) {
     const data = err.response?.data
@@ -20,9 +20,6 @@ export default function ArchiveDetailPage() {
     const { user } = useAuth()
     const [doc, setDoc] = useState(null)
     const [loading, setLoading] = useState(true)
-    const [reviewAction, setReviewAction] = useState(null)
-    const [reviewComment, setReviewComment] = useState('')
-    const [reviewLoading, setReviewLoading] = useState(false)
     const [versions, setVersions] = useState([])
     const [showRevForm, setShowRevForm] = useState(false)
     const [revFile, setRevFile] = useState(null)
@@ -52,7 +49,6 @@ export default function ArchiveDetailPage() {
         load()
     }, [load])
 
-    const canReview = user?.role === 'admin'
     const canRevise = user?.role === 'admin'
     const canEditArchive = user?.role === 'admin'
     const canConfigureSystem = user?.role === 'admin'
@@ -63,32 +59,6 @@ export default function ArchiveDetailPage() {
         if (doc.is_rejected && doc.revision_comment && !doc.rejection_reason) return <span className="badge badge-yellow">Revision requested</span>
         if (doc.is_rejected) return <span className="badge" style={{ background: 'rgba(248,81,73,0.12)', color: 'var(--danger)' }}>Rejected</span>
         return <span className="badge badge-yellow">Pending review</span>
-    }
-
-    const openReview = (action) => {
-        setReviewAction(action)
-        setReviewComment('')
-    }
-
-    const submitReview = async () => {
-        if (['reject', 'revision'].includes(reviewAction) && !reviewComment.trim()) {
-            toast.error('Please add a comment.')
-            return
-        }
-        setReviewLoading(true)
-        try {
-            const { data } = await api.post(`/repository/archives/${id}/review/`, {
-                action: reviewAction,
-                comment: reviewComment,
-            })
-            setDoc(data)
-            setReviewAction(null)
-            toast.success('Review saved.')
-        } catch (err) {
-            toast.error(err.response?.data?.detail || err.response?.data?.comment?.[0] || 'Review failed.')
-        } finally {
-            setReviewLoading(false)
-        }
     }
 
     const chooseRevisionFile = (selected) => {
@@ -327,23 +297,6 @@ export default function ArchiveDetailPage() {
                                     </form>
                                 </div>
                             )}
-
-                            {canReview && (
-                                <div className="card">
-                                    <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12 }}>Administrator Review</h3>
-                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>
-                                        <button className="btn btn-sm" style={{ background: 'rgba(46,168,108,0.1)', color: 'var(--accent2)' }} onClick={() => openReview('approve')}>
-                                            <CheckCircle size={14} /> Approve
-                                        </button>
-                                        <button className="btn btn-sm" style={{ background: 'rgba(230,81,0,0.12)', color: 'var(--warning)' }} onClick={() => openReview('revision')}>
-                                            <MessageSquare size={14} /> Request Revision
-                                        </button>
-                                        <button className="btn btn-sm" style={{ background: 'rgba(248,81,73,0.1)', color: 'var(--danger)' }} onClick={() => openReview('reject')}>
-                                            <XCircle size={14} /> Reject
-                                        </button>
-                                    </div>
-                                </div>
-                            )}
                         </div>
 
                         <div className="archive-detail-side-column" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
@@ -392,32 +345,6 @@ export default function ArchiveDetailPage() {
                     </div>
                 </div>
             </div>
-            {reviewAction && (
-                <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-                    <div style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 28, width: '100%', maxWidth: 480 }}>
-                        <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 12, textTransform: 'capitalize' }}>
-                            {reviewAction === 'revision' ? 'Request Revision' : `${reviewAction} Paper`}
-                        </h3>
-                        <div className="form-group">
-                            <label className="form-label">{reviewAction === 'approve' ? 'Comment' : 'Comment required'}</label>
-                            <textarea
-                                className="form-textarea"
-                                rows={4}
-                                value={reviewComment}
-                                onChange={(e) => setReviewComment(e.target.value)}
-                                placeholder="Write feedback for the uploader."
-                                autoFocus
-                            />
-                        </div>
-                        <div style={{ display: 'flex', gap: 10, marginTop: 16, justifyContent: 'flex-end' }}>
-                            <button className="btn btn-ghost btn-sm" onClick={() => setReviewAction(null)} disabled={reviewLoading}>Cancel</button>
-                            <button className="btn btn-primary btn-sm" onClick={submitReview} disabled={reviewLoading}>
-                                {reviewLoading ? 'Saving...' : 'Save Review'}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     )
 }

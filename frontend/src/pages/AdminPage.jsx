@@ -518,7 +518,7 @@ export default function AdminPage() {
 
             {requestPreview && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-                    <div role="dialog" aria-modal="true" aria-label="Review submitted files" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 24, width: '100%', maxWidth: 1000, maxHeight: '94vh', overflowY: 'auto' }}>
+                    <div role="dialog" aria-modal="true" aria-label="Review submitted files" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 24, width: '100%', maxWidth: 1000, maxHeight: '94vh', overflowY: 'auto', scrollbarGutter: 'stable' }}>
                         <div style={{ display: 'flex', justifyContent: 'space-between', gap: 16, marginBottom: 12 }}>
                             <h3>{requestPreview.title}</h3>
                             <button className="btn btn-ghost btn-sm" onClick={() => setRequestPreview(null)}>Close preview</button>
@@ -537,7 +537,7 @@ export default function AdminPage() {
 
             {requestReview && (
                 <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.6)', display: 'flex', alignItems: 'center', justifyContent: 'center', zIndex: 1000, padding: 16 }}>
-                    <div role="dialog" aria-modal="true" aria-label="Decide submission request" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 28, width: '100%', maxWidth: 960, maxHeight: '90vh', overflowY: 'auto' }}>
+                    <div role="dialog" aria-modal="true" aria-label="Decide submission request" style={{ background: 'var(--bg2)', border: '1px solid var(--border)', borderRadius: 'var(--radius)', padding: 28, width: '100%', maxWidth: 960, maxHeight: '90vh', overflowY: 'auto', scrollbarGutter: 'stable' }}>
                         <h3 style={{ fontSize: '1rem', fontWeight: 700, marginBottom: 6, textTransform: 'capitalize' }}>
                             {requestReview.action === 'revision' ? 'Return for revision' : `${requestReview.action} request`}
                         </h3>

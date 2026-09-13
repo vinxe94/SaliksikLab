@@ -253,6 +253,14 @@ DEPLOYMENT_PROXY_MAX_BYTES = int(os.getenv('DEPLOYMENT_PROXY_MAX_BYTES', '209715
 DEPLOYMENT_BASE_DOMAIN = os.getenv('DEPLOYMENT_BASE_DOMAIN', '').strip().lower()
 DEPLOYMENT_PUBLIC_SCHEME = os.getenv('DEPLOYMENT_PUBLIC_SCHEME', 'https')
 DEPLOYMENT_PUBLIC_ORIGIN = os.getenv('DEPLOYMENT_PUBLIC_ORIGIN', '').rstrip('/')
+DEPLOYMENT_TUNNEL_ENABLED = os.getenv('DEPLOYMENT_TUNNEL_ENABLED', 'true').lower() in ('1', 'true', 'yes')
+DEPLOYMENT_TUNNEL_ORIGIN = os.getenv('DEPLOYMENT_TUNNEL_ORIGIN', 'http://127.0.0.1:8080').rstrip('/')
+DEPLOYMENT_TUNNEL_TIMEOUT_SECONDS = int(os.getenv('DEPLOYMENT_TUNNEL_TIMEOUT_SECONDS', '180'))
+DEPLOYMENT_CLOUDFLARED_IMAGE = os.getenv('DEPLOYMENT_CLOUDFLARED_IMAGE', 'cloudflare/cloudflared:2026.8.3')
+# Cloudflared overrides Host to this reserved routing domain. Every path on it
+# enters the deployment proxy, never the repository or administrator endpoints.
+DEPLOYMENT_TUNNEL_HOST_SUFFIX = 'tunnel.preview.localhost'
+ALLOWED_HOSTS.append('.' + DEPLOYMENT_TUNNEL_HOST_SUFFIX)
 DEPLOYMENT_FULLSTACK_BASE_DOMAIN = os.getenv('DEPLOYMENT_FULLSTACK_BASE_DOMAIN', 'preview.localhost:8080').strip().lower()
 DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME = os.getenv('DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME', 'http')
 DEPLOYMENT_DATABASE_TIMEOUT_SECONDS = int(os.getenv('DEPLOYMENT_DATABASE_TIMEOUT_SECONDS', '120'))

@@ -68,6 +68,7 @@ class HostingSession(models.Model):
     # NULL releases the slot; UNIQUE makes simultaneous reservations impossible.
     active_slot = models.PositiveSmallIntegerField(null=True, blank=True, unique=True, editable=False)
     source_zip = models.CharField(max_length=500, blank=True)
+    tunnel_url = models.URLField(max_length=255, blank=True)
     is_default = models.BooleanField(default=False)
     container_id = models.CharField(max_length=64, blank=True)
     container_name = models.CharField(max_length=80, blank=True)
@@ -122,6 +123,8 @@ class HostingSession(models.Model):
     @property
     def preview_url(self):
         if self.port and self.status == self.STATUS_RUNNING and self.expires_at and self.expires_at > timezone.now():
+            if settings.DEPLOYMENT_TUNNEL_ENABLED:
+                return self.tunnel_url
             domain = settings.DEPLOYMENT_BASE_DOMAIN
             if domain:
                 return f'{settings.DEPLOYMENT_PUBLIC_SCHEME}://{self.deployment_id}.{domain}/'

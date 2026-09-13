@@ -10,7 +10,7 @@ import tempfile
 import time
 from pathlib import Path
 from types import SimpleNamespace
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 from django.conf import settings
 
@@ -161,13 +161,16 @@ class FullStackDocker:
         engine = state['engine']
         domain = settings.DEPLOYMENT_BASE_DOMAIN or settings.DEPLOYMENT_FULLSTACK_BASE_DOMAIN
         scheme = settings.DEPLOYMENT_PUBLIC_SCHEME if settings.DEPLOYMENT_BASE_DOMAIN else settings.DEPLOYMENT_FULLSTACK_PUBLIC_SCHEME
-        origin = f'{scheme}://{session.deployment_id}.{domain}'
+        tunnel_url = getattr(session, 'tunnel_url', '')
+        origin = tunnel_url.rstrip('/') or f'{scheme}://{session.deployment_id}.{domain}'
         values = {'HOSTING_DB_ENGINE': engine, 'SECRET_KEY': state['secret_key'],
                   'HOSTING_PUBLIC_ORIGIN': origin, 'HOSTING_DB_PATH': '/data/db.sqlite3',
                   'ALLOWED_HOSTS': f'{session.deployment_id}.{domain.split(":")[0]},localhost,127.0.0.1',
                   'PUBLIC_URL': '/', 'DB_NAME': 'app', 'DB_USER': 'app',
                   'DB_PASSWORD': state['password'], 'DB_HOST': name + '_db',
                   'DB_PORT': '5432' if engine == 'postgresql' else '3306'}
+        if tunnel_url:
+            values['ALLOWED_HOSTS'] += ',' + urlsplit(tunnel_url).hostname
         if engine == 'sqlite':
             values.update(DB_NAME='/data/db.sqlite3', DATABASE_URL='sqlite:////data/db.sqlite3')
         elif engine in ('postgresql', 'mysql'):

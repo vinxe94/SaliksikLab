@@ -4,7 +4,7 @@ import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/axios'
-import { FileCheck2, Link2, Send, UploadCloud } from 'lucide-react'
+import { FileCheck2, Send, UploadCloud } from 'lucide-react'
 
 const TYPES = [
     ['research_paper', 'Research paper'],
@@ -62,7 +62,6 @@ export default function UploadPage() {
         year: new Date().getFullYear(),
         keywords: '',
         system_details: '',
-        proposed_system_link: '',
     })
 
     const needsPaper = form.submission_type !== 'executable_system'
@@ -94,10 +93,6 @@ export default function UploadPage() {
             toast.error('Describe the executable system for the administrator.')
             return
         }
-        if (form.proposed_system_link && !/^https?:\/\//i.test(form.proposed_system_link)) {
-            toast.error('System link must start with http:// or https://.')
-            return
-        }
         if (needsPaper && !researchFile) {
             toast.error('Select the research PDF.')
             return
@@ -118,9 +113,7 @@ export default function UploadPage() {
                 const body = new FormData()
                 for (const [key, value] of Object.entries(data)) {
                     if (key === 'submission_type' || key === 'system_details') continue
-                    if (key === 'proposed_system_link') {
-                        if (value) body.append('system_link', value)
-                    } else if (key === 'keywords') {
+                    if (key === 'keywords') {
                         value.forEach((keyword) => body.append('keywords', keyword))
                     } else if (value !== null && value !== '') {
                         body.append(key, value)
@@ -267,19 +260,10 @@ export default function UploadPage() {
                                 </div>
                             </div>
                             {needsSystem && (
-                                <>
-                                    <div className="form-group">
-                                        <label className="form-label">System handoff details</label>
-                                        <textarea className="form-textarea" rows={4} value={form.system_details} onChange={(event) => setForm((current) => ({ ...current, system_details: event.target.value }))} placeholder="Describe the uploaded system, technology stack, dependencies, and steps to run it. Include hosting.json inside the ZIP if configuration is needed." required />
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Proposed system link</label>
-                                        <input className="form-input" type="url" placeholder="https://example.com/system" value={form.proposed_system_link} onChange={(event) => setForm((current) => ({ ...current, proposed_system_link: event.target.value }))} />
-                                        <span className="dashboard-stat-meta" style={{ display: 'inline-flex', alignItems: 'center', gap: 6 }}>
-                                            <Link2 size={13} /> Optional. The administrator decides whether to publish this link.
-                                        </span>
-                                    </div>
-                                </>
+                                <div className="form-group">
+                                    <label className="form-label">System handoff details</label>
+                                    <textarea className="form-textarea" rows={4} value={form.system_details} onChange={(event) => setForm((current) => ({ ...current, system_details: event.target.value }))} placeholder="Describe the uploaded system, technology stack, dependencies, and steps to run it. Include hosting.json inside the ZIP if configuration is needed." required />
+                                </div>
                             )}
                         </div>
 

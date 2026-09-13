@@ -295,6 +295,10 @@ Existing platform database/auth settings remain required. Hosting defaults are r
 | `DEPLOYMENT_BASE_DOMAIN` | empty | Separate wildcard preview domain |
 | `DEPLOYMENT_PUBLIC_SCHEME` | `https` | Scheme for wildcard preview links |
 | `DEPLOYMENT_PUBLIC_ORIGIN` | empty | Absolute origin for path previews when API/frontend origins differ |
+| `DEPLOYMENT_TUNNEL_ENABLED` | `true` | Create a public Cloudflare Quick Tunnel for each execution |
+| `DEPLOYMENT_TUNNEL_ORIGIN` | `http://127.0.0.1:8080` | Local Django backend that enforces deployment routing/expiry |
+| `DEPLOYMENT_TUNNEL_TIMEOUT_SECONDS` | `180` | Deadline for tunnel connection and public DNS/HTTPS readiness |
+| `DEPLOYMENT_CLOUDFLARED_IMAGE` | `cloudflare/cloudflared:2026.8.3` | Trusted connector image, downloaded by the worker as needed |
 | `DEPLOYMENT_INSTANCE_ID` | `tukiva` | Ownership scope; use a distinct value for separate installations sharing Docker |
 | `DEPLOYMENT_STATIC_IMAGE` | `nginxinc/nginx-unprivileged:1.28-alpine` | Static/gateway base image |
 | `DEPLOYMENT_NODE_IMAGE` | `node:22-bookworm-slim` | Node base image |
@@ -408,7 +412,7 @@ PostgreSQL concurrency/upgrade and separate-worker tests use a disposable databa
 ## 21. Remaining limits
 
 - Java is not implemented; ambiguous/unsupported projects receive explicit errors. Ruby and C++ are available alongside JavaScript, Python, PHP, and static sites. Fullstack mode adds one static frontend build, one HTTP backend, and an optional SQLite/PostgreSQL/MySQL database. Arbitrary Compose projects, extra workers/services, frontend server-side rendering, and custom OS-package installation need further runtime support. C++ supports direct GCC source compilation, not CMake/Make projects or console-only previews.
-- Path previews cannot transparently repair every framework's absolute JavaScript/API routes. Use a separate wildcard preview domain for full applications; DNS/TLS/public Internet reachability must be configured by the operator. Local anonymous proxy access was tested; no external domain or tunnel was published.
+- Cloudflare Quick Tunnels now supply a public HTTPS hostname for every execution by default. The backend proxy enforces the stored deadline and never routes a deployment hostname to the platform's own API. `DEPLOYMENT_TUNNEL_ENABLED=false` retains the earlier local/custom-domain mode; path previews in that mode cannot transparently repair every framework's absolute JavaScript/API routes.
 - The HTTP proxy is bounded and buffered. WebSockets, SSE/indefinite streaming, and responses larger than the configured limit are not supported.
 - Source ZIPs/logs are retained until deletion. Docker writable application layers do not have a portable disk quota; an isolated worker host or storage-driver quotas are appropriate where hostile workloads/disk exhaustion are a concern.
 - Build containers need registry/network access. Their outbound traffic is not restricted to an allowlist of registries; runtime containers have the stricter isolated network.

@@ -48,7 +48,7 @@ export default function SubmissionAttachments({ submission, autoPreview = false 
         } finally { setDownloading(false) }
     }
 
-    return <section style={{ display: 'grid', gap: 12 }} aria-label="Submitted attachments">
+    return <section style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1fr)', minWidth: 0, gap: 12 }} aria-label="Submitted attachments">
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 10 }}>
             {hasPaper && <button type="button" className="btn btn-ghost btn-sm" onClick={() => setShowPreview(value => !value)}><FileText size={14} /> {showPreview ? 'Hide PDF preview' : 'View submitted PDF'}</button>}
             {hasSystem && <button type="button" className="btn btn-ghost btn-sm" disabled={downloading} onClick={downloadSystem}><Download size={14} /> {downloading ? 'Downloading…' : 'Download submitted ZIP'}</button>}
@@ -58,7 +58,7 @@ export default function SubmissionAttachments({ submission, autoPreview = false 
             {hasSystem && <p>System ZIP: {systemName}</p>}
             {!hasPaper && !hasSystem && <p>This earlier request has no attachments. An administrator can add the files when approving it, or return it for revision.</p>}
         </div>
-        {showPreview && hasPaper && <div>
+        {showPreview && hasPaper && <div style={{ minWidth: 0 }}>
             {previewError ? <p role="alert" style={{ color: 'var(--danger)' }}>{previewError}</p> : pdfUrl ? <>
                 <Suspense fallback={<p role="status">Loading PDF viewer…</p>}>
                     <ResearchPdfPreview key={pdfUrl} url={pdfUrl} filename={paperName} />

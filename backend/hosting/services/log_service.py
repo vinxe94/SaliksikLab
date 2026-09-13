@@ -22,7 +22,7 @@ def read_logs(session, tail_bytes=24000):
     if not session:
         return ''
     output = []
-    for name in ('deployment.log', 'frontend-build.log', 'build.log', 'database.log', 'runtime.log', 'frontend.log', 'proxy.log'):
+    for name in ('deployment.log', 'tunnel.log', 'frontend-build.log', 'build.log', 'database.log', 'runtime.log', 'frontend.log', 'proxy.log'):
         path = storage_dir(session) / 'logs' / name
         if path.exists():
             with path.open('rb') as handle:

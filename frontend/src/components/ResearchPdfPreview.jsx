@@ -7,19 +7,25 @@ GlobalWorkerOptions.workerSrc = workerUrl
 
 // eslint-disable-next-line react/prop-types -- Loaded only when a submitted PDF is opened.
 export default function ResearchPdfPreview({ url, filename }) {
-    const containerRef = useRef(null)
+    const viewportRef = useRef(null)
     const canvasRef = useRef(null)
     const [pdf, setPdf] = useState(null)
     const [pageNumber, setPageNumber] = useState(1)
     const [zoom, setZoom] = useState(1)
-    const [width, setWidth] = useState(640)
+    const [width, setWidth] = useState(0)
+    const [displayedPage, setDisplayedPage] = useState(null)
     const [rendering, setRendering] = useState(true)
     const [pageText, setPageText] = useState('')
     const [error, setError] = useState('')
 
     useEffect(() => {
-        const observer = new ResizeObserver(([entry]) => setWidth(Math.max(240, entry.contentRect.width - 32)))
-        observer.observe(containerRef.current)
+        // Measure the page area, excluding its padding and reserved scrollbar.
+        // Ignore height-only changes and subpixel rounding during layout.
+        const observer = new ResizeObserver(([entry]) => {
+            const nextWidth = Math.floor(entry.contentRect.width)
+            if (nextWidth > 0) setWidth(previous => previous === nextWidth ? previous : nextWidth)
+        })
+        observer.observe(viewportRef.current)
         return () => observer.disconnect()
     }, [])
 
@@ -41,11 +47,10 @@ export default function ResearchPdfPreview({ url, filename }) {
     }, [url])
 
     useEffect(() => {
-        if (!pdf) return undefined
+        if (!pdf || !width) return undefined
         let disposed = false
         let renderTask
         setRendering(true)
-        setPageText('')
         setError('')
         async function renderPage() {
             try {
@@ -63,7 +68,10 @@ export default function ResearchPdfPreview({ url, filename }) {
                     canvasContext: buffer.getContext('2d'), viewport,
                     transform: [density, 0, 0, density, 0, 0],
                 })
-                await renderTask.promise
+                const [, text] = await Promise.all([
+                    renderTask.promise,
+                    page.getTextContent().catch(() => ({ items: [] })),
+                ])
                 if (disposed) return
                 const canvas = canvasRef.current
                 canvas.width = buffer.width
@@ -71,9 +79,9 @@ export default function ResearchPdfPreview({ url, filename }) {
                 canvas.style.width = `${viewport.width}px`
                 canvas.style.height = `${viewport.height}px`
                 canvas.getContext('2d').drawImage(buffer, 0, 0)
+                setDisplayedPage(pageNumber)
+                setPageText(text.items.map(item => item.str || '').join(' '))
                 setRendering(false)
-                const text = await page.getTextContent().catch(() => ({ items: [] }))
-                if (!disposed) setPageText(text.items.map(item => item.str || '').join(' '))
             } catch (failure) {
                 if (!disposed && failure.name !== 'RenderingCancelledException') {
                     setRendering(false)
@@ -85,7 +93,7 @@ export default function ResearchPdfPreview({ url, filename }) {
         return () => { disposed = true; renderTask?.cancel() }
     }, [pdf, pageNumber, width, zoom])
 
-    return <div ref={containerRef} style={{ border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
+    return <div style={{ minWidth: 0, border: '1px solid var(--border)', borderRadius: 8, overflow: 'hidden' }}>
         <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 8, padding: 10, background: 'var(--bg-secondary)' }}>
             <button type="button" className="btn btn-ghost btn-sm" aria-label="Previous PDF page" disabled={!pdf || pageNumber === 1} onClick={() => setPageNumber(value => value - 1)}><ChevronLeft size={16} /></button>
             <span className="text-sm" aria-live="polite">{pdf ? `Page ${pageNumber} of ${pdf.numPages}` : 'Loading PDF…'}</span>
@@ -97,9 +105,14 @@ export default function ResearchPdfPreview({ url, filename }) {
             </div>
         </div>
         {error && <p role="alert" style={{ padding: 16, color: 'var(--danger)' }}>{error}</p>}
-        {!error && rendering && <p role="status" className="text-sm text-muted" style={{ padding: 10 }}>Rendering PDF page…</p>}
-        <div style={{ maxHeight: '60vh', overflow: 'auto', padding: 16, background: '#e8ece9' }} aria-busy={rendering && !error}>
-            <canvas ref={canvasRef} role="img" aria-label={`${filename}, page ${pageNumber}`} style={{ display: rendering || error ? 'none' : 'block', margin: '0 auto', background: '#fff', boxShadow: '0 1px 8px #0002' }} />
+        <div style={{ position: 'relative' }}>
+            {!error && rendering && <p role="status" className="text-sm" style={{ position: 'absolute', top: 8, left: 8, zIndex: 1, padding: '6px 10px', borderRadius: 6, background: 'var(--bg2)', color: 'var(--text2)' }}>Rendering PDF page…</p>}
+            <div ref={viewportRef} style={{ height: '60vh', overflow: 'auto', scrollbarGutter: 'stable', padding: 16, background: '#e8ece9' }} aria-busy={rendering && !error}>
+                {/* Keep the last completed page visible while the next one renders.
+                    Collapsing it here can toggle the dialog scrollbar and cause
+                    ResizeObserver to restart rendering indefinitely. */}
+                <canvas ref={canvasRef} role="img" aria-label={`${filename}, page ${displayedPage || pageNumber}`} style={{ display: 'block', visibility: displayedPage && !error ? 'visible' : 'hidden', margin: '0 auto', background: '#fff', boxShadow: '0 1px 8px #0002' }} />
+            </div>
         </div>
         {pdf && <details hidden={!pageText} style={{ padding: 10 }}>
             <summary className="text-sm" style={{ cursor: 'pointer' }}>Read page text</summary>

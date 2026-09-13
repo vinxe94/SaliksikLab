@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This document describes the current layered architecture of Tukiva after removal of collaboration, tunneling, and AI translation/model-cache features.
+This document describes the current layered architecture of Tukiva, including research review, isolated system execution, and public Cloudflare temporary URLs. The earlier collaboration, SSH tunneling, and AI translation/model-cache features remain removed.
 
 ## Layer Overview
 
@@ -44,6 +44,9 @@ graph TB
         Media[(Media Files)]
         SMTP[SMTP Email]
         Docker[Docker/Nginx/Gunicorn]
+        Worker[Hosting Worker]
+        Cloudflare[Cloudflare Quick Tunnel per execution]
+        Preview[Deployment Proxy and Expiry Check]
     end
 
     Browser --> React
@@ -70,7 +73,15 @@ graph TB
     Accounts --> SMTP
     Docker --> React
     Docker --> DRF
+    Worker --> Docker
+    Worker --> Cloudflare
+    Browser --> Cloudflare
+    Cloudflare --> Preview
+    Preview --> Docker
+    Preview --> ORM
 ```
+
+The hosting worker creates a new Cloudflare Quick Tunnel for each execution and stores its actual HTTPS URL in `HostingSession.tunnel_url`. The URL becomes visible after the tunnel connects and the application passes its health checks. The connector routes through a reserved deployment hostname on the backend; every request checks the research system's running state and expiry before reaching its isolated application. This hostname never serves the platform's administrator or repository APIs. Stopping, expiry, failed startup, and restart remove the connector with the deployment's other resources. Restarting retains the saved ZIP/database and generates a new public URL.
 
 ## Layer 1: Presentation
 
