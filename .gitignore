@@ -2,3 +2,7 @@
 .codex
 backend/storage/
 backend/private_submissions/
+.env
+.env.*
+!.env.example
+!.env.production.example

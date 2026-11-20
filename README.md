@@ -188,6 +188,8 @@ The Vite dev server runs on `http://localhost:5173` and proxies `/api` and `/med
 
 ## Docker Setup
 
+Docker uses a separate PostgreSQL database and separate storage volumes; it does not automatically reuse accounts, archive records, or uploaded files from the local setup. To keep using existing local data, follow the Backend and Frontend instructions above instead. If Docker is running, first run `docker compose stop` from the project root to free port `8080`; this preserves its containers and volumes. The local frontend is available at `http://localhost:5173`.
+
 ```bash
 docker compose up --build
 ```
@@ -196,9 +198,23 @@ docker compose up --build
 | ---------- | ----------------------- |
 | Frontend   | `http://localhost:3000` |
 | Backend    | `http://localhost:8080` |
-| PostgreSQL | `localhost:5432`        |
+| PostgreSQL | `localhost:5433`        |
 
 Docker volumes store PostgreSQL data, uploaded media, and collected static files.
+
+## Deploy on an AWS EC2 server
+
+For a production Compose overlay with HTTPS, private database/frontend ports, generated secret setup, and the Docker hosting worker, follow the [AWS EC2 deployment guide](docs/AWS_EC2_DEPLOYMENT.md). The ordinary local Compose setup above is for development and uses development-only credentials.
+
+Docker publishes PostgreSQL on port `5433` to avoid conflicting with a local PostgreSQL server on `5432`. Set `POSTGRES_PUBLISHED_PORT` in your shell or a root-level `.env` file to choose another host port. The normal backend still connects to `db:5432` inside Docker; the Linux hosting override uses the published port automatically. A locally run backend connecting to the Docker database must use `DB_HOST=localhost` and `DB_PORT=5433` (or your chosen published port).
+
+If the backend reports `Temporary failure in name resolution` for `db`, check `docker compose ps -a` and `docker inspect "$(docker compose ps -q db)" --format '{{json .NetworkSettings.Networks}}'`. A database container with no network connection cannot be resolved as `db`, even if its internal health check passes. After resolving any host-port conflict, recreate the containers and their network attachments without deleting the data volumes:
+
+```bash
+docker compose up -d --force-recreate db backend frontend
+```
+
+Do not use `docker compose down -v` for this repair; it deletes the persistent volumes.
 
 ## Environment Variables
 

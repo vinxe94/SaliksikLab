@@ -1,14 +1,20 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { Building2, CheckCircle, Clock, Gauge, GraduationCap, UsersRound, XCircle } from 'lucide-react'
 import { Bar, Doughnut, Line } from 'react-chartjs-2'
 import { ArcElement, BarElement, CategoryScale, Chart as ChartJS, Legend, LinearScale, LineElement, PointElement, Tooltip } from 'chart.js'
 import Sidebar from '../components/Sidebar'
+import WorkspaceHeader from '../components/WorkspaceHeader'
+import WorkspaceBanner from '../components/WorkspaceBanner'
+import WorkspaceFooter from '../components/WorkspaceFooter'
 import api from '../api/axios'
+import '../styles/workspace-pages.css'
 
 ChartJS.register(ArcElement, BarElement, CategoryScale, LinearScale, LineElement, PointElement, Tooltip, Legend)
+ChartJS.defaults.font.family = "'Inter', sans-serif"
+ChartJS.defaults.color = '#62736a'
 
-const palette = ['#1b5e20', '#2f855a', '#0f766e', '#b7791f', '#7c3aed', '#0369a1', '#be123c', '#4b5563']
-const coursePalette = ['#0f766e', '#0369a1', '#7c3aed', '#be123c', '#b7791f', '#2E7D32', '#c2410c', '#4b5563']
+const palette = ['#07985a', '#78c65a', '#2882b5', '#e9a42b', '#8470b8', '#259c9a', '#e55b80', '#486c5b']
+const coursePalette = ['#07985a', '#78c65a', '#2882b5', '#e9a42b', '#8470b8', '#259c9a', '#e55b80', '#486c5b']
 
 function percent(value, total) {
   if (!total) return 0
@@ -23,17 +29,22 @@ function shortDate(value) {
 export default function AnalyticsPage() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true)
+    setError('')
     api.get('/repository/stats/')
       .then((res) => setStats(res.data))
+      .catch(() => setError('Analytics could not be loaded. Please try again.'))
       .finally(() => setLoading(false))
   }, [])
+  useEffect(() => { load() }, [load])
 
   const statusSeries = useMemo(() => [
-    { label: 'Approved', value: stats?.approved ?? 0, color: '#2E7D32', icon: CheckCircle },
-    { label: 'Pending', value: stats?.pending ?? 0, color: '#F59E0B', icon: Clock },
-    { label: 'Rejected', value: stats?.rejected ?? 0, color: '#C62828', icon: XCircle },
+    { label: 'Approved', value: stats?.approved ?? 0, color: '#07824c', icon: CheckCircle },
+    { label: 'Pending', value: stats?.pending ?? 0, color: '#ac7500', icon: Clock },
+    { label: 'Rejected', value: stats?.rejected ?? 0, color: '#d93570', icon: XCircle },
   ], [stats])
 
   const topCourse = stats?.by_course?.[0]
@@ -95,9 +106,9 @@ export default function AnalyticsPage() {
       {
         label: 'Daily active users',
         data: engagementSeries.map((item) => item.daily_active_users),
-        borderColor: '#0f766e',
+        borderColor: '#07985a',
         backgroundColor: 'rgba(15, 118, 110, 0.12)',
-        pointBackgroundColor: '#0f766e',
+        pointBackgroundColor: '#07985a',
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
         pointRadius: 3,
@@ -106,9 +117,9 @@ export default function AnalyticsPage() {
       {
         label: 'Logins per day',
         data: engagementSeries.map((item) => item.logins_per_day),
-        borderColor: '#7c3aed',
+        borderColor: '#2882b5',
         backgroundColor: 'rgba(124, 58, 237, 0.1)',
-        pointBackgroundColor: '#7c3aed',
+        pointBackgroundColor: '#2882b5',
         pointBorderColor: '#ffffff',
         pointBorderWidth: 2,
         pointRadius: 3,
@@ -134,32 +145,18 @@ export default function AnalyticsPage() {
   }
 
   return (
-    <div className="layout">
+    <div className="layout workspace-layout">
       <Sidebar />
-      <div className="main-content">
-        <div className="page-header">
-          <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Analytics</h2>
-            <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-              Visual snapshot of repository status, student engagement, and course output distribution.
-            </p>
-          </div>
-        </div>
+      <main id="main-content" tabIndex={-1} className="main-content workspace-content">
+        <WorkspaceHeader title="Analytics" eyebrow="Research insights" />
 
-        <div className="page-body dashboard-page">
-          <section className="dashboard-hero analytics-visual-hero">
-            <div className="dashboard-hero-copy">
-              <span className="dashboard-kicker">Live insights</span>
-              <h3>See what is approved, what needs attention, and where research activity is strongest.</h3>
-              <p>These visuals use the current repository statistics so admins can scan performance quickly.</p>
-            </div>
-            <div className="dashboard-hero-actions">
-              <div className="dashboard-hero-stat">
-                <span>Total records</span>
-                <strong>{loading ? '...' : stats?.total ?? 0}</strong>
-              </div>
-            </div>
-          </section>
+        <div className="page-body workspace-page-body analytics-workspace-body">
+          {error && <div className="alert alert-error" role="alert">{error} <button type="button" className="btn btn-ghost btn-sm" onClick={load}>Try again</button></div>}
+          <WorkspaceBanner compact eyebrow="Understand your impact"
+            title={<>Research in motion. <span>Insights that matter.</span></>}
+            description="Follow submissions from review to publication, and see where your community is most active."
+            actions={<div className="workspace-banner-stat"><span>Total records</span><strong>{loading ? '…' : error ? '—' : stats?.total ?? 0}</strong></div>}
+          />
 
           <div className="stat-grid">
             {statusSeries.map((item) => {
@@ -167,7 +164,7 @@ export default function AnalyticsPage() {
               return (
                 <div key={item.label} className="stat-card dashboard-stat-card analytics-stat-card">
                   <span className="analytics-stat-icon" style={{ color: item.color }}><Icon size={18} /></span>
-                  <span className="stat-value" style={{ color: item.color }}>{loading ? '...' : item.value}</span>
+                  <span className="stat-value" style={{ color: item.color }}>{loading ? '…' : error ? '—' : item.value}</span>
                   <span className="stat-label">{item.label}</span>
                   <span className="dashboard-stat-meta">{percent(item.value, stats?.total ?? 0)}% of repository records</span>
                 </div>
@@ -175,8 +172,8 @@ export default function AnalyticsPage() {
             })}
             <div className="stat-card dashboard-stat-card analytics-stat-card">
               <span className="analytics-stat-icon"><UsersRound size={18} /></span>
-              <span className="stat-value">{loading ? '...' : (latestEngagement?.daily_active_users ?? 0)}</span>
-              <span className="stat-label">Student DAU</span>
+              <span className="stat-value">{loading ? '…' : error ? '—' : (latestEngagement?.daily_active_users ?? 0)}</span>
+              <span className="stat-label">Active students today</span>
               <span className="dashboard-stat-meta">{loading ? '...' : (latestEngagement?.logins_per_day ?? 0)} logins today</span>
             </div>
           </div>
@@ -190,7 +187,7 @@ export default function AnalyticsPage() {
                 </div>
               </div>
               <div className="analytics-doughnut-wrap">
-                <Doughnut data={statusData} options={doughnutOptions} />
+                <Doughnut data={statusData} options={doughnutOptions} role="img" aria-label={`Review status: ${statusSeries.map(item => `${item.value} ${item.label.toLowerCase()}`).join(', ')}`} />
                 <div className="analytics-doughnut-center">
                   <strong>{loading ? '...' : totalStatus}</strong>
                   <span>Total</span>
@@ -207,7 +204,7 @@ export default function AnalyticsPage() {
                 {latestEngagement && <strong className="dashboard-panel-total">{latestEngagement.daily_active_users}</strong>}
               </div>
               <div className="analytics-chart-height">
-                <Line data={engagementData} options={lineOptions} />
+                <Line data={engagementData} options={lineOptions} role="img" aria-label="Daily active students and daily logins over time" />
               </div>
             </article>
 
@@ -220,7 +217,7 @@ export default function AnalyticsPage() {
                 {topCourse && <strong className="dashboard-panel-total">{topCourse.count}</strong>}
               </div>
               <div className="analytics-chart-height">
-                <Bar data={courseData} options={barOptions} />
+                <Bar data={courseData} options={barOptions} role="img" aria-label={`Outputs by course: ${(stats?.by_course || []).map(item => `${item.course || 'Unassigned'} ${item.count}`).join(', ')}`} />
               </div>
             </article>
 
@@ -268,8 +265,9 @@ export default function AnalyticsPage() {
               </div>
             </article>
           </section>
+        <WorkspaceFooter />
         </div>
-      </div>
+      </main>
     </div>
   )
 }

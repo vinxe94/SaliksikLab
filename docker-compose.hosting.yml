@@ -39,6 +39,7 @@ services:
     environment:
       <<: *hosting-environment
       DB_HOST: 127.0.0.1
+      DB_PORT: "${POSTGRES_PUBLISHED_PORT:-5433}"
     volumes:
       - hosting_storage:/app/storage
 
@@ -51,7 +52,7 @@ services:
     environment:
       <<: *hosting-environment
       DB_HOST: 127.0.0.1
-      DB_PORT: "5432"
+      DB_PORT: "${POSTGRES_PUBLISHED_PORT:-5433}"
       DB_NAME: thesis_repo
       DB_USER: postgres
       DB_PASSWORD: postgres

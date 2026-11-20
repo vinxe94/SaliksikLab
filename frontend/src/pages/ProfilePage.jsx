@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { useNavigate } from 'react-router-dom'
 import Sidebar from '../components/Sidebar'
@@ -9,7 +9,7 @@ import {
     FileText, Clock3, Star, Pencil, X, Camera
 } from 'lucide-react'
 
-const roleColors = { admin: 'badge-red', faculty: 'badge-blue', student: 'badge-green' }
+const roleColors = { admin: 'badge-blue', faculty: 'badge-gray', student: 'badge-green' }
 
 const languagePalette = {
     thesis: { label: 'Research', color: '#1B5E20' },
@@ -43,6 +43,7 @@ export default function ProfilePage() {
     const [form, setForm] = useState({ first_name: '', last_name: '', department: '' })
     const [saving, setSaving] = useState(false)
     const [loadingOutputs, setLoadingOutputs] = useState(true)
+    const [outputsError, setOutputsError] = useState('')
     const [myOutputs, setMyOutputs] = useState([])
     const [editing, setEditing] = useState(false)
     const [avatarFile, setAvatarFile] = useState(null)
@@ -66,13 +67,16 @@ export default function ProfilePage() {
         }
     }, [avatarPreview])
 
-    useEffect(() => {
+    const loadOutputs = useCallback(() => {
         setLoadingOutputs(true)
+        setOutputsError('')
         api.get('/repository/?mine=true&page_size=12')
             .then((response) => setMyOutputs(response.data.results || []))
-            .catch(() => setMyOutputs([]))
+            .catch(() => setOutputsError('Your research could not be loaded. Please try again.'))
             .finally(() => setLoadingOutputs(false))
     }, [])
+
+    useEffect(() => { loadOutputs() }, [loadOutputs])
 
     const handle = (e) => setForm((current) => ({ ...current, [e.target.name]: e.target.value }))
 
@@ -156,9 +160,9 @@ export default function ProfilePage() {
     return (
         <div className="layout">
             <Sidebar />
-            <div className="main-content">
+            <main id="main-content" tabIndex={-1} className="main-content">
                 <div className="page-header">
-                    <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Profile</h2>
+                    <div><span className="page-eyebrow">Your workspace</span><h2>My profile</h2><p className="text-muted text-sm">Your account, research, and contributions.</p></div>
                 </div>
                 <div className="page-body">
                     <div className="profile-shell">
@@ -178,7 +182,7 @@ export default function ProfilePage() {
                                 <h1>{user?.first_name} {user?.last_name}</h1>
                                 <div className="profile-handle">@{user?.email?.split('@')[0]}</div>
                                 <p className="profile-bio-copy">
-                                    Tukiva contributor focused on academic PDFs, review, and repository access.
+                                    Your place in the Tukiva research community.
                                 </p>
                             </div>
                             <div className="profile-badges">
@@ -223,21 +227,21 @@ export default function ProfilePage() {
                                     </div>
                                     <div className="grid-2">
                                         <div className="form-group">
-                                            <label className="form-label">First Name</label>
-                                            <input className="form-input" name="first_name" value={form.first_name} onChange={handle} />
+                                            <label className="form-label" htmlFor="profile-first-name">First name</label>
+                                            <input id="profile-first-name" className="form-input" name="first_name" autoComplete="given-name" value={form.first_name} onChange={handle} />
                                         </div>
                                         <div className="form-group">
-                                            <label className="form-label">Last Name</label>
-                                            <input className="form-input" name="last_name" value={form.last_name} onChange={handle} />
+                                            <label className="form-label" htmlFor="profile-last-name">Last name</label>
+                                            <input id="profile-last-name" className="form-input" name="last_name" autoComplete="family-name" value={form.last_name} onChange={handle} />
                                         </div>
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Department</label>
-                                        <input className="form-input" name="department" value={form.department} onChange={handle} placeholder="College of Engineering" />
+                                        <label className="form-label" htmlFor="profile-department">Department</label>
+                                        <input id="profile-department" className="form-input" name="department" value={form.department} onChange={handle} placeholder="College of Engineering" />
                                     </div>
                                     <div className="form-group">
-                                        <label className="form-label">Email</label>
-                                        <input className="form-input" value={user?.email || ''} disabled style={{ opacity: 0.6 }} />
+                                        <label className="form-label" htmlFor="profile-email">Email</label>
+                                        <input id="profile-email" className="form-input" value={user?.email || ''} disabled />
                                     </div>
                                     <div className="profile-edit-actions">
                                         <button type="button" className="btn btn-ghost" onClick={cancelEditing}>Cancel</button>
@@ -250,31 +254,33 @@ export default function ProfilePage() {
                         </aside>
 
                         <section className="profile-main-panel">
-                            <div className="profile-overview-card">
+                            <div className="profile-overview-card" id="profile-overview">
                                 <div>
                                     <span className="dashboard-kicker">Overview</span>
-                                    <h3>Academic profile overview for Tukiva.</h3>
-                                    <p>Track research PDFs and recent activity in one place.</p>
+                                    <h3>Every contribution counts.</h3>
+                                    <p>A snapshot of your research and review progress.</p>
                                 </div>
                                 <div className="profile-stat-grid">
                                     {stats.map(({ label, value, icon: Icon }) => (
                                         <div key={label} className="profile-stat-card">
                                             <span><Icon size={14} /> {label}</span>
-                                            <strong>{value}</strong>
+                                            <strong>{loadingOutputs || outputsError ? '—' : value}</strong>
                                         </div>
                                     ))}
                                 </div>
                             </div>
 
-                            <div className="profile-tabs-bar">
-                                <div className="profile-tab active"><BookOpen size={15} /> Overview</div>
-                                <div className="profile-tab"><FileText size={15} /> PDFs <span>{myOutputs.length}</span></div>
-                                <div className="profile-tab"><Clock3 size={15} /> Activity</div>
-                            </div>
+                            <nav className="profile-tabs-bar" aria-label="Profile sections">
+                                <a href="#profile-overview" className="profile-tab"><BookOpen size={15} /> Overview</a>
+                                <a href="#profile-research" className="profile-tab"><FileText size={15} /> Research <span>{myOutputs.length}</span></a>
+                                <a href="#profile-activity" className="profile-tab"><Clock3 size={15} /> Activity</a>
+                            </nav>
 
-                            <div className="profile-section-card">
+                            {outputsError && <div className="alert alert-error" role="alert">{outputsError} <button className="btn btn-ghost btn-sm" type="button" onClick={loadOutputs}>Try again</button></div>}
+
+                            <div className="profile-section-card" id="profile-research">
                                 <div className="profile-section-head">
-                                    <h3>Pinned PDFs</h3>
+                                        <h3>Your research collection</h3>
                                     <button type="button" className="see-more-link" onClick={() => navigate('/repository')}>View PDF archive</button>
                                 </div>
                                 {loadingOutputs ? (
@@ -316,7 +322,7 @@ export default function ProfilePage() {
                             </div>
 
                             <div className="profile-grid-two">
-                                <div className="profile-section-card">
+                                <div className="profile-section-card" id="profile-activity">
                                     <div className="profile-section-head">
                                         <h3>Recent activity</h3>
                                     </div>
@@ -363,7 +369,7 @@ export default function ProfilePage() {
                         </section>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

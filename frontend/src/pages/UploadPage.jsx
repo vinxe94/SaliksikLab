@@ -2,14 +2,20 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import Sidebar from '../components/Sidebar'
+import WorkspaceHeader from '../components/WorkspaceHeader'
+import WorkspaceBanner from '../components/WorkspaceBanner'
+import WorkspaceFooter from '../components/WorkspaceFooter'
 import { useAuth } from '../contexts/AuthContext'
 import api from '../api/axios'
-import { FileCheck2, Send, UploadCloud } from 'lucide-react'
+import { Check, FileCheck2, FileArchive, FileText, Layers3, LoaderCircle, Send, ShieldCheck, UploadCloud } from 'lucide-react'
+import ResearchFileInput from '../components/ResearchFileInput'
+import '../styles/auth-submission.css'
+import '../styles/workspace-pages.css'
 
 const TYPES = [
-    ['research_paper', 'Research paper'],
-    ['executable_system', 'Executable system'],
-    ['paper_and_system', 'Research paper and executable system'],
+    { value: 'research_paper', label: 'Research paper', description: 'Share your findings as a PDF.', icon: FileText },
+    { value: 'executable_system', label: 'Executable system', description: 'Upload your application as a ZIP.', icon: FileArchive },
+    { value: 'paper_and_system', label: 'Paper + system', description: 'Keep your research and code together.', icon: Layers3 },
 ]
 
 function apiErrorMessage(err) {
@@ -48,6 +54,8 @@ export default function UploadPage() {
     const isAdmin = user?.role === 'admin'
     const isStudent = user?.role === 'student'
     const [loading, setLoading] = useState(false)
+    const [uploadProgress, setUploadProgress] = useState(null)
+    const [submitError, setSubmitError] = useState('')
     const [researchFile, setResearchFile] = useState(null)
     const [systemFile, setSystemFile] = useState(null)
     const [departments, setDepartments] = useState([])
@@ -106,7 +114,10 @@ export default function UploadPage() {
             return
         }
 
+        setSubmitError('')
+        setUploadProgress(0)
         setLoading(true)
+        const uploadOptions = { onUploadProgress: ({ loaded, total }) => setUploadProgress(total ? Math.round(loaded * 100 / total) : null) }
         try {
             if (isAdmin) {
                 const data = payload()
@@ -121,7 +132,7 @@ export default function UploadPage() {
                 }
                 if (needsPaper && researchFile) body.append('file', researchFile)
                 if (needsSystem && systemFile) body.append('system_file', systemFile)
-                const response = await api.post('/repository/archives/', body)
+                const response = await api.post('/repository/archives/', body, uploadOptions)
                 toast.success('Research artifacts published.')
                 navigate(`/archives/${response.data.id}`)
             } else {
@@ -131,152 +142,155 @@ export default function UploadPage() {
                 })
                 if (needsPaper && researchFile) body.append('research_file', researchFile)
                 if (needsSystem && systemFile) body.append('system_file', systemFile)
-                const response = await api.post('/repository/submission-requests/', body)
+                const response = await api.post('/repository/submission-requests/', body, uploadOptions)
                 toast.success(`Upload request #${response.data.id} joined the review queue.`)
                 navigate(`/submission-requests/${response.data.id}`)
             }
         } catch (err) {
+            setSubmitError(apiErrorMessage(err))
             toast.error(apiErrorMessage(err))
         } finally {
             setLoading(false)
+            setUploadProgress(null)
         }
     }
 
     if (!isAdmin && !isStudent) {
         return (
-            <div className="layout">
+            <div className="layout workspace-layout">
                 <Sidebar />
-                <div className="main-content">
-                    <div className="page-body">
-                        <div className="card" style={{ maxWidth: 680 }}>
+                <main id="main-content" tabIndex={-1} className="main-content workspace-content submission-workspace">
+                    <WorkspaceHeader title="Research Submissions" eyebrow="Your workspace" />
+                    <div className="page-body workspace-page-body">
+                        <div className="card submission-access-note">
+                            <ShieldCheck size={32} />
                             <h2>Research submissions</h2>
-                            <p style={{ color: 'var(--text2)', marginTop: 8 }}>
-                                Students submit research files for review, and administrators approve and publish the artifacts.
-                            </p>
+                            <p>Students submit research files for review, and administrators approve and publish the artifacts.</p>
+                            <button className="btn btn-primary" onClick={() => navigate('/repository')}>Explore the repository</button>
                         </div>
+                        <WorkspaceFooter />
                     </div>
-                </div>
+                </main>
             </div>
         )
     }
 
+    const update = (name) => (event) => setForm(current => ({ ...current, [name]: event.target.value }))
+    const readyChecks = [
+        { label: 'Research title and author', done: Boolean(form.title.trim() && form.author.trim()) },
+        ...(needsPaper ? [{ label: 'Research paper attached', done: Boolean(researchFile) }] : []),
+        ...(needsSystem ? [{ label: 'System ZIP attached', done: Boolean(systemFile) }, { label: 'System details provided', done: Boolean(form.system_details.trim()) }] : []),
+    ]
+
     return (
-        <div className="layout">
+        <div className="layout workspace-layout">
             <Sidebar />
-            <div className="main-content">
-                <div className="page-header">
-                    <div>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>
-                            {isAdmin ? 'Publish Research' : 'Request a Research Upload'}
-                        </h2>
-                        <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-                            {isAdmin
-                                ? 'Upload approved research papers and executable systems to the repository.'
-                                : 'Upload your research PDF and system ZIP for administrator review. Requests are processed in submission order.'}
-                        </p>
-                    </div>
-                </div>
+            <main id="main-content" tabIndex={-1} className="main-content workspace-content submission-workspace">
+                <WorkspaceHeader title={isAdmin ? 'Publish Research' : 'Share Research'} eyebrow="Contribute to the collection" />
 
-                <div className="page-body">
-                    <form className="upload-form" onSubmit={submit} style={{ maxWidth: 780, display: 'flex', flexDirection: 'column', gap: 20 }}>
-                        {!isAdmin && (
-                            <div className="card" style={{ borderLeft: '3px solid var(--accent)', display: 'flex', gap: 12 }}>
-                                <FileCheck2 size={22} color="var(--accent)" />
-                                <div>
-                                    <strong>Your files stay private while the request is reviewed.</strong>
-                                    <p style={{ color: 'var(--text2)', fontSize: '0.85rem', marginTop: 4 }}>
-                                        The administrator can read your PDF before deciding. Approval publishes the files and saves your ZIP as this research’s default system configuration.
-                                    </p>
+                <div className="page-body workspace-page-body submission-page-body">
+                    <WorkspaceBanner compact eyebrow="Every contribution matters"
+                        title={<>Your research. <span>A wider reach.</span></>}
+                        description={isAdmin ? 'Give approved research a place to be discovered. Share the final files with your academic community.' : 'Submit your work for review and take the next step toward publication.'}
+                    />
+                    <form className="submission-layout" onSubmit={submit} aria-busy={loading}>
+                        <fieldset className="submission-fields" disabled={loading}>
+                            <section className="card submission-section" aria-labelledby="submission-type-heading">
+                                <div className="submission-section-heading"><span aria-hidden="true"><Layers3 size={20} /></span><div><h2 id="submission-type-heading">What are you sharing?</h2><p>Choose the format that best represents your work.</p></div></div>
+                                <div className="submission-type-options" role="radiogroup" aria-labelledby="submission-type-heading">
+                                    {TYPES.map(({ value, label, description, icon: Icon }) => (
+                                        <label key={value} className={`submission-type-option${form.submission_type === value ? ' is-selected' : ''}`}>
+                                            <input type="radio" name="submission_type" value={value} checked={form.submission_type === value} onChange={update('submission_type')} />
+                                            <span className="submission-type-icon"><Icon size={22} /></span>
+                                            <strong>{label}</strong><span>{description}</span>
+                                            <span className="submission-type-check" aria-hidden="true">{form.submission_type === value && <Check size={12} />}</span>
+                                        </label>
+                                    ))}
                                 </div>
-                            </div>
-                        )}
+                            </section>
 
-                        {(
-                            <div className="card" style={{ display: 'grid', gap: 14 }}>
-                                <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>{isAdmin ? 'Artifacts to publish' : 'Files for review'}</h3>
-                                <p className="text-sm text-muted">Choose the submission type below to upload a PDF, a ZIP, or both. Maximum 100 MB per file.</p>
-                                {needsPaper && (
+                            <section className="card submission-section" aria-labelledby="submission-files-heading">
+                                <div className="submission-section-heading"><span aria-hidden="true"><UploadCloud size={20} /></span><div><h2 id="submission-files-heading">Attach your files</h2><p>{isAdmin ? 'Upload the final files for this publication.' : 'Add the files you want the administrator to review.'}</p></div></div>
+                                <div className={`submission-files-grid${needsPaper && needsSystem ? '' : ' is-single'}`}>
+                                    {needsPaper && <ResearchFileInput id="research-file" kind="pdf" file={researchFile} onChange={setResearchFile} disabled={loading} />}
+                                    {needsSystem && <ResearchFileInput id="system-file" kind="zip" file={systemFile} onChange={setSystemFile} disabled={loading} />}
+                                </div>
+                                {needsSystem && <p className="research-form-hint">Include your application source and dependency files in a single ZIP. The approved ZIP becomes this research’s saved system configuration.</p>}
+                            </section>
+
+                            <section className="card submission-section" aria-labelledby="submission-details-heading">
+                                <div className="submission-section-heading"><span aria-hidden="true"><FileText size={20} /></span><div><h2 id="submission-details-heading">Tell us about your research</h2><p>Good details help others find and understand your contribution.</p></div></div>
+                                <div className="form-group">
+                                    <label className="form-label" htmlFor="research-title">Research title <span className="submission-required">*</span></label>
+                                    <input id="research-title" className="form-input" value={form.title} onChange={update('title')} placeholder="Give your research a clear, descriptive title" required />
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label" htmlFor="research-abstract">Abstract <span className="submission-optional">Optional</span></label>
+                                    <textarea id="research-abstract" className="form-textarea" rows={5} value={form.abstract} onChange={update('abstract')} placeholder="Summarize your research question, approach, and key findings." />
+                                </div>
+                                <div className="research-form-grid">
                                     <div className="form-group">
-                                        <label className="form-label" htmlFor="research-file">Research paper (PDF)</label>
-                                        <input id="research-file" className="form-input" type="file" accept="application/pdf,.pdf" onChange={(event) => setResearchFile(event.target.files[0] || null)} required />
+                                        <label className="form-label" htmlFor="research-author">Author <span className="submission-required">*</span></label>
+                                        <input id="research-author" className="form-input" value={form.author} onChange={update('author')} placeholder="Full name or author names" required />
                                     </div>
-                                )}
+                                    <div className="form-group">
+                                        <label className="form-label" htmlFor="research-year">Year</label>
+                                        <input id="research-year" className="form-input" type="number" value={form.year} onChange={update('year')} />
+                                    </div>
+                                </div>
+                                <div className="research-form-grid">
+                                    <div className="form-group">
+                                        <label className="form-label" htmlFor="research-department">Department</label>
+                                        <select id="research-department" className="form-select" value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value, course: '' }))}>
+                                            <option value="">Select department</option>
+                                            {departments.map((department) => <option key={department.id} value={department.name}>{department.name}</option>)}
+                                        </select>
+                                    </div>
+                                    <div className="form-group">
+                                        <label className="form-label" htmlFor="research-course">Course</label>
+                                        <select id="research-course" className="form-select" value={form.course} onChange={update('course')}>
+                                            <option value="">Select course</option>
+                                            {courses.filter((course) => !form.department || course.department_name === form.department).map((course) => <option key={course.id} value={course.name}>{course.name}</option>)}
+                                        </select>
+                                    </div>
+                                </div>
+                                <div className="form-group">
+                                    <label className="form-label" htmlFor="research-keywords">Keywords <span className="submission-optional">Optional</span></label>
+                                    <input id="research-keywords" className="form-input" value={form.keywords} onChange={update('keywords')} placeholder="Machine learning, learning analytics, capstone" aria-describedby="research-keywords-hint" />
+                                    <span id="research-keywords-hint" className="research-form-hint">Separate keywords with commas so your research is easier to discover.</span>
+                                </div>
                                 {needsSystem && (
                                     <div className="form-group">
-                                        <label className="form-label" htmlFor="system-file">Executable system (ZIP)</label>
-                                        <input id="system-file" className="form-input" type="file" accept="application/zip,.zip" onChange={(event) => setSystemFile(event.target.files[0] || null)} required />
+                                        <label className="form-label" htmlFor="research-system-details">System handoff details <span className="submission-required">*</span></label>
+                                        <textarea id="research-system-details" className="form-textarea" rows={4} value={form.system_details} onChange={update('system_details')} placeholder="Describe what the system does, the technology used, and how to run it." required aria-describedby="research-system-hint" />
+                                        <span id="research-system-hint" className="research-form-hint">Include setup steps and dependencies. If your system needs a hosting configuration, include hosting.json in the ZIP.</span>
                                     </div>
                                 )}
-                            </div>
-                        )}
-
-                        <div className="card" style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <h3 style={{ fontSize: '0.95rem', fontWeight: 700 }}>Submission details</h3>
-                            <div className="form-group">
-                                <label className="form-label">Submission type</label>
-                                <select className="form-input" value={form.submission_type} onChange={(event) => setForm((current) => ({ ...current, submission_type: event.target.value }))}>
-                                    {TYPES.map(([value, label]) => <option key={value} value={value}>{label}</option>)}
-                                </select>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Title</label>
-                                <input className="form-input" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Abstract</label>
-                                <textarea className="form-textarea" rows={4} value={form.abstract} onChange={(event) => setForm((current) => ({ ...current, abstract: event.target.value }))} placeholder="Optional abstract or summary." />
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Keywords</label>
-                                <input className="form-input" value={form.keywords} onChange={(event) => setForm((current) => ({ ...current, keywords: event.target.value }))} placeholder="machine learning, learning analytics, capstone" />
-                                <span className="dashboard-stat-meta">Separate keywords with commas.</span>
-                            </div>
-                            <div className="grid-2">
-                                <div className="form-group">
-                                    <label className="form-label">Author</label>
-                                    <input className="form-input" value={form.author} onChange={(event) => setForm((current) => ({ ...current, author: event.target.value }))} required />
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Year</label>
-                                    <input className="form-input" type="number" value={form.year} onChange={(event) => setForm((current) => ({ ...current, year: event.target.value }))} />
+                            </section>
+                            {submitError && <div className="alert alert-error" role="alert">{submitError}</div>}
+                            <div className="submission-actions">
+                                <p>{isAdmin ? 'Your files will be published to the repository.' : 'You can track your request after submitting.'}</p>
+                                <div><button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Cancel</button>
+                                    <button type="submit" className="btn btn-primary" disabled={loading}>
+                                        {loading ? <LoaderCircle size={17} className="research-loading-icon" /> : isAdmin ? <UploadCloud size={17} /> : <Send size={17} />}
+                                        {loading ? (uploadProgress === 100 ? 'Saving submission…' : `Uploading${uploadProgress === null ? '…' : ` ${uploadProgress}%`}`) : isAdmin ? 'Publish research' : 'Submit for review'}
+                                    </button>
                                 </div>
                             </div>
-                            <div className="grid-2">
-                                <div className="form-group">
-                                    <label className="form-label">Department</label>
-                                    <select className="form-input" value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value, course: '' }))}>
-                                        <option value="">Select department</option>
-                                        {departments.map((department) => <option key={department.id} value={department.name}>{department.name}</option>)}
-                                    </select>
-                                </div>
-                                <div className="form-group">
-                                    <label className="form-label">Course</label>
-                                    <select className="form-input" value={form.course} onChange={(event) => setForm((current) => ({ ...current, course: event.target.value }))}>
-                                        <option value="">Select course</option>
-                                        {courses.filter((course) => !form.department || course.department_name === form.department).map((course) => (
-                                            <option key={course.id} value={course.name}>{course.name}</option>
-                                        ))}
-                                    </select>
-                                </div>
+                        </fieldset>
+                        <aside className="submission-guide" aria-label="Submission guidance">
+                            <div className="submission-guide-icon"><ShieldCheck size={25} /></div>
+                            <h2>{isAdmin ? 'Ready for the collection' : 'Your work, thoughtfully reviewed'}</h2>
+                            <p>{isAdmin ? 'Make sure your research details and final files are complete before publishing.' : 'Your files stay private while an administrator reviews your request. Requests are processed in submission order.'}</p>
+                            <div className="submission-checklist"><h3>Before you submit</h3>
+                                {readyChecks.map(({ label, done }) => <div key={label} className={done ? 'is-complete' : ''}><span aria-label={done ? 'Complete' : 'Incomplete'}>{done && <Check size={12} />}</span>{label}</div>)}
                             </div>
-                            {needsSystem && (
-                                <div className="form-group">
-                                    <label className="form-label">System handoff details</label>
-                                    <textarea className="form-textarea" rows={4} value={form.system_details} onChange={(event) => setForm((current) => ({ ...current, system_details: event.target.value }))} placeholder="Describe the uploaded system, technology stack, dependencies, and steps to run it. Include hosting.json inside the ZIP if configuration is needed." required />
-                                </div>
-                            )}
-                        </div>
-
-                        <div className="upload-actions">
-                            <button type="submit" className="btn btn-primary" disabled={loading}>
-                                {isAdmin ? <UploadCloud size={16} /> : <Send size={16} />}
-                                {loading ? 'Saving...' : isAdmin ? 'Publish artifacts' : 'Submit upload request'}
-                            </button>
-                            <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Cancel</button>
-                        </div>
+                            <p className="submission-guide-note"><FileCheck2 size={17} />{isAdmin ? 'Published research is available in the repository.' : 'You’ll find review updates in your dashboard.'}</p>
+                        </aside>
                     </form>
+                    <WorkspaceFooter />
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

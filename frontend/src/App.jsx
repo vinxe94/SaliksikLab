@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom'
 import { Toaster } from 'react-hot-toast'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import { LanguageProvider } from './contexts/LanguageContext'
@@ -17,6 +18,22 @@ import ReportGenerationPage from './pages/ReportGenerationPage'
 import AnalyticsPage from './pages/AnalyticsPage'
 import SubmissionRequestPage from './pages/SubmissionRequestPage'
 import PropTypes from 'prop-types'
+
+function RouteEffects() {
+  const { pathname } = useLocation()
+  useEffect(() => {
+    const pageNames = {
+      '/login': 'Sign in', '/register': 'Create account', '/forgot-password': 'Reset your password',
+      '/reset-password': 'Choose a new password', '/dashboard': 'Dashboard', '/repository': 'Research library',
+      '/upload': 'Research submission', '/admin': 'Management', '/profile': 'Your profile',
+      '/reports': 'Reports', '/analytics': 'Analytics',
+    }
+    const title = pageNames[pathname] || (pathname.startsWith('/archives/') ? 'Research archive' : 'Upload request')
+    document.title = `${title} · Tukiva`
+    window.scrollTo(0, 0)
+  }, [pathname])
+  return null
+}
 
 function PrivateRoute({ children }) {
   const { user, loading } = useAuth()
@@ -46,12 +63,13 @@ export default function App() {
     <LanguageProvider>
       <AuthProvider>
         <BrowserRouter>
+          <RouteEffects />
           <Toaster
             position="top-right"
             toastOptions={{
-              style: { background: '#21262d', color: '#e6edf3', border: '1px solid #30363d' },
-              success: { style: { borderLeft: '3px solid #2ea86c' } },
-              error: { style: { borderLeft: '3px solid #f85149' } },
+              style: { background: '#ffffff', color: '#20372e', border: '1px solid #dfe6df', borderRadius: '12px', boxShadow: '0 8px 32px #173e3318', fontSize: '13px', padding: '13px 16px', maxWidth: 'min(380px, calc(100vw - 32px))' },
+              success: { iconTheme: { primary: '#286a50', secondary: '#ffffff' } },
+              error: { iconTheme: { primary: '#b83d3d', secondary: '#ffffff' } },
             }}
           />
           <Routes>

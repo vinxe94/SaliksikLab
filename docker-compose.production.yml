@@ -1,0 +1,50 @@
+# Production edge proxy, secrets, and private service ports for a Linux VPS.
+# Run after docker-compose.yml and docker-compose.hosting.yml.
+services:
+  db:
+    restart: unless-stopped
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env file}
+    ports: !override
+      - "127.0.0.1:${POSTGRES_PUBLISHED_PORT:-5433}:5432"
+
+  backend:
+    restart: unless-stopped
+    environment:
+      SECRET_KEY: ${DJANGO_SECRET_KEY:?Set DJANGO_SECRET_KEY in the server .env file}
+      DEBUG: "False"
+      ALLOWED_HOSTS: "${DOMAIN:?Set DOMAIN in the server .env file},localhost,127.0.0.1,.trycloudflare.com"
+      CORS_ALLOWED_ORIGINS: "https://${DOMAIN:?Set DOMAIN in the server .env file}"
+      CORS_ALLOWED_ORIGIN_REGEXES: "^https://.*\\.trycloudflare\\.com$"
+      CSRF_TRUSTED_ORIGINS: "https://${DOMAIN:?Set DOMAIN in the server .env file},https://*.trycloudflare.com"
+      FRONTEND_URL: "https://${DOMAIN:?Set DOMAIN in the server .env file}"
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env file}
+
+  hosting-worker:
+    restart: unless-stopped
+    environment:
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in the server .env file}
+
+  frontend:
+    restart: unless-stopped
+    ports: !override []
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    environment:
+      DOMAIN: ${DOMAIN:?Set DOMAIN in the server .env file}
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    volumes:
+      - ./deploy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      - frontend
+
+volumes:
+  caddy_data:
+  caddy_config:

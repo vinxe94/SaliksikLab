@@ -140,7 +140,7 @@ export default function ArchiveDetailPage() {
         }
     }
 
-    if (loading) return <div className="layout"><Sidebar /><div className="main-content"><div className="spinner" /></div></div>
+    if (loading) return <div className="layout"><Sidebar /><main id="main-content" tabIndex={-1} className="main-content"><div className="spinner" role="status" aria-label="Loading research" /></main></div>
 
     const documentInfoCard = (
         <div className="card archive-document-info-card">
@@ -191,7 +191,7 @@ export default function ArchiveDetailPage() {
     return (
         <div className="layout">
             <Sidebar />
-            <div className="main-content">
+            <main id="main-content" tabIndex={-1} className="main-content">
                 <div className="page-header archive-detail-header">
                     <button className="btn btn-ghost btn-sm" onClick={() => navigate('/repository')}><ArrowLeft size={14} /> Back</button>
                     <div className="archive-header-actions">
@@ -344,7 +344,7 @@ export default function ArchiveDetailPage() {
                         </div>
                     </div>
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

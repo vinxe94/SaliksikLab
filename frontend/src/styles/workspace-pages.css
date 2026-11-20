@@ -1,0 +1,161 @@
+/* Shared page treatments extend the dashboard's campus and emerald identity. */
+.workspace-content { --text: #103f34; --text2: #536e67; --accent: #087c49; --accent2: #099859; --border: #deebe5; --bg3: #f0f7f3; }
+.workspace-content .workspace-page-body { display: flex; flex-direction: column; gap: 24px; max-width: 1800px; width: 100%; padding: 12px var(--page-gutter) 28px; }
+.workspace-content .workspace-banner-compact { min-height: 230px; padding: 28px 36px; }
+.workspace-content .workspace-banner-compact h2 { max-width: 24ch; font-size: clamp(2rem, 2.6vw, 2.7rem); }
+.workspace-content .workspace-banner-compact .dashboard-hero-copy { width: 67%; }
+.workspace-content .workspace-banner-compact .dashboard-hero-copy > p { max-width: 55ch; }
+.workspace-content .workspace-banner-compact .dashboard-hero-signature { font-size: 2.5rem; }
+.workspace-content .workspace-banner-stat { display: flex; align-items: center; gap: 15px; padding: 7px 16px; border: 1px solid #a5e18755; border-radius: 12px; background: #003b2d80; color: #f1f9ed; font-size: .875rem; }
+.workspace-content .workspace-banner-stat strong { color: #b4fa86; font-size: 1.5rem; line-height: 1.2; }
+.workspace-content .workspace-page-body .btn { min-height: 42px; border-radius: 12px; font-size: .875rem; }
+.workspace-content .workspace-page-body .btn-primary { background: linear-gradient(120deg, #158958, #00513d); color: #fff; border-color: #08734a; box-shadow: 0 4px 10px #08523912; }
+.workspace-content .workspace-page-body .btn-primary:hover { background: linear-gradient(120deg, #11764b, #00432f); }
+.workspace-content .workspace-page-body .btn-ghost { color: #18563e; background: #fff; border: 1px solid #d9e6de; }
+.workspace-content .workspace-page-body .btn-ghost:hover { background: #eff8eb; border-color: #9ecf9d; }
+.workspace-content .workspace-page-body :is(.form-input, .form-select, .form-textarea) { border-color: #bad2c6; border-radius: 11px; background-color: #fff; color: #143f32; font-size: 1rem; min-height: 44px; }
+.workspace-content .workspace-page-body :is(.form-input, .form-select, .form-textarea):focus { border-color: #228759; box-shadow: 0 0 0 3px #188a5714; }
+.workspace-content .workspace-page-body :is(.form-label, .badge) { font-size: .875rem; }
+.workspace-content .workspace-page-body :is(.card, .dashboard-panel) { border: 1px solid #deebe5; border-radius: 20px; box-shadow: 0 4px 8px #0a553c04, 0 10px 28px #164f3b04; background: #fff; }
+
+/* Repository: searchable collection with the dashboard's document cards. */
+.workspace-content .research-library-controls { border-color: #deebe5; border-radius: 20px; padding: 20px; box-shadow: 0 8px 24px #164f3b04; }
+.workspace-content .research-search { border-color: #bad2c6; border-radius: 12px; background: #fbfdfb; min-height: 50px; }
+.workspace-content .research-search input { font-size: 1rem; }
+.workspace-content .research-filter-toggle { border-color: #bad2c6; color: #17643f; background: #f0f9ed; }
+.workspace-content .research-filter-toggle.is-active { border-color: #21915b; background: #def3d2; }
+.workspace-content .research-active-filters button { font-size: .875rem; border-radius: 9px; }
+.workspace-content .research-filter-error { font-size: .875rem; }
+.workspace-content .research-results-heading { margin-bottom: 18px; }
+.workspace-content .research-results-heading h2 { font-size: 1.3rem; font-weight: 800; }
+.workspace-content .research-results-count, .workspace-content .research-results-order { font-size: .875rem; color: #557064; }
+.workspace-content .research-results-list { border-color: #deebe5; border-radius: 20px; overflow: hidden; box-shadow: 0 8px 24px #164f3b04; }
+.workspace-content .research-library-card { padding: 24px; gap: 20px; }
+.workspace-content .research-library-card:hover { background: #f6fbf5; }
+.workspace-content .research-row-document { width: 50px; height: 60px; border: 0; border-radius: 14px; color: #07864b; background: linear-gradient(140deg, #eaf8e7, #daf0df); }
+.workspace-content .research-card-top { gap: 8px; }
+.workspace-content .research-card-file, .workspace-content .research-card-department, .workspace-content .research-card-tags > span { font-size: .75rem; }
+.workspace-content .research-library-card h3 { font-size: 1.0625rem; }
+.workspace-content .research-library-card h3 a { color: #173f47; }
+.workspace-content .research-card-author { font-size: .875rem; color: #4e6f76; }
+.workspace-content .research-card-abstract { font-size: 1rem; line-height: 1.6; }
+.workspace-content .research-text-link, .workspace-content .research-system-link { font-size: .875rem; color: #087949; }
+.workspace-content .research-empty p, .workspace-content .research-pagination { font-size: 1rem; }
+
+/* Publishing: readable form panels and a persistent readiness checklist. */
+.workspace-content .submission-layout { grid-template-columns: minmax(0, 1fr) 290px; gap: 24px; }
+.workspace-content .submission-section { padding: 26px; }
+.workspace-content .submission-section-heading > span { width: 38px; height: 38px; border-radius: 50%; background: #d6f5bc; color: #117f42; }
+.workspace-content .submission-section-heading h2 { font-size: 1.25rem; }
+.workspace-content .submission-section-heading p { font-size: 1rem; line-height: 1.6; }
+.workspace-content .submission-type-option { border-radius: 15px; border-color: #d8e7de; padding: 20px 16px; }
+.workspace-content .submission-type-option.is-selected { border-color: #37a16a; background: #f0fae9; box-shadow: inset 0 0 0 1px #37a16a; }
+.workspace-content .submission-type-icon, .workspace-content .submission-file-icon { background: #e3f6d8; color: #11834d; border-radius: 13px; }
+.workspace-content .submission-type-option strong, .workspace-content .submission-file-heading { font-size: 1rem; }
+.workspace-content .submission-type-option > span:not([class]), .workspace-content .submission-file-description, .workspace-content .submission-file-selected { font-size: .875rem; line-height: 1.5; }
+.workspace-content .submission-type-check { border-color: #6bac80; }
+.workspace-content .is-selected .submission-type-check { background: #078449; }
+.workspace-content .submission-file-card { border-color: #94bda6; border-radius: 15px; background: #f8fcf7; min-height: 215px; }
+.workspace-content .submission-file-card.has-file { border-color: #55a573; background: #edf9e7; }
+.workspace-content .submission-file-hint, .workspace-content .submission-optional, .workspace-content .submission-file-heading > span { font-size: .75rem; }
+.workspace-content .submission-file-choose, .workspace-content .submission-file-remove { font-size: .875rem; min-height: 40px; border-radius: 9px; }
+.workspace-content .research-form-hint { font-size: .875rem; line-height: 1.6; }
+.workspace-content .submission-guide { top: 128px; padding: 26px; border-radius: 20px; border-color: #d5eac8; background: linear-gradient(140deg, #f1fae9, #e0f2d5); }
+.workspace-content .submission-guide-icon { border-radius: 50%; background: #c2edaa; color: #118245; }
+.workspace-content .submission-guide h2 { font-size: 1.35rem; color: #10432f; }
+.workspace-content .submission-guide > p { font-size: 1rem; color: #4e6c5b; line-height: 1.6; }
+.workspace-content .submission-checklist h3, .workspace-content .submission-checklist > div, .workspace-content .submission-guide .submission-guide-note { font-size: .875rem; }
+.workspace-content .submission-checklist > div { color: #4c6a50; }
+.workspace-content .submission-checklist > .is-complete { color: #08743f; }
+.workspace-content .submission-checklist > .is-complete > span { background: #0b8b4b; }
+.workspace-content .submission-actions { padding: 20px 0; }
+.workspace-content .submission-actions > p { font-size: .875rem; }
+
+/* Management: matching metrics, clear tools, and locally scrollable tables. */
+.workspace-section-toolbar { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 16px; }
+.workspace-section-toolbar h2 { font-size: 1.3rem; letter-spacing: -.03em; }
+.workspace-section-toolbar p { margin-top: 5px; color: #536e67; font-size: 1rem; }
+.workspace-content .management-stats { gap: 14px; margin: 0; }
+.workspace-content .management-stat, .workspace-content .analytics-stat-card { position: relative; isolation: isolate; overflow: hidden; border-radius: 20px; border: 1px solid #deebe5; background: #fff; box-shadow: 0 4px 7px #0a553c07, 0 10px 22px #164f3b05; padding: 20px; }
+.workspace-content .management-stat::after, .workspace-content .analytics-stat-card::after { content: ''; position: absolute; inset: auto -45px -25px auto; width: 170px; height: 90px; border-radius: 65% 35% 0 0; transform: rotate(-30deg); background: #eaf5ed; z-index: -1; }
+.workspace-content .management-stat-top { flex-wrap: wrap; gap: 10px; font-size: .875rem; color: #2d5147; }
+.workspace-stat-icon, .workspace-content .analytics-stat-icon { display: inline-grid; place-items: center; flex-shrink: 0; width: 42px; height: 42px; border-radius: 50%; background: #def4d8; }
+.workspace-content .management-stat:nth-child(2) .workspace-stat-icon, .workspace-content .management-stat:nth-child(4) .workspace-stat-icon { background: #fff0c6; }
+.workspace-content .management-stat:nth-child(5) .workspace-stat-icon { background: #ffe2ed; }
+.workspace-content .management-stat:nth-child(6) .workspace-stat-icon { background: #dfedff; }
+.workspace-content .management-stat-value { font-size: 2rem; }
+.workspace-content .management-stat.is-priority { border-color: #acd69d; background: #fbfef8; }
+.workspace-content .management-tabs { background: #eaf3ec; border-color: #d8e6dd; border-radius: 16px; margin: 0; padding: 7px; }
+.workspace-content .management-tabs button { min-height: 46px; border-radius: 11px; font-size: .875rem; color: #466d59; }
+.workspace-content .management-tabs button[aria-selected='true'] { background: #075d3f; color: #fff; border-color: #075d3f; box-shadow: 0 3px 7px #00452e15; }
+.workspace-content .management-tab-count { background: #c7f4ae; color: #105832; font-size: .75rem; border-radius: 6px; }
+.workspace-content [role='tabpanel'] { min-width: 0; }
+.workspace-content .management-section-heading h2 { font-size: 1.25rem; }
+.workspace-content .management-section-heading p, .workspace-content .management-empty p { font-size: 1rem; }
+.workspace-content .management-results, .workspace-content .management-queue-note strong, .workspace-content .management-queue-note p { font-size: .875rem; }
+.workspace-content .management-queue-note { border-color: #cce4be; background: #f0f9e9; border-radius: 15px; }
+.workspace-content .management-table { border-color: #deebe5; border-radius: 18px; }
+.workspace-content .management-table .table th { background: #eff7f0; color: #476856; font-size: .75rem; }
+.workspace-content .management-table .table td, .workspace-content .management-table .table td .text-sm { font-size: .875rem; }
+.workspace-content .management-academic-row strong { font-size: 1rem; }
+.workspace-content .management-academic-empty { font-size: 1rem; }
+.workspace-content .hosting-panel.card { border-radius: 20px; }
+
+/* Analytics: shared metric cards with emerald, amber, and rose status colors. */
+.workspace-content .analytics-workspace-body .stat-grid { gap: 20px; margin: 0; }
+.workspace-content .analytics-stat-card .stat-value { font-size: 2rem; color: #164c3f; }
+.workspace-content .analytics-stat-card .stat-label { font-size: 1rem; color: #234c42; }
+.workspace-content .analytics-stat-card .dashboard-stat-meta { font-size: .875rem; color: #536e67; }
+.workspace-content .analytics-stat-card:nth-child(2) .analytics-stat-icon { background: #fff0c6; }
+.workspace-content .analytics-stat-card:nth-child(3) .analytics-stat-icon { background: #ffe2ed; }
+.workspace-content .analytics-stat-card:nth-child(4) .analytics-stat-icon { background: #dfedff; color: #2882b5; }
+.workspace-content .analytics-visual-grid { gap: 24px; }
+.workspace-content .analytics-chart-panel { padding: 24px; min-width: 0; }
+.workspace-content .dashboard-panel-kicker { color: #168552; font-size: .75rem; letter-spacing: .1em; }
+.workspace-content .dashboard-panel-head h3 { color: #164b38; font-size: 1.125rem; }
+.workspace-content .dashboard-panel-head h3 svg { color: #159752; flex-shrink: 0; }
+.workspace-content .dashboard-panel-total { color: #087b49; background: #e6f6dd; border-radius: 12px; font-size: 1.25rem; }
+.workspace-content .analytics-breakdown-label { font-size: .875rem; }
+.workspace-content .analytics-type-row { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) auto; font-size: .875rem; }
+.workspace-content .analytics-type-row > span { white-space: normal; overflow-wrap: anywhere; }
+.workspace-content .analytics-mini-track { background: #edf4ee; }
+.workspace-content .dashboard-card-copy { font-size: 1rem; }
+
+@media (max-width: 1400px) {
+  .workspace-content .management-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .workspace-content .submission-layout { grid-template-columns: minmax(0, 1fr) 260px; gap: 20px; }
+  .workspace-content .submission-guide { padding: 22px; }
+  .workspace-content .submission-type-options { gap: 10px; }
+}
+@media (max-width: 1120px) {
+  .workspace-content .submission-layout { grid-template-columns: minmax(0, 1fr); }
+  .workspace-content .submission-guide { position: static; }
+  .workspace-content .workspace-banner-compact .dashboard-hero-copy { width: 80%; }
+}
+@media (max-width: 900px) {
+  .workspace-content .analytics-visual-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (max-width: 620px) {
+  .workspace-content .workspace-page-body { gap: 20px; padding-top: 0; }
+  .workspace-content .workspace-banner-compact { min-height: 0; padding: 25px 23px; }
+  .workspace-content .workspace-banner-compact h2 { font-size: 2rem; }
+  .workspace-content .workspace-banner-compact .dashboard-hero-copy { width: 100%; }
+  .workspace-content .workspace-banner-stat { align-self: flex-start; }
+  .workspace-content .research-library-controls { padding: 15px; }
+  .workspace-content .research-library-card { padding: 20px; }
+  .workspace-content .research-results-heading { align-items: flex-start; gap: 10px; }
+  .workspace-content .research-results-order { display: none; }
+  .workspace-content .submission-section { padding: 20px; }
+  .workspace-content .submission-type-options { grid-template-columns: minmax(0, 1fr); }
+  .workspace-content .submission-type-option { padding: 18px; }
+  .workspace-content .submission-section-heading h2 { font-size: 1.125rem; }
+  .workspace-content .management-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .workspace-content .management-stat { padding: 16px; }
+  .workspace-content .management-stat-top { flex-direction: column; align-items: flex-start; min-height: 92px; }
+  .workspace-content .management-header-actions { width: 100%; gap: 8px; }
+  .workspace-content .management-header-actions .btn { flex: 1 1 auto; }
+  .workspace-content .management-toolbar > select { flex: 1; }
+  .workspace-content .management-search { max-width: none; flex-basis: 100%; }
+  .workspace-content .analytics-workspace-body .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+  .workspace-content .analytics-stat-card, .workspace-content .analytics-chart-panel { padding: 18px; }
+}

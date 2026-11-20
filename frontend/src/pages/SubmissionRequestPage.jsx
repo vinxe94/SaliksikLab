@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import toast from 'react-hot-toast'
-import { ArrowLeft, CheckCircle, Clock, RotateCcw, XCircle } from 'lucide-react'
+import { ArrowLeft, ArrowUpRight, CheckCircle, Clock, FileText, Hash, LoaderCircle, MessageSquare, RotateCcw, XCircle } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
 import api from '../api/axios'
 import SubmissionAttachments from '../components/SubmissionAttachments'
+import ResearchFileInput from '../components/ResearchFileInput'
+import '../styles/auth-submission.css'
 
 const statusInfo = {
     pending: { label: 'Pending in administrator queue', icon: Clock, badge: 'badge-blue' },
@@ -22,6 +24,7 @@ export default function SubmissionRequestPage() {
     const [form, setForm] = useState({})
     const [researchFile, setResearchFile] = useState(null)
     const [systemFile, setSystemFile] = useState(null)
+    const [saveError, setSaveError] = useState('')
 
     const load = useCallback(() => {
         setLoading(true)
@@ -54,6 +57,7 @@ export default function SubmissionRequestPage() {
             toast.error('Each file must be 100 MB or smaller.')
             return
         }
+        setSaveError('')
         setSaving(true)
         try {
             const body = new FormData()
@@ -69,87 +73,101 @@ export default function SubmissionRequestPage() {
             toast.success(`Request resubmitted at queue position #${data.queue_position}.`)
         } catch (err) {
             const data = err.response?.data
-            toast.error(data?.detail || data?.research_file?.[0] || data?.system_file?.[0] || data?.system_details?.[0] || 'Resubmission failed.')
+            const message = data?.detail || data?.research_file?.[0] || data?.system_file?.[0] || data?.system_details?.[0] || 'Resubmission failed. Please try again.'
+            setSaveError(message)
+            toast.error(message)
         } finally {
             setSaving(false)
         }
     }
 
-    if (loading) return <div className="layout"><Sidebar /><div className="main-content"><div className="spinner" /></div></div>
+    if (loading) return <div className="layout"><Sidebar /><main id="main-content" tabIndex={-1} className="main-content submission-status-loading" aria-busy="true"><div className="spinner" aria-hidden="true" /><p role="status">Loading your submission…</p></main></div>
     if (!submission) return null
 
     const info = statusInfo[submission.status] || statusInfo.pending
     const StatusIcon = info.icon
     const canRevise = submission.status === 'revision_requested'
     const hasSystem = submission.submission_type !== 'research_paper'
+    const hasPaper = submission.submission_type !== 'executable_system'
+    const update = (name) => (event) => setForm(current => ({ ...current, [name]: event.target.value }))
+    const input = (name, label, { required = false, type = 'text', hint = '' } = {}) => (
+        <div className="form-group">
+            <label className="form-label" htmlFor={`revision-${name}`}>{label}{required && <span className="submission-required"> *</span>}</label>
+            <input id={`revision-${name}`} className="form-input" type={type} value={form[name]} onChange={update(name)} required={required} aria-describedby={hint ? `revision-${name}-hint` : undefined} />
+            {hint && <span id={`revision-${name}-hint`} className="research-form-hint">{hint}</span>}
+        </div>
+    )
 
     return (
         <div className="layout">
             <Sidebar />
-            <div className="main-content">
+            <main id="main-content" tabIndex={-1} className="main-content submission-workspace">
                 <div className="page-header">
                     <button className="btn btn-ghost btn-sm" onClick={() => navigate('/dashboard')}><ArrowLeft size={14} /> Dashboard</button>
                     <span className={`badge ${info.badge}`}><StatusIcon size={12} /> {info.label}</span>
                 </div>
-                <div className="page-body" style={{ maxWidth: 820 }}>
-                    <div className="card" style={{ marginBottom: 18 }}>
-                        <h1 style={{ fontSize: '1.35rem', marginBottom: 8 }}>{submission.title}</h1>
-                        <p style={{ color: 'var(--text2)' }}>Request #{submission.id}{submission.queue_position ? ` · Queue position #${submission.queue_position}` : ''}</p>
+                <div className="page-body submission-status-body">
+                    <section className="card submission-status-header" aria-labelledby="submission-title">
+                        <div className="submission-status-heading">
+                            <span className="submission-status-icon"><FileText size={23} /></span>
+                            <div><p className="submission-eyebrow">YOUR RESEARCH SUBMISSION</p><h1 id="submission-title">{submission.title}</h1>
+                                <div className="submission-status-meta"><span><Hash size={14} />Request {submission.id}</span>{submission.queue_position && <span><Clock size={14} />Queue position {submission.queue_position}</span>}</div>
+                            </div>
+                        </div>
                         {submission.admin_comment && (
-                            <div style={{ marginTop: 16, padding: 14, borderRadius: 8, background: 'var(--bg3)', borderLeft: '3px solid var(--warning)' }}>
-                                <strong>Administrator feedback</strong>
-                                <p style={{ color: 'var(--text2)', marginTop: 6, whiteSpace: 'pre-wrap' }}>{submission.admin_comment}</p>
+                            <div className="submission-feedback">
+                                <h2><MessageSquare size={16} />Administrator feedback</h2>
+                                <p>{submission.admin_comment}</p>
                             </div>
                         )}
+                        {submission.status === 'pending' && <p className="submission-status-copy">Your request is waiting for an administrator to review it. You can return here to check your status and read any feedback.</p>}
                         {submission.published_archive_id && (
-                            <button className="btn btn-primary btn-sm" style={{ marginTop: 16 }} onClick={() => navigate(`/archives/${submission.published_archive_id}`)}>
-                                View published archive
+                            <button className="btn btn-primary" onClick={() => navigate(`/archives/${submission.published_archive_id}`)}>
+                                View published research <ArrowUpRight size={16} />
                             </button>
                         )}
-                    </div>
+                    </section>
 
-                    <div className="card" style={{ marginBottom: 18 }}>
-                        <h2 style={{ fontSize: '1rem', marginBottom: 12 }}>Submitted files</h2>
+                    <section className="card submission-section" aria-labelledby="submitted-files-heading">
+                        <div className="submission-section-heading"><span><FileText size={16} /></span><div><h2 id="submitted-files-heading">Submitted files</h2><p>Preview the paper or download the system attached to this request.</p></div></div>
                         <SubmissionAttachments key={submission.updated_at} submission={submission} />
-                    </div>
+                    </section>
 
                     {canRevise ? (
-                        <form className="card" onSubmit={resubmit} style={{ display: 'grid', gap: 16 }}>
-                            <div>
-                                <h2 style={{ fontSize: '1rem' }}>Revise request details</h2>
-                                <p style={{ color: 'var(--text2)', fontSize: '0.85rem', marginTop: 4 }}>Update your details and replace any files that need corrections. Existing files are kept unless replaced. Resubmission places this request at the end of the pending queue.</p>
-                            </div>
-                            {submission.submission_type !== 'executable_system' && <label className="form-group">{submission.has_research_file ? 'Replacement research PDF (optional)' : 'Research PDF (required)'}
-                                <input className="form-input" type="file" accept=".pdf,application/pdf" required={!submission.has_research_file} onChange={event => setResearchFile(event.target.files[0] || null)} />
-                            </label>}
-                            {hasSystem && <label className="form-group">{submission.has_system_file ? 'Replacement system ZIP (optional)' : 'System ZIP (required)'}
-                                <input className="form-input" type="file" accept=".zip,application/zip" required={!submission.has_system_file} onChange={event => setSystemFile(event.target.files[0] || null)} />
-                            </label>}
-                            <div className="form-group"><label className="form-label">Title</label><input className="form-input" value={form.title} onChange={(event) => setForm((current) => ({ ...current, title: event.target.value }))} required /></div>
-                            <div className="form-group"><label className="form-label">Abstract</label><textarea className="form-textarea" rows={4} value={form.abstract} onChange={(event) => setForm((current) => ({ ...current, abstract: event.target.value }))} /></div>
-                            <div className="grid-2">
-                                <div className="form-group"><label className="form-label">Author</label><input className="form-input" value={form.author} onChange={(event) => setForm((current) => ({ ...current, author: event.target.value }))} required /></div>
-                                <div className="form-group"><label className="form-label">Year</label><input className="form-input" type="number" value={form.year} onChange={(event) => setForm((current) => ({ ...current, year: event.target.value }))} /></div>
-                            </div>
-                            <div className="grid-2">
-                                <div className="form-group"><label className="form-label">Department</label><input className="form-input" value={form.department} onChange={(event) => setForm((current) => ({ ...current, department: event.target.value }))} /></div>
-                                <div className="form-group"><label className="form-label">Course</label><input className="form-input" value={form.course} onChange={(event) => setForm((current) => ({ ...current, course: event.target.value }))} /></div>
-                            </div>
-                            <div className="form-group"><label className="form-label">Keywords</label><input className="form-input" value={form.keywords} onChange={(event) => setForm((current) => ({ ...current, keywords: event.target.value }))} /></div>
-                            {hasSystem && (
-                                <div className="form-group"><label className="form-label">System handoff details</label><textarea className="form-textarea" rows={4} value={form.system_details} onChange={(event) => setForm((current) => ({ ...current, system_details: event.target.value }))} required /></div>
-                            )}
-                            <button className="btn btn-primary" type="submit" disabled={saving}><RotateCcw size={15} /> {saving ? 'Resubmitting…' : 'Resubmit request'}</button>
+                        <form className="submission-revision-form" onSubmit={resubmit} aria-busy={saving}>
+                            <fieldset className="submission-fields" disabled={saving}>
+                                <section className="card submission-section" aria-labelledby="revision-files-heading">
+                                    <div className="submission-section-heading"><span>01</span><div><h2 id="revision-files-heading">Update your files</h2><p>Address the administrator’s feedback. Your existing files will be kept unless you choose replacements.</p></div></div>
+                                    <div className={`submission-files-grid${hasPaper && hasSystem ? '' : ' is-single'}`}>
+                                        {hasPaper && <ResearchFileInput id="revision-research-file" kind="pdf" file={researchFile} onChange={setResearchFile} required={!submission.has_research_file} replacement={submission.has_research_file} disabled={saving} />}
+                                        {hasSystem && <ResearchFileInput id="revision-system-file" kind="zip" file={systemFile} onChange={setSystemFile} required={!submission.has_system_file} replacement={submission.has_system_file} disabled={saving} />}
+                                    </div>
+                                </section>
+                                <section className="card submission-section" aria-labelledby="revision-details-heading">
+                                    <div className="submission-section-heading"><span>02</span><div><h2 id="revision-details-heading">Revise request details</h2><p>Review your research information before sending the updated request.</p></div></div>
+                                    {input('title', 'Research title', { required: true })}
+                                    <div className="form-group"><label className="form-label" htmlFor="revision-abstract">Abstract <span className="submission-optional">Optional</span></label><textarea id="revision-abstract" className="form-textarea" rows={5} value={form.abstract} onChange={update('abstract')} /></div>
+                                    <div className="research-form-grid">{input('author', 'Author', { required: true })}{input('year', 'Year', { type: 'number' })}</div>
+                                    <div className="research-form-grid">{input('department', 'Department')}{input('course', 'Course')}</div>
+                                    {input('keywords', 'Keywords', { hint: 'Separate your keywords with commas.' })}
+                                    {hasSystem && <div className="form-group"><label className="form-label" htmlFor="revision-system-details">System handoff details <span className="submission-required">*</span></label><textarea id="revision-system-details" className="form-textarea" rows={4} value={form.system_details} onChange={update('system_details')} required aria-describedby="revision-system-details-hint" /><span id="revision-system-details-hint" className="research-form-hint">Describe the application, dependencies, and steps needed to run it.</span></div>}
+                                </section>
+                                {saveError && <div className="alert alert-error" role="alert">{saveError}</div>}
+                                <div className="submission-actions"><p>Resubmitting places your request at the end of the review queue.</p><div><button className="btn btn-primary" type="submit" disabled={saving}>{saving ? <LoaderCircle size={16} className="research-loading-icon" /> : <RotateCcw size={16} />}{saving ? 'Resubmitting…' : 'Resubmit for review'}</button></div></div>
+                            </fieldset>
                         </form>
                     ) : (
-                        <div className="card">
-                            <h2 style={{ fontSize: '1rem', marginBottom: 10 }}>Submitted metadata</h2>
-                            <p style={{ color: 'var(--text2)', whiteSpace: 'pre-wrap' }}>{submission.abstract || 'No abstract provided.'}</p>
-                            {hasSystem && <p style={{ marginTop: 12, whiteSpace: 'pre-wrap' }}><strong>System details:</strong> {submission.system_details}</p>}
-                        </div>
+                        <section className="card submission-section" aria-labelledby="submitted-details-heading">
+                            <div className="submission-section-heading"><span><FileText size={16} /></span><div><h2 id="submitted-details-heading">Research details</h2><p>The information included with your submission.</p></div></div>
+                            <p className="submission-status-copy">{submission.abstract || 'No abstract provided.'}</p>
+                            <dl className="submission-metadata">
+                                {[['Author', submission.author], ['Year', submission.year], ['Department', submission.department], ['Course', submission.course], ['Keywords', (submission.keywords || []).join(', ')]].map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value || 'Not provided'}</dd></div>)}
+                            </dl>
+                            {hasSystem && <div className="submission-system-description"><h3>System handoff details</h3><p className="submission-status-copy">{submission.system_details || 'No system details provided.'}</p></div>}
+                        </section>
                     )}
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import api from '../api/axios'
-import { Mail, ArrowLeft, Send } from 'lucide-react'
+import { MailCheck, ArrowLeft, Send, LoaderCircle } from 'lucide-react'
+import AuthLayout from '../components/AuthLayout'
 
 export default function ForgotPasswordPage() {
     const [email, setEmail] = useState('')
@@ -23,56 +24,25 @@ export default function ForgotPasswordPage() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 16 }}>
-            <div style={{ width: '100%', maxWidth: 400 }}>
-                <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <Mail size={22} color="#fff" />
-                    </div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 6 }}>Forgot Password</h1>
-                    <p style={{ color: 'var(--text2)', fontSize: '0.9rem' }}>
-                        Enter your email and we&apos;ll send you a reset link.
-                    </p>
+        <AuthLayout title={sent ? 'Check your inbox.' : 'Let’s get you back in.'} subtitle={sent ? 'Your next step is just an email away.' : 'Enter your account email and we’ll send you a password reset link.'} footer={<Link to="/login"><ArrowLeft size={14} /> Back to sign in</Link>}>
+            {sent ? (
+                <div className="research-auth-confirmation" role="status">
+                    <span className="research-auth-confirmation-icon"><MailCheck size={28} /></span>
+                    <h2>Reset link requested</h2>
+                    <p>If <strong>{email}</strong> is registered, you’ll receive a password reset link shortly. Check your spam folder if it doesn’t arrive.</p>
+                    <button type="button" className="btn btn-ghost" onClick={() => setSent(false)}>Try a different email</button>
                 </div>
-
-                {sent ? (
-                    <div className="card" style={{ textAlign: 'center' }}>
-                        <div style={{ fontSize: '2rem', marginBottom: 12 }}>📧</div>
-                        <h3 style={{ marginBottom: 8 }}>Check your inbox</h3>
-                        <p style={{ color: 'var(--text2)', fontSize: '0.88rem', lineHeight: 1.6 }}>
-                            If <strong>{email}</strong> is registered, you&apos;ll receive a password reset link shortly.
-                        </p>
-                        <Link to="/login" style={{ display: 'inline-flex', alignItems: 'center', gap: 6, marginTop: 20, color: 'var(--accent)', fontSize: '0.88rem', textDecoration: 'none' }}>
-                            <ArrowLeft size={14} /> Back to Login
-                        </Link>
+            ) : (
+                <form className="research-auth-form" onSubmit={submit} aria-busy={loading}>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="reset-email">Email address</label>
+                        <input id="reset-email" name="email" type="email" autoComplete="email" className="form-input" placeholder="you@university.edu" value={email} onChange={e => setEmail(e.target.value)} required disabled={loading} />
                     </div>
-                ) : (
-                    <div className="card">
-                        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="form-group">
-                                <label className="form-label">Email address</label>
-                                <input
-                                    type="email"
-                                    className="form-input"
-                                    placeholder="you@example.com"
-                                    value={email}
-                                    onChange={e => setEmail(e.target.value)}
-                                    required
-                                    autoFocus
-                                />
-                            </div>
-                            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-                                <Send size={15} /> {loading ? 'Sending…' : 'Send Reset Link'}
-                            </button>
-                        </form>
-                        <div style={{ textAlign: 'center', marginTop: 16 }}>
-                            <Link to="/login" style={{ color: 'var(--text2)', fontSize: '0.85rem', textDecoration: 'none' }}>
-                                <ArrowLeft size={13} style={{ verticalAlign: 'middle', marginRight: 4 }} />Back to Login
-                            </Link>
-                        </div>
-                    </div>
-                )}
-            </div>
-        </div>
+                    <button type="submit" className="btn btn-primary research-auth-submit" disabled={loading}>
+                        {loading ? <LoaderCircle size={17} className="research-loading-icon" /> : <Send size={17} />}{loading ? 'Sending reset link…' : 'Send reset link'}
+                    </button>
+                </form>
+            )}
+        </AuthLayout>
     )
 }

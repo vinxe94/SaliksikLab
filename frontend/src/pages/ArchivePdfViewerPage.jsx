@@ -20,7 +20,7 @@ export default function ArchivePdfViewerPage() {
             .finally(() => setLoading(false))
     }, [id])
 
-    if (loading) return <div className="spinner" style={{ marginTop: 120 }} />
+    if (loading) return <div className="spinner" role="status" aria-label="Loading research paper" style={{ marginTop: 120 }} />
 
     const token = localStorage.getItem('access_token')
     const versionId = searchParams.get('version')
@@ -34,39 +34,38 @@ export default function ArchivePdfViewerPage() {
 
     if (error || !doc || !previewUrl) {
         return (
-            <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
-                <div style={{ height: 58, padding: '0 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', gap: 12, background: 'var(--bg2)' }}>
+            <main className="archive-reader">
+                <header className="archive-reader-header">
                     <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/archives/${id}`, { replace: true })}>
                         <ArrowLeft size={14} /> Back to details
                     </button>
-                </div>
+                </header>
                 <div className="empty-state" style={{ margin: '80px auto', maxWidth: 520 }}>
                     <FileText size={34} />
                     <h3>File preview unavailable</h3>
                     <p>{error || 'Sign in again to view this archive file.'}</p>
                 </div>
-            </div>
+            </main>
         )
     }
 
     return (
-        <div style={{ minHeight: '100vh', background: 'var(--bg)', display: 'flex', flexDirection: 'column' }}>
-            <div style={{ height: 58, padding: '0 18px', borderBottom: '1px solid var(--border)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 12, background: 'var(--bg2)' }}>
+        <main className="archive-reader">
+            <header className="archive-reader-header">
                 <button className="btn btn-ghost btn-sm" onClick={() => navigate(`/archives/${id}`, { replace: true })}>
                     <ArrowLeft size={14} /> Back to details
                 </button>
-                <div style={{ display: 'flex', alignItems: 'center', gap: 10, minWidth: 0 }}>
+                <div className="archive-reader-title">
                     <FileText size={16} style={{ color: 'var(--accent)', flexShrink: 0 }} />
-                    <strong className="truncate" style={{ maxWidth: '52vw' }}>{title}</strong>
+                    <strong className="truncate">{title}</strong>
                     <span className="badge badge-blue">{versionId ? 'Version view' : `v${doc.current_version || 1}`}</span>
                 </div>
-                <div className="pdf-viewer-spacer" style={{ width: 116 }} />
-            </div>
+            </header>
             <iframe
                 title={`${title} file preview`}
                 src={previewUrl}
-                style={{ flex: 1, width: '100%', border: 0, background: 'var(--bg2)' }}
+                className="archive-reader-document"
             />
-        </div>
+        </main>
     )
 }

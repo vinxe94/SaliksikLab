@@ -1,260 +1,174 @@
-import { useEffect, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useEffect, useRef, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
+import { useAuth } from '../contexts/AuthContext'
 import Sidebar from '../components/Sidebar'
+import WorkspaceHeader from '../components/WorkspaceHeader'
+import WorkspaceBanner from '../components/WorkspaceBanner'
+import WorkspaceFooter from '../components/WorkspaceFooter'
 import api from '../api/axios'
-import {
-    Search, Filter, Link2, Unlink2, ChevronRight, FileText, BookOpen,
-} from 'lucide-react'
+import { Check, ChevronLeft, ChevronRight, Code2, ExternalLink, FileText, FolderSearch, RefreshCw, Search, SlidersHorizontal, Upload, X } from 'lucide-react'
+import '../styles/research-pages.css'
+import '../styles/workspace-pages.css'
 
-function timeAgo(iso) {
-    const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000)
-    if (diff < 60) return 'just now'
-    if (diff < 3600) return `${Math.floor(diff / 60)} minutes ago`
-    if (diff < 86400) return `${Math.floor(diff / 3600)} hours ago`
-    if (diff < 604800) return `${Math.floor(diff / 86400)} days ago`
-    return `${Math.floor(diff / 604800)} weeks ago`
-}
-
-function fileKindLabel(filename = '') {
-    const ext = filename.includes('.') ? filename.split('.').pop().toUpperCase() : 'FILE'
-    return ext
-}
+const EMPTY_QUERY = { search: '', linked: '', department: '', course: '', page: 1 }
 
 function reviewBadge(doc) {
-    if (doc.is_approved) return <span className="badge badge-green">Approved</span>
-    if (doc.is_rejected && doc.revision_comment && !doc.rejection_reason) return <span className="badge badge-yellow">Revision</span>
-    if (doc.is_rejected) return <span className="badge" style={{ background: 'rgba(248,81,73,0.12)', color: 'var(--danger)' }}>Rejected</span>
-    return <span className="badge badge-yellow">Pending</span>
+    if (doc.is_approved) return <span className="badge badge-green"><Check size={12} />Approved</span>
+    if (doc.is_rejected && doc.revision_comment && !doc.rejection_reason) return <span className="badge badge-yellow">Revision requested</span>
+    if (doc.is_rejected) return <span className="badge badge-red">Rejected</span>
+    return <span className="badge badge-yellow">Pending review</span>
 }
 
-function byline(doc) {
-    const author = doc.author || doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'Unknown author'
-    const year = doc.year || 'n.d.'
-    return `${author} (${year})`
+function safeSystemLink(value) {
+    try {
+        const url = new URL(value)
+        return ['http:', 'https:'].includes(url.protocol) ? url.href : null
+    } catch {
+        return null
+    }
 }
 
 export default function RepositoryPage() {
-    const navigate = useNavigate()
-    const [search, setSearch] = useState('')
+    const { user } = useAuth()
+    const [searchParams] = useSearchParams()
+    const requestedSearch = searchParams.get('search') || ''
+    const [search, setSearch] = useState(requestedSearch)
+    const [query, setQuery] = useState(() => ({ ...EMPTY_QUERY, search: requestedSearch.trim() }))
     const [showFilters, setShowFilters] = useState(false)
-    const [archiveFilter, setArchiveFilter] = useState('')
-    const [departmentFilter, setDepartmentFilter] = useState('')
-    const [courseFilter, setCourseFilter] = useState('')
     const [departments, setDepartments] = useState([])
     const [courses, setCourses] = useState([])
+    const [filterError, setFilterError] = useState(false)
+    const [filterRetry, setFilterRetry] = useState(0)
     const [archives, setArchives] = useState([])
     const [archiveCount, setArchiveCount] = useState(0)
+    const [pagination, setPagination] = useState({ next: false, previous: false })
     const [loading, setLoading] = useState(true)
+    const [error, setError] = useState('')
+    const [retry, setRetry] = useState(0)
+    const resultsRef = useRef(null)
+    const canSubmit = user?.role === 'admin' || user?.role === 'student'
+    const filterCount = [query.linked, query.department, query.course].filter(Boolean).length
+    const hasQuery = Boolean(query.search || filterCount)
 
     useEffect(() => {
-        let alive = true
+        setSearch(requestedSearch)
+        setQuery(current => ({ ...current, search: requestedSearch.trim(), page: 1 }))
+    }, [requestedSearch])
 
+    useEffect(() => {
+        const timer = window.setTimeout(() => {
+            setQuery(current => current.search === search.trim() ? current : { ...current, search: search.trim(), page: 1 })
+        }, 300)
+        return () => window.clearTimeout(timer)
+    }, [search])
+
+    useEffect(() => {
+        const controller = new AbortController()
+        setFilterError(false)
         Promise.all([
-            api.get('/repository/departments/'),
-            api.get('/repository/courses/'),
+            api.get('/repository/departments/', { signal: controller.signal }),
+            api.get('/repository/courses/', { signal: controller.signal }),
         ]).then(([departmentRes, courseRes]) => {
-            if (!alive) return
-            setDepartments(departmentRes.data || [])
-            setCourses(courseRes.data || [])
+            if (controller.signal.aborted) return
+            setDepartments(departmentRes.data.results || departmentRes.data || [])
+            setCourses(courseRes.data.results || courseRes.data || [])
         }).catch(() => {
-            if (!alive) return
-            setDepartments([])
-            setCourses([])
+            if (!controller.signal.aborted) setFilterError(true)
         })
-
-        return () => {
-            alive = false
-        }
-    }, [])
+        return () => controller.abort()
+    }, [filterRetry])
 
     useEffect(() => {
+        const controller = new AbortController()
         setLoading(true)
-        const archiveParams = new URLSearchParams({
-            ...(search && { search }),
-            ...(archiveFilter && { linked: archiveFilter }),
-            ...(departmentFilter && { department: departmentFilter }),
-            ...(courseFilter && { course: courseFilter }),
+        setError('')
+        const params = Object.fromEntries(Object.entries(query).filter(([, value]) => value !== ''))
+        api.get('/repository/archives/', { params, signal: controller.signal }).then(({ data }) => {
+            if (controller.signal.aborted) return
+            const results = data.results || (Array.isArray(data) ? data : [])
+            setArchives(results)
+            setArchiveCount(data.count ?? results.length)
+            setPagination({ next: Boolean(data.next), previous: Boolean(data.previous) })
+        }).catch(() => {
+            if (!controller.signal.aborted) setError('We couldn’t load the research repository. Please check your connection and try again.')
+        }).finally(() => {
+            if (!controller.signal.aborted) setLoading(false)
         })
+        return () => controller.abort()
+    }, [query, retry])
 
-        api.get(`/repository/archives/?${archiveParams}`)
-            .then((archiveRes) => {
-                setArchives(archiveRes.data.results || [])
-                setArchiveCount(archiveRes.data.count || 0)
-            })
-            .finally(() => setLoading(false))
-    }, [search, archiveFilter, departmentFilter, courseFilter])
-
-    const filteredCourses = courses.filter((course) => (
-        !departmentFilter || course.department_name === departmentFilter
-    ))
+    const updateFilter = (name, value) => setQuery(current => ({ ...current, [name]: value, ...(name === 'department' ? { course: '' } : {}), page: 1 }))
+    const clearAll = () => {
+        setSearch('')
+        setQuery(EMPTY_QUERY)
+    }
+    const changePage = (direction) => {
+        setQuery(current => ({ ...current, page: Math.max(1, current.page + direction) }))
+        resultsRef.current?.scrollIntoView({ behavior: 'auto', block: 'start' })
+        resultsRef.current?.focus({ preventScroll: true })
+    }
+    const filteredCourses = courses.filter(course => !query.department || course.department_name === query.department)
 
     return (
-        <div className="layout">
+        <div className="layout workspace-layout">
             <Sidebar />
-            <div className="main-content">
-                <div className="page-header">
-                    <div>
-                        <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Research Repository</h2>
-                        <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
-                            Browse archived research documents in one place.
-                        </p>
-                    </div>
-                    <button className={`btn btn-sm ${showFilters ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setShowFilters((v) => !v)}>
-                        <Filter size={14} /> Filter
-                    </button>
-                </div>
+            <main id="main-content" tabIndex={-1} className="main-content workspace-content research-library">
+                <WorkspaceHeader title="Repository" eyebrow="Discover & learn" />
+                <div className="page-body workspace-page-body research-library-body">
+                    <WorkspaceBanner compact eyebrow="The research collection" title={<>Discover ideas. <span>Build on knowledge.</span></>}
+                        description="Explore research from your community. Find the studies, documents, and systems that inspire your next step."
+                        actions={canSubmit && <Link className="btn dashboard-hero-primary" to="/upload"><Upload size={18} aria-hidden="true" />{user?.role === 'admin' ? 'Publish research' : 'Request upload'}</Link>}
+                    />
 
-                <div className="page-body repository-feed-page repository-archives-page">
-                    <div className="repository-hero">
-                        <div>
-                            <span className="dashboard-kicker">Research Archive</span>
-                            <h3>Browse finalized research documents.</h3>
-                            <p>Review finalized documents, packages, and supporting archive files in one place.</p>
-                        </div>
-                        <div className="repository-hero-stats">
-                            <div className="repository-hero-stat">
-                                <span>Archived documents</span>
-                                <strong>{archiveCount}</strong>
-                            </div>
-                        </div>
-                    </div>
+                    <section className="research-library-controls" aria-label="Search and filter research">
+                        <div className="research-search-row"><div className="research-search"><Search size={20} aria-hidden="true" /><label htmlFor="research-search" className="sr-only">Search by title, author, or keyword</label><input id="research-search" type="search" placeholder="Search by title, author, or keyword…" value={search} onChange={event => setSearch(event.target.value)} autoComplete="off" />{search && <button type="button" aria-label="Clear search" onClick={() => { setSearch(''); updateFilter('search', '') }}><X size={17} /></button>}</div><button type="button" className={`btn research-filter-toggle ${showFilters ? 'is-active' : ''}`} aria-expanded={showFilters} aria-controls="research-filter-panel" onClick={() => setShowFilters(value => !value)}><SlidersHorizontal size={17} />Filters{filterCount > 0 && <span>{filterCount}</span>}</button></div>
+                        {showFilters && <div id="research-filter-panel" className="research-filter-panel">
+                            <div className="form-group"><label className="form-label" htmlFor="research-department">Department</label><select id="research-department" className="form-input" value={query.department} onChange={event => updateFilter('department', event.target.value)}><option value="">All departments</option>{departments.map(department => <option key={department.id} value={department.name}>{department.name}</option>)}</select></div>
+                            <div className="form-group"><label className="form-label" htmlFor="research-course">Course</label><select id="research-course" className="form-input" value={query.course} onChange={event => updateFilter('course', event.target.value)}><option value="">All courses</option>{filteredCourses.map(course => <option key={course.id} value={course.name}>{course.name}</option>)}</select></div>
+                            <div className="form-group"><label className="form-label" htmlFor="research-system-link">System link</label><select id="research-system-link" className="form-input" value={query.linked} onChange={event => updateFilter('linked', event.target.value)}><option value="">All research</option><option value="true">With a system link</option><option value="false">Without a system link</option></select></div>
+                            {filterError && <p className="research-filter-error" role="status">Department and course options couldn’t be loaded. <button type="button" onClick={() => setFilterRetry(value => value + 1)}>Retry</button></p>}
+                        </div>}
+                        {hasQuery && <div className="research-active-filters" aria-label="Active filters">{query.search && <button type="button" onClick={() => { setSearch(''); updateFilter('search', '') }}>Search: {query.search}<X size={13} /></button>}{query.department && <button type="button" onClick={() => updateFilter('department', '')}>{query.department}<X size={13} /></button>}{query.course && <button type="button" onClick={() => updateFilter('course', '')}>{query.course}<X size={13} /></button>}{query.linked && <button type="button" onClick={() => updateFilter('linked', '')}>{query.linked === 'true' ? 'With a system link' : 'Without a system link'}<X size={13} /></button>}<button type="button" className="research-clear-filters" onClick={clearAll}>Clear all</button></div>}
+                    </section>
 
-                    <div className="repository-archives-controls">
-                        <div className="search-bar">
-                            <Search size={16} className="search-icon" />
-                            <input
-                                placeholder="Search archived documents..."
-                                value={search}
-                                onChange={(e) => setSearch(e.target.value)}
-                            />
-                        </div>
-
-                        {showFilters && (
-                            <div className="repository-filter-panel">
-                                <div className="filters repository-filters">
-                                    <button className={`btn btn-sm ${archiveFilter === '' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setArchiveFilter('')}>All</button>
-                                    <button className={`btn btn-sm ${archiveFilter === 'true' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setArchiveFilter('true')}>
-                                        <Link2 size={14} /> With system link
-                                    </button>
-                                    <button className={`btn btn-sm ${archiveFilter === 'false' ? 'btn-primary' : 'btn-ghost'}`} onClick={() => setArchiveFilter('false')}>
-                                        <Unlink2 size={14} /> No system link
-                                    </button>
-                                </div>
-                                <div className="grid-2" style={{ marginTop: 12 }}>
-                                    <div className="form-group">
-                                        <label className="form-label">Department</label>
-                                        <select
-                                            className="form-input"
-                                            value={departmentFilter}
-                                            onChange={(e) => {
-                                                setDepartmentFilter(e.target.value)
-                                                setCourseFilter('')
-                                            }}
-                                        >
-                                            <option value="">All departments</option>
-                                            {departments.map((department) => (
-                                                <option key={department.id} value={department.name}>
-                                                    {department.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                    <div className="form-group">
-                                        <label className="form-label">Course</label>
-                                        <select
-                                            className="form-input"
-                                            value={courseFilter}
-                                            onChange={(e) => setCourseFilter(e.target.value)}
-                                        >
-                                            <option value="">All courses</option>
-                                            {filteredCourses.map((course) => (
-                                                <option key={course.id} value={course.name}>
-                                                    {course.name}
-                                                </option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                </div>
-                                {(departmentFilter || courseFilter || archiveFilter) && (
-                                    <button
-                                        className="btn btn-ghost btn-sm"
-                                        style={{ marginTop: 10 }}
-                                        onClick={() => {
-                                            setArchiveFilter('')
-                                            setDepartmentFilter('')
-                                            setCourseFilter('')
-                                        }}
-                                    >
-                                        Clear filters
-                                    </button>
-                                )}
-                            </div>
-                        )}
-                    </div>
-
-                    <div className="repository-feed-layout repository-archives-layout">
-                        <section className="repository-feed-column">
-                            {loading ? (
-                                <div className="repo-list repository-archives-list">
-                                    {Array.from({ length: 4 }).map((_, i) => (
-                                        <div key={i} className="activity-card">
-                                            <div className="skeleton-text h-4 w-32" style={{ marginBottom: 10 }} />
-                                            <div className="skeleton-text h-4 w-full" style={{ marginBottom: 10 }} />
-                                            <div className="skeleton-text h-4 w-24" />
-                                        </div>
-                                    ))}
-                                </div>
-                            ) : (
-                                <div className="repo-list repository-archives-list">
-                                    {archives.map((doc) => (
-                                        <article key={doc.id} className="activity-card archive-card journal-card repository-archive-card">
-                                            <div className="journal-card-kicker">
-                                                <span><BookOpen size={14} /> Archive Journal</span>
-                                                <span>{doc.department || 'General Research'}</span>
-                                            </div>
-                                            <div className="archive-card-head journal-card-head">
-                                                <div className="archive-file-icon journal-file-icon">{fileKindLabel(doc.original_filename)}</div>
-                                                <div className="journal-title-block">
-                                                    <button
-                                                        type="button"
-                                                        className="repository-link journal-title"
-                                                        onClick={() => navigate(`/archives/${doc.id}`)}
-                                                    >
-                                                        {doc.title}
-                                                    </button>
-                                                    <div className="journal-byline">{byline(doc)}</div>
-                                                    <div className="activity-header-meta">
-                                                        Published in archives {timeAgo(doc.uploaded_at)} by {doc.uploaded_by?.full_name || doc.uploaded_by?.email?.split('@')[0] || 'User'}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div className="repository-preview-meta">
-                                                <span className="language-chip"><span className="language-dot" style={{ background: '#6e7781' }} /> {fileKindLabel(doc.original_filename)}</span>
-                                                <span className="feed-meta-item"><FileText size={13} /> v{doc.current_version || 1}</span>
-                                                <span className="feed-meta-item">{doc.version_count || 1} version{(doc.version_count || 1) === 1 ? '' : 's'}</span>
+                    <section ref={resultsRef} tabIndex={-1} className="research-library-results" aria-labelledby="research-results-heading" aria-busy={loading}>
+                        <div className="research-results-heading"><div><h2 id="research-results-heading">{hasQuery ? 'Search results' : 'Explore the collection'}</h2><span className="research-results-count" role="status" aria-live="polite">{loading ? 'Finding research…' : error ? 'Research unavailable' : `${archiveCount.toLocaleString()} ${archiveCount === 1 ? 'document' : 'documents'}${hasQuery ? ' found' : ' in the repository'}`}</span></div><span className="research-results-order">Latest additions</span></div>
+                        {loading ? <div className="research-results-list" role="status"><span className="sr-only">Loading research documents</span>{[1, 2, 3, 4].map(item => <div className="research-library-card research-card-skeleton" key={item} aria-hidden="true"><span className="research-row-document"><FileText size={24} strokeWidth={1.5} /></span><div className="research-card-content"><span className="research-placeholder short" /><span className="research-placeholder" /><span className="research-placeholder" /><span className="research-placeholder short" /></div></div>)}</div> : error ? <div className="research-empty research-results-empty" role="alert"><RefreshCw size={30} /><h3>The collection couldn’t be loaded</h3><p>{error}</p><button type="button" className="btn btn-primary" onClick={() => setRetry(value => value + 1)}><RefreshCw size={15} />Try again</button></div> : archives.length ? <ul className="research-results-list" role="list" aria-label="Research documents">{archives.map(doc => {
+                            const systemUrl = safeSystemLink(doc.system_link)
+                            const author = doc.author || doc.uploaded_by?.full_name || 'Research contributor'
+                            const fileKind = doc.file_extension?.replace(/^\./, '').toUpperCase() || doc.original_filename?.split('.').pop()?.toUpperCase() || 'DOC'
+                            return (
+                                <li key={doc.id}>
+                                    <article className="research-library-card" aria-labelledby={`research-title-${doc.id}`}>
+                                        <span className="research-row-document" aria-hidden="true"><FileText size={24} strokeWidth={1.5} /></span>
+                                        <div className="research-card-content">
+                                            <div className="research-card-top">
+                                                <span className="research-card-file">{fileKind}</span>
+                                                <span className="research-card-department">{doc.department || 'General research'}</span>
                                                 {reviewBadge(doc)}
-                                                {doc.course && <span className="feed-meta-item">{doc.course}</span>}
-                                                {doc.system_link ? (
-                                                    <button
-                                                        type="button"
-                                                        className="star-button compact"
-                                                        onClick={(e) => { e.stopPropagation(); window.open(doc.system_link, '_blank', 'noopener,noreferrer') }}
-                                                    >
-                                                        Open System Link <ChevronRight size={14} />
-                                                    </button>
-                                                ) : (
-                                                    <span className="feed-meta-item"><Unlink2 size={13} /> No system link</span>
-                                                )}
                                             </div>
-                                        </article>
-                                    ))}
-                                    {archives.length === 0 && <div className="empty-state"><h3>No archive documents found</h3></div>}
-                                </div>
-                            )}
-                        </section>
-                    </div>
+                                            <h3 id={`research-title-${doc.id}`}><Link to={`/archives/${doc.id}`}>{doc.title}</Link></h3>
+                                            <p className="research-card-author">{author}{doc.year ? ` · ${doc.year}` : ''}</p>
+                                            <p className="research-card-abstract">{doc.abstract || 'Read the research document and explore its supporting materials.'}</p>
+                                            <div className="research-card-tags">
+                                                {doc.course && <span>{doc.course}</span>}
+                                                {doc.system_original_filename && <span className="research-package-tag"><Code2 size={13} />System included</span>}
+                                                <span>Version {doc.current_version || 1}</span>
+                                            </div>
+                                        </div>
+                                        <div className="research-card-footer">
+                                            <Link className="research-text-link" to={`/archives/${doc.id}`} aria-label={`View research: ${doc.title}`}>View research</Link>
+                                            {systemUrl && <a className="research-system-link" href={systemUrl} target="_blank" rel="noopener noreferrer" aria-label={`Open system for ${doc.title} in a new tab`}><ExternalLink size={14} /><span>Open system</span></a>}
+                                        </div>
+                                    </article>
+                                </li>
+                            )
+                        })}</ul> : <div className="research-empty research-results-empty"><FolderSearch size={38} strokeWidth={1.5} /><h3>{hasQuery ? 'No research matches your search' : 'The collection is just getting started'}</h3><p>{hasQuery ? 'Try a different keyword or remove a filter to explore more of the collection.' : 'Published research will appear here as the community shares its work.'}</p>{hasQuery ? <button type="button" className="btn btn-ghost" onClick={clearAll}>Clear search and filters</button> : canSubmit && <Link className="btn btn-primary" to="/upload"><Upload size={15} />{user?.role === 'admin' ? 'Publish research' : 'Submit your research'}</Link>}</div>}
+                        {!loading && !error && (pagination.next || pagination.previous) && <nav className="research-pagination" aria-label="Research results pages"><button type="button" className="btn btn-ghost btn-sm" disabled={!pagination.previous} onClick={() => changePage(-1)}><ChevronLeft size={16} />Previous</button><span aria-current="page">Page {query.page}</span><button type="button" className="btn btn-ghost btn-sm" disabled={!pagination.next} onClick={() => changePage(1)}>Next<ChevronRight size={16} /></button></nav>}
+                    </section>
+                <WorkspaceFooter />
                 </div>
-            </div>
+            </main>
         </div>
     )
 }

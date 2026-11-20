@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import toast from 'react-hot-toast'
 import { BarChart3, CalendarRange, CheckCircle, Download, FileSpreadsheet, FileText, Filter, Layers3 } from 'lucide-react'
 import Sidebar from '../components/Sidebar'
@@ -34,12 +34,17 @@ export default function ReportGenerationPage() {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
   const [exporting, setExporting] = useState(false)
+  const [error, setError] = useState('')
 
-  useEffect(() => {
+  const load = useCallback(() => {
+    setLoading(true)
+    setError('')
     api.get('/repository/stats/')
       .then((res) => setStats(res.data))
+      .catch(() => setError('Report statistics could not be loaded. Please try again.'))
       .finally(() => setLoading(false))
   }, [])
+  useEffect(() => { load() }, [load])
 
   const statusRows = useMemo(() => [
     { label: 'Approved', value: stats?.approved ?? 0, color: '#2E7D32' },
@@ -68,10 +73,11 @@ export default function ReportGenerationPage() {
   return (
     <div className="layout">
       <Sidebar />
-      <div className="main-content">
+      <main id="main-content" tabIndex={-1} className="main-content">
         <div className="page-header">
           <div>
-            <h2 style={{ fontSize: '1.1rem', fontWeight: 700 }}>Report Generation</h2>
+            <span className="page-eyebrow">Institutional reporting</span>
+            <h2>Research reports</h2>
             <p style={{ color: 'var(--text2)', fontSize: '0.85rem' }}>
               Prepare visual, export-ready summaries for admin review and institutional reporting.
             </p>
@@ -82,6 +88,7 @@ export default function ReportGenerationPage() {
         </div>
 
         <div className="page-body dashboard-page">
+          {error && <div className="alert alert-error" role="alert">{error} <button type="button" className="btn btn-ghost btn-sm" onClick={load}>Try again</button></div>}
           <section className="dashboard-hero report-visual-hero">
             <div className="dashboard-hero-copy">
               <span className="dashboard-kicker">Reports</span>
@@ -167,7 +174,7 @@ export default function ReportGenerationPage() {
             })}
           </section>
         </div>
-      </div>
+      </main>
     </div>
   )
 }

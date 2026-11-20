@@ -2,7 +2,8 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import toast from 'react-hot-toast'
 import api from '../api/axios'
-import { KeyRound, Eye, EyeOff } from 'lucide-react'
+import { KeyRound, Eye, EyeOff, ArrowLeft, LoaderCircle } from 'lucide-react'
+import AuthLayout from '../components/AuthLayout'
 
 export default function ResetPasswordPage() {
     const navigate = useNavigate()
@@ -29,63 +30,33 @@ export default function ResetPasswordPage() {
     }
 
     return (
-        <div style={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'var(--bg)', padding: 16 }}>
-            <div style={{ width: '100%', maxWidth: 400 }}>
-                <div style={{ textAlign: 'center', marginBottom: 32 }}>
-                    <div style={{ width: 48, height: 48, borderRadius: '50%', background: 'var(--accent)', display: 'flex', alignItems: 'center', justifyContent: 'center', margin: '0 auto 16px' }}>
-                        <KeyRound size={22} color="#fff" />
-                    </div>
-                    <h1 style={{ fontSize: '1.5rem', fontWeight: 800, marginBottom: 6 }}>Set New Password</h1>
-                    <p style={{ color: 'var(--text2)', fontSize: '0.9rem' }}>Choose a strong password for your account.</p>
+        <AuthLayout title="A fresh start." subtitle="Choose a new password to securely access your research workspace." footer={<Link to="/login"><ArrowLeft size={14} /> Back to sign in</Link>}>
+            {!token ? (
+                <div className="research-auth-confirmation" role="alert">
+                    <span className="research-auth-confirmation-icon"><KeyRound size={26} /></span>
+                    <h2>This reset link isn’t valid</h2>
+                    <p>Request a new link to reset your password and get back to your account.</p>
+                    <Link to="/forgot-password" className="btn btn-primary">Request a new reset link</Link>
                 </div>
-
-                <div className="card">
-                    {!token ? (
-                        <div style={{ textAlign: 'center', color: 'var(--danger)' }}>
-                            <p>This reset link is invalid or expired.</p>
-                            <Link to="/forgot-password" style={{ color: 'var(--accent)', fontSize: '0.88rem' }}>Request a new one</Link>
+            ) : (
+                <form className="research-auth-form" onSubmit={submit} aria-busy={loading}>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="new-password">New password</label>
+                        <div className="research-password-field">
+                            <input id="new-password" name="password" autoComplete="new-password" type={showPw ? 'text' : 'password'} className="form-input" placeholder="At least 8 characters" value={password} onChange={e => setPassword(e.target.value)} required minLength={8} disabled={loading} aria-describedby="new-password-hint" />
+                            <button type="button" onClick={() => setShowPw(s => !s)} aria-label={showPw ? 'Hide passwords' : 'Show passwords'} aria-pressed={showPw}>{showPw ? <EyeOff size={18} /> : <Eye size={18} />}</button>
                         </div>
-                    ) : (
-                        <form onSubmit={submit} style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-                            <div className="form-group">
-                                <label className="form-label">New Password</label>
-                                <div style={{ position: 'relative' }}>
-                                    <input
-                                        type={showPw ? 'text' : 'password'}
-                                        className="form-input"
-                                        placeholder="At least 8 characters"
-                                        value={password}
-                                        onChange={e => setPassword(e.target.value)}
-                                        required
-                                        minLength={8}
-                                        style={{ paddingRight: 40 }}
-                                    />
-                                    <button type="button" onClick={() => setShowPw(s => !s)} style={{ position: 'absolute', right: 10, top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: 'var(--text2)' }}>
-                                        {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
-                                    </button>
-                                </div>
-                            </div>
-                            <div className="form-group">
-                                <label className="form-label">Confirm Password</label>
-                                <input
-                                    type={showPw ? 'text' : 'password'}
-                                    className="form-input"
-                                    placeholder="Repeat your password"
-                                    value={password2}
-                                    onChange={e => setPassword2(e.target.value)}
-                                    required
-                                />
-                            </div>
-                            <button type="submit" className="btn btn-primary" disabled={loading} style={{ width: '100%' }}>
-                                <KeyRound size={15} /> {loading ? 'Resetting…' : 'Reset Password'}
-                            </button>
-                        </form>
-                    )}
-                    <div style={{ textAlign: 'center', marginTop: 14 }}>
-                        <Link to="/login" style={{ color: 'var(--text2)', fontSize: '0.85rem', textDecoration: 'none' }}>Back to Login</Link>
+                        <span className="research-form-hint" id="new-password-hint">Use at least 8 characters and avoid common words.</span>
                     </div>
-                </div>
-            </div>
-        </div>
+                    <div className="form-group">
+                        <label className="form-label" htmlFor="confirm-password">Confirm password</label>
+                        <input id="confirm-password" name="password2" autoComplete="new-password" type={showPw ? 'text' : 'password'} className="form-input" placeholder="Repeat your new password" value={password2} onChange={e => setPassword2(e.target.value)} required disabled={loading} />
+                    </div>
+                    <button type="submit" className="btn btn-primary research-auth-submit" disabled={loading}>
+                        {loading ? <LoaderCircle size={17} className="research-loading-icon" /> : <KeyRound size={17} />}{loading ? 'Resetting password…' : 'Reset password'}
+                    </button>
+                </form>
+            )}
+        </AuthLayout>
     )
 }
